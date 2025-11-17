@@ -2,12 +2,11 @@
 
 import json
 import pytest
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock, MagicMock, patch
 
 from src.protocol_server import MQTTServer
 from src.effect_dispatcher import EffectDispatcher
 from src.device_manager import DeviceManager
-from src.effect_metadata import create_effect
 
 
 @pytest.fixture
@@ -40,7 +39,10 @@ def effect_dispatcher(device_manager):
 @pytest.fixture
 def mqtt_server(effect_dispatcher, mock_mqtt_client):
     """Create an MQTT server with mocked client."""
-    with patch('src.protocol_server.mqtt.Client', return_value=mock_mqtt_client):
+    with patch(
+        'src.protocol_server.mqtt.Client',
+        return_value=mock_mqtt_client
+    ):
         server = MQTTServer(
             broker_address="localhost",
             dispatcher=effect_dispatcher,
@@ -77,7 +79,9 @@ def test_mqtt_server_start(mqtt_server, mock_mqtt_client):
     mqtt_server.start()
     
     # Verify connection and loop started
-    mock_mqtt_client.connect.assert_called_once_with("localhost", 1883, keepalive=60)
+    mock_mqtt_client.connect.assert_called_once_with(
+        "localhost", 1883, keepalive=60
+    )
     mock_mqtt_client.loop_start.assert_called_once()
     assert mqtt_server.is_running()
 

@@ -2,8 +2,7 @@
 
 import json
 import pytest
-import asyncio
-from unittest.mock import Mock, AsyncMock, MagicMock, patch
+from unittest.mock import Mock, AsyncMock
 
 from src.protocol_server import WebSocketServer
 from src.effect_dispatcher import EffectDispatcher

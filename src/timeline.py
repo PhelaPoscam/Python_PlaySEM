@@ -17,6 +17,7 @@ from src.effect_dispatcher import EffectDispatcher
 @dataclass
 class ScheduledEffect:
     """Represents an effect scheduled for execution."""
+
     effect: EffectMetadata
     scheduled_time: float  # absolute time (time.time())
     executed: bool = False
@@ -33,7 +34,7 @@ class Timeline:
     def __init__(
         self,
         effect_dispatcher: EffectDispatcher,
-        tick_interval: float = 0.01  # 10ms precision
+        tick_interval: float = 0.01,  # 10ms precision
     ):
         """
         Initialize timeline scheduler.
@@ -96,7 +97,7 @@ class Timeline:
             self._stop_event.clear()
             self._thread = threading.Thread(
                 target=self._run_scheduler,
-                daemon=False  # Non-daemon to allow proper cleanup
+                daemon=False,  # Non-daemon to allow proper cleanup
             )
             self._thread.start()
 
@@ -115,7 +116,7 @@ class Timeline:
     def resume(self):
         """Resume timeline playback from pause."""
         with self._lock:
-            if not self.is_paused:
+            if not self.is_paused or self.pause_time is None or self.start_time is None:
                 return
 
             self.is_paused = False
@@ -162,8 +163,7 @@ class Timeline:
                 self.stop()
 
             self.current_position = max(
-                0,
-                min(position_ms, self.timeline.total_duration)
+                0, min(position_ms, self.timeline.total_duration)
             )
 
             if was_running:
@@ -217,11 +217,13 @@ class Timeline:
             time_offset = (effect.timestamp - self.current_position) / 1000.0
             scheduled_time = current_time + time_offset
 
-            scheduled_effects.append(ScheduledEffect(
-                effect=effect,
-                scheduled_time=scheduled_time,
-                executed=False
-            ))
+            scheduled_effects.append(
+                ScheduledEffect(
+                    effect=effect,
+                    scheduled_time=scheduled_time,
+                    executed=False,
+                )
+            )
 
         self.scheduled_effects = scheduled_effects
 
@@ -242,14 +244,18 @@ class Timeline:
 
                 # Check for effects to execute
                 for scheduled in self.scheduled_effects:
-                    if (not scheduled.executed and
-                            current_time >= scheduled.scheduled_time):
+                    if (
+                        not scheduled.executed
+                        and current_time >= scheduled.scheduled_time
+                    ):
                         self._execute_effect(scheduled.effect)
                         scheduled.executed = True
 
                 # Check if timeline is complete
-                if (self.timeline and
-                        self.current_position >= self.timeline.total_duration):
+                if (
+                    self.timeline
+                    and self.current_position >= self.timeline.total_duration
+                ):
                     self.is_running = False
                     if self.on_complete_callback:
                         self.on_complete_callback()
@@ -278,7 +284,7 @@ class Timeline:
         on_start: Optional[Callable] = None,
         on_stop: Optional[Callable] = None,
         on_effect: Optional[Callable] = None,
-        on_complete: Optional[Callable] = None
+        on_complete: Optional[Callable] = None,
     ):
         """
         Set callback functions for timeline events.
@@ -303,13 +309,13 @@ class Timeline:
         """
         with self._lock:
             return {
-                'is_running': self.is_running,
-                'is_paused': self.is_paused,
-                'current_position': self.get_position(),
-                'total_duration': (
+                "is_running": self.is_running,
+                "is_paused": self.is_paused,
+                "current_position": self.get_position(),
+                "total_duration": (
                     self.timeline.total_duration if self.timeline else 0
                 ),
-                'pending_effects': sum(
+                "pending_effects": sum(
                     1 for s in self.scheduled_effects if not s.executed
-                )
+                ),
             }

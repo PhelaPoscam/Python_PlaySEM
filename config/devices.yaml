@@ -36,16 +36,64 @@ devices:
 
 # Connectivity interfaces define how devices connect
 connectivityInterfaces:
+  # Mock interface for testing
   - id: mockInterface
     connectivityInterfaceClass: device_driver.mock_driver.MockConnectivity
     properties:
       type: mock
       description: "Mock connectivity for testing without hardware"
   
-  # Example: Serial/USB interface (not yet implemented)
-  # - id: serialUSB
-  #   connectivityInterfaceClass: device_driver.serial_driver.SerialConnectivity
-  #   properties:
-  #     port: /dev/ttyUSB0
-  #     baudrate: 9600
-  #     timeout: 1.0
+  # MQTT interface for network-based devices
+  - id: mqttBroker
+    type: mqtt
+    properties:
+      broker: localhost
+      port: 1883
+      username: null  # Optional authentication
+      password: null
+      use_tls: false
+      qos: 1
+      description: "MQTT broker connectivity for networked devices"
+  
+  # Serial/USB interface for Arduino and USB devices
+  - id: serialUSB
+    type: serial
+    properties:
+      port: COM3  # Windows: COM3, Linux: /dev/ttyUSB0, macOS: /dev/cu.usbserial
+      baudrate: 9600
+      timeout: 1.0
+      bytesize: 8
+      parity: N
+      stopbits: 1
+      description: "Serial/USB connectivity for wired devices"
+  
+  # Bluetooth Low Energy interface for wireless devices
+  - id: bluetoothLE
+    type: bluetooth
+    properties:
+      address: null  # MAC address (e.g., "AA:BB:CC:DD:EE:FF"), null for scanning
+      device_name: null  # Optional device name filter for discovery
+      description: "BLE connectivity for wireless sensory devices"
+
+# Example device configurations with different connectivity types:
+#
+# MQTT Light Device:
+# - id: mqttLight
+#   deviceClass: device_driver.mock_driver.MockLightDevice
+#   connectivityInterface: mqttBroker
+#   properties:
+#     topic: devices/light_001
+#
+# Serial Arduino Device:
+# - id: arduinoFan
+#   deviceClass: device_driver.serial_driver.SerialDevice
+#   connectivityInterface: serialUSB
+#   properties:
+#     device_id: fan_001
+#
+# Bluetooth Haptic Device:
+# - id: bleVibrator
+#   deviceClass: device_driver.bluetooth_driver.BluetoothDevice
+#   connectivityInterface: bluetoothLE
+#   properties:
+#     characteristic_uuid: "0000ffe1-0000-1000-8000-00805f9b34fb"

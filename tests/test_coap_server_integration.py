@@ -1,6 +1,7 @@
 import asyncio
 import json
 import socket
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -19,17 +20,13 @@ async def test_coap_server_receives_and_dispatches_effect(event_loop):
         port = s.getsockname()[1]
 
     received = {}
-
     def on_effect_received(effect):
         received["effect"] = effect
 
     # Mock MQTT client for DeviceManager to avoid network usage
-    mock_client = type(
-        "MockClient",
-        (),
-        {"publish": lambda *args, **kwargs: None},
-    )()
+    mock_client = MagicMock()
 
+    dm = DeviceManager(client=mock_client)
     dm = DeviceManager(client=mock_client)
     dispatcher = EffectDispatcher(dm)
     server = CoAPServer(

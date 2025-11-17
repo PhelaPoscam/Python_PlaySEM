@@ -10,10 +10,10 @@ The WebSocket server is the **easiest to test** because it requires no external 
 
 ### Step 1: Start the WebSocket Server
 
-Open a terminal and run:
+Open a terminal and run (PowerShell on Windows):
 
-```bash
-python examples/websocket_server_demo.py
+```powershell
+.\.venv\Scripts\python.exe examples\demos\websocket_server_demo.py
 ```
 
 You should see:
@@ -25,21 +25,22 @@ WebSocket Server is starting...
 Server URL: ws://localhost:8765
 
 To test the server:
-1. Open 'examples/websocket_client.html' in your web browser
+1. Open 'examples/web/websocket_client.html' in your web browser
 ...
 ```
 
 ### Step 2: Open the HTML Client
 
-Simply **double-click** `examples/websocket_client.html` or open it in your browser:
+Simply **double-click** `examples/web/websocket_client.html` or open it in your browser:
 - **Windows**: Double-click the file in File Explorer
-- **macOS**: Double-click in Finder or `open examples/websocket_client.html`
-- **Linux**: `xdg-open examples/websocket_client.html`
+- **macOS**: Double-click in Finder or `open examples/web/websocket_client.html`
+- **Linux**: `xdg-open examples/web/websocket_client.html`
 
 ### Step 3: Connect and Test
 
-1. Click **"Connect to Server"** button
-2. You'll see: `✅ Connected to ws://localhost:8080`
+1. Enter your WebSocket URL (default `ws://localhost:8765`) and optional token
+2. Click **"Connect to Server"**
+3. You'll see: `✅ Connected to ws://localhost:8765 (auth ok)` if token matches
 3. Use the sliders to adjust intensity and duration
 4. Click any effect button (Light, Wind, Vibration)
 5. **Watch the terminal** where the server is running - you'll see:
@@ -96,8 +97,8 @@ If this works without errors, you're ready!
 ### Step 2: Start MQTT Server
 
 Open terminal #1:
-```bash
-python examples/mqtt_server_demo.py
+```powershell
+.\.venv\Scripts\python.exe examples\demos\mqtt_server_demo.py
 ```
 
 You should see:
@@ -112,8 +113,8 @@ Listening for effects on topics: effects/*
 ### Step 3: Send Test Effects
 
 Open terminal #2:
-```bash
-python examples/test_mqtt_client.py
+```powershell
+.\.venv\Scripts\python.exe examples\clients\test_mqtt_client.py
 ```
 
 You'll see effects being sent in terminal #2:
@@ -156,12 +157,12 @@ We provide ready-to-run public-broker demos:
 
 - Server demo (subscribes to `effects/#` on `test.mosquitto.org`):
   ```powershell
-  .\.venv\Scripts\python.exe examples\mqtt_server_demo_public.py
+  .\.venv\Scripts\python.exe examples\demos\mqtt_server_demo_public.py
   ```
 
 - Client publisher (sends 4 effects to the public broker):
   ```powershell
-  .\.venv\Scripts\python.exe examples\test_mqtt_client_public.py
+  .\.venv\Scripts\python.exe examples\clients\test_mqtt_client_public.py
   ```
 
 Or use mosquitto_pub manually:
@@ -180,7 +181,7 @@ CoAP is available via `aiocoap` (installed with `requirements.txt`).
 ### Step 1: Start the CoAP Server
 
 ```powershell
-.\.venv\Scripts\python.exe examples\coap_server_demo.py
+\.\.venv\Scripts\python.exe examples\demos\coap_server_demo.py
 ```
 
 Expected output includes:
@@ -193,8 +194,40 @@ Server URL: coap://localhost:5683
 
 Use the provided client:
 ```powershell
-.\.venv\Scripts\python.exe examples\test_coap_client.py
+\.\.venv\Scripts\python.exe examples\clients\test_coap_client.py
 ```
+
+---
+
+## 🧪 Testing HTTP REST API (FastAPI)
+
+The HTTP REST server provides simple endpoints and interactive docs.
+
+### Step 1: Start the HTTP Server
+
+```powershell
+\.\.venv\Scripts\python.exe examples\demos\http_server_demo.py
+```
+
+If you enabled an API key in code, remember it for requests.
+
+### Step 2: Call the API
+
+```powershell
+# Health
+curl http://localhost:8080/api/status
+
+# Submit an effect
+curl -X POST http://localhost:8080/api/effects ^
+  -H "Content-Type: application/json" ^
+  -d '{"effect_type":"light","intensity":200,"duration":1000}'
+
+# List devices (requires API key if enabled)
+curl -H "X-API-Key: your_secret_key" http://localhost:8080/api/devices
+```
+
+Or open the interactive docs in your browser:
+`http://localhost:8080/docs`
 
 You should see a 2.xx success code and a JSON response payload with `{ "success": true }`.
 
@@ -250,7 +283,7 @@ aiocoap-client -m POST -e payload.json coap://localhost/effects
 **"Connection refused" in browser:**
 - Make sure the Python server is running
 - Check the URL is `ws://localhost:8765` (not `http://`)
-- If port 8765 is busy, edit both `websocket_server_demo.py` and `websocket_client.html` to use a different port
+- If port 8765 is busy, edit both `examples/demos/websocket_server_demo.py` and `examples/web/websocket_client.html` to use a different port
 
 **No effects showing:**
 - Open browser console (F12) to see JavaScript errors
@@ -273,6 +306,17 @@ mosquitto                 # Run in terminal
 - Or use public broker: `test.mosquitto.org`
 
 **No messages received:**
+ 
+### HTTP REST Issues:
+
+**403 Forbidden (API key):**
+- Include header `X-API-Key: <your_key>` if `api_key` is set in the server
+
+**CORS errors in browser:**
+- Adjust `cors_origins` when constructing `HTTPServer`
+
+**HTTPS needed:**
+- Run behind a reverse proxy (nginx) or enable TLS at the proxy; `HTTPServer` serves HTTP
 - Check broker is on port 1883 (default)
 - Verify topics match: `effects/#` pattern
 - Check firewall isn't blocking port 1883

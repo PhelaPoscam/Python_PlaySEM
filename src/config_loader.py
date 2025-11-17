@@ -1,20 +1,31 @@
 # src/config_loader.py
 
 import xml.etree.ElementTree as ET
+from typing import List, Dict
 import yaml
-from pathlib import Path
-from typing import List, Dict, Optional, Union
+
 
 class DeviceDefinition:
-    def __init__(self, id: str, device_class: str, connectivity_interface: str, properties: Dict[str, str]):
+    def __init__(
+        self,
+        id: str,
+        device_class: str,
+        connectivity_interface: str,
+        properties: Dict[str, str]
+    ):
         self.id = id
         self.device_class = device_class
         self.connectivity_interface = connectivity_interface
         self.properties = properties
 
     def __repr__(self):
-        return (f"DeviceDefinition(id={self.id!r}, device_class={self.device_class!r}, "
-                f"connectivity_interface={self.connectivity_interface!r}, properties={self.properties!r})")
+        return (
+            f"DeviceDefinition(id={self.id!r}, "
+            f"device_class={self.device_class!r}, "
+            f"connectivity_interface={self.connectivity_interface!r}, "
+            f"properties={self.properties!r})"
+        )
+
 
 class Config:
     def __init__(self,
@@ -34,10 +45,17 @@ class Config:
         self.devices = devices
 
     def __repr__(self):
-        return (f"Config(communication_service_broker={self.communication_service_broker!r}, "
-                f"metadata_parser={self.metadata_parser!r}, light_device={self.light_device!r}, "
-                f"wind_device={self.wind_device!r}, vibration_device={self.vibration_device!r}, "
-                f"scent_device={self.scent_device!r}, devices={self.devices!r})")
+        return (
+            f"Config(communication_service_broker="
+            f"{self.communication_service_broker!r}, "
+            f"metadata_parser={self.metadata_parser!r}, "
+            f"light_device={self.light_device!r}, "
+            f"wind_device={self.wind_device!r}, "
+            f"vibration_device={self.vibration_device!r}, "
+            f"scent_device={self.scent_device!r}, "
+            f"devices={self.devices!r})"
+        )
+
 
 def load_config(xml_path: str) -> Config:
     tree = ET.parse(xml_path)
@@ -56,24 +74,24 @@ def load_config(xml_path: str) -> Config:
     devices_root = root.find('devices')
     if devices_root is not None:
         for dev_el in devices_root.findall('device'):
-            dev_id = dev_el.findtext('id')
-            dev_class = dev_el.findtext('deviceClass')
-            conn_if = dev_el.findtext('connectivityInterface')
+            dev_id = dev_el.findtext('id', default='')
+            dev_class = dev_el.findtext('deviceClass', default='')
+            conn_if = dev_el.findtext('connectivityInterface', default='')
             # Properties
-            props: Dict[str,str] = {}
+            props: Dict[str, str] = {}
             props_el = dev_el.find('properties')
             if props_el is not None:
                 for p in props_el:
-                    props[p.tag] = p.text.strip() if p.text else None
+                    props[p.tag] = p.text.strip() if p.text else ""
             devices.append(DeviceDefinition(dev_id, dev_class, conn_if, props))
 
     config = Config(
-        communication_service_broker=comm,
-        metadata_parser=meta,
-        light_device=light,
-        wind_device=wind,
-        vibration_device=vib,
-        scent_device=scent,
+        communication_service_broker=comm or '',
+        metadata_parser=meta or '',
+        light_device=light or '',
+        wind_device=wind or '',
+        vibration_device=vib or '',
+        scent_device=scent or '',
         devices=devices
     )
     return config

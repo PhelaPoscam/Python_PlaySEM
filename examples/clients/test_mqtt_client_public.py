@@ -18,7 +18,7 @@ import json
 from pathlib import Path
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import paho.mqtt.client as mqtt
 
@@ -29,22 +29,22 @@ def main():
     print("=" * 60)
     print("\n⚠️  Using public test broker: test.mosquitto.org")
     print("⚠️  NOT secure - for testing only!\n")
-    
+
     # Create MQTT client
     client = mqtt.Client(client_id="test_mqtt_publisher")
-    
+
     try:
         print("Connecting to test.mosquitto.org:1883...")
         client.connect("test.mosquitto.org", 1883, 60)
         client.loop_start()
-        
+
         time.sleep(1)  # Give time to connect
-        
+
         print("✓ Connected!\n")
         print("=" * 60)
         print("Sending Test Effects")
         print("=" * 60)
-        
+
         # Define test effects
         effects = [
             {
@@ -54,8 +54,8 @@ def main():
                     "effect_type": "light",
                     "timestamp": 0,
                     "duration": 1000,
-                    "intensity": 100
-                }
+                    "intensity": 100,
+                },
             },
             {
                 "name": "💨 Strong wind effect",
@@ -64,8 +64,8 @@ def main():
                     "effect_type": "wind",
                     "timestamp": 0,
                     "duration": 2000,
-                    "intensity": 75
-                }
+                    "intensity": 75,
+                },
             },
             {
                 "name": "📳 Vibration effect",
@@ -74,8 +74,8 @@ def main():
                     "effect_type": "vibration",
                     "timestamp": 0,
                     "duration": 500,
-                    "intensity": 80
-                }
+                    "intensity": 80,
+                },
             },
             {
                 "name": "🌸 Scent effect",
@@ -84,40 +84,40 @@ def main():
                     "effect_type": "scent",
                     "timestamp": 0,
                     "duration": 3000,
-                    "intensity": 60
-                }
-            }
+                    "intensity": 60,
+                },
+            },
         ]
-        
+
         # Send each effect
         for i, effect in enumerate(effects, 1):
             print(f"\n[{i}/{len(effects)}] {effect['name']}")
             print(f"  📤 Publishing to: {effect['topic']}")
-            
-            payload_str = json.dumps(effect['payload'])
+
+            payload_str = json.dumps(effect["payload"])
             print(f"  📋 Payload: {payload_str}")
-            
-            result = client.publish(effect['topic'], payload_str)
+
+            result = client.publish(effect["topic"], payload_str)
             result.wait_for_publish()
-            
+
             if result.rc == mqtt.MQTT_ERR_SUCCESS:
                 print("  ✅ Published successfully!")
             else:
                 print(f"  ❌ Publish failed with code: {result.rc}")
-            
+
             time.sleep(1)  # Wait between effects
-        
+
         print("\n" + "=" * 60)
         print("✓ All effects sent!")
         print("=" * 60)
         print("\nCheck the server terminal to see received effects.\n")
-        
+
         # Clean up
         client.loop_stop()
         client.disconnect()
-        
+
         return 0
-        
+
     except Exception as e:
         print(f"\n❌ Error: {e}")
         print("\nPossible issues:")

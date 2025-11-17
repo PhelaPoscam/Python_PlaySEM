@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Vibration Tester (Moved)</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }
+        button { padding: 16px 24px; margin: 8px; border-radius: 8px; border: none; cursor: pointer; }
+    </style>
+    <script>
+        function quickVibrate(ms) {
+            if ('vibrate' in navigator) {
+                navigator.vibrate(ms);
+            } else {
+                alert('Vibration not supported');
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Phone Vibration Tester</h1>
+    <p>Moved from <code>examples/control_panel/phone_tester.html</code> for easier HTTP serving.</p>
+    <button onclick="quickVibrate(200)">Short Buzz (200ms)</button>
+    <button onclick="quickVibrate(800)">Medium (800ms)</button>
+    <button onclick="quickVibrate(1600)">Long (1600ms)</button>
+    <p>To use with PlaySEM: serve this page and open on your phone. Use the PlaySEM server to send "vibration" effects and your phone will vibrate when <code>Phone mode</code> is enabled in the control panel.</p>
+</body>
+</html>

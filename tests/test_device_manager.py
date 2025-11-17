@@ -8,7 +8,8 @@ from src.device_manager import DeviceManager
 @pytest.fixture
 def device_manager():
     mock_client = MagicMock()
-    # Inject the mock client so DeviceManager does not attempt a real MQTT connect
+    # Inject the mock client so DeviceManager does not attempt a real MQTT
+    # connection
     return DeviceManager(client=mock_client)
 
 
@@ -18,5 +19,10 @@ def test_send_command(device_manager):
         "activate",
         {"intensity": "high"},
     )
-    expected_payload = str({"command": "activate", "params": {"intensity": "high"}})
-    device_manager.client.publish.assert_called_once_with("test_device", expected_payload)
+    expected_payload = str(
+        {"command": "activate", "params": {"intensity": "high"}}
+    )
+    # Access the legacy wrapper's client through the driver
+    device_manager.driver.client.publish.assert_called_once_with(
+        "test_device", expected_payload
+    )

@@ -21,7 +21,7 @@ import logging
 from pathlib import Path
 
 # Make src importable
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.device_manager import DeviceManager  # noqa: E402
 from src.effect_dispatcher import EffectDispatcher  # noqa: E402
@@ -29,8 +29,8 @@ from src.protocol_server import CoAPServer  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - [%(levelname)s] %(name)s - %(message)s',
-    datefmt='%H:%M:%S'
+    format="%(asctime)s - [%(levelname)s] %(name)s - %(message)s",
+    datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ async def main():
     logger.info("Initializing components...")
 
     # Mock MQTT client for DeviceManager to avoid real broker
-    mock_client = type('MockClient', (), {'publish': lambda *args: None})()
+    mock_client = type("MockClient", (), {"publish": lambda *args: None})()
     device_manager = DeviceManager(client=mock_client)
     dispatcher = EffectDispatcher(device_manager)
 
