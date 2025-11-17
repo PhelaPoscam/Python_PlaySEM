@@ -1,0 +1,100 @@
+# Effect mappings for PythonPlaySEM
+# Maps high-level effect names to device commands
+
+effects:
+  # Light effects
+  light:
+    device: mockLight
+    command: set_brightness
+    description: "Generic light intensity control"
+    parameters:
+      - name: intensity
+        type: string
+        mapping:
+          low: 64
+          medium: 128
+          high: 255
+          off: 0
+  
+  light_color:
+    device: mockLight
+    command: set_color
+    description: "RGB color control for lighting"
+    parameters:
+      - name: r
+        type: int
+        range: [0, 255]
+      - name: g
+        type: int
+        range: [0, 255]
+      - name: b
+        type: int
+        range: [0, 255]
+  
+  # Wind effects
+  wind:
+    device: mockWind
+    command: set_speed
+    description: "Wind/fan speed control"
+    parameters:
+      - name: intensity
+        type: string
+        mapping:
+          gentle: 25
+          moderate: 50
+          strong: 75
+          storm: 100
+          off: 0
+  
+  # Vibration effects
+  vibration:
+    device: mockVibration
+    command: set_intensity
+    description: "Haptic vibration control"
+    parameters:
+      - name: intensity
+        type: string
+        mapping:
+          subtle: 25
+          medium: 50
+          strong: 75
+          intense: 100
+          off: 0
+      - name: duration
+        type: int
+        default: 500  # milliseconds
+  
+  # Scent effects
+  scent:
+    device: mockScent
+    command: set_scent
+    description: "Scent diffusion control"
+    parameters:
+      - name: scent
+        type: string
+        values:
+          - rose
+          - lavender
+          - ocean
+          - coffee
+          - pine
+          - citrus
+      - name: intensity
+        type: string
+        mapping:
+          faint: 25
+          moderate: 50
+          strong: 75
+          intense: 100
+          off: 0
+
+# Location-based effect mappings (following MPEG-V LocationCS)
+locations:
+  everywhere: "*"
+  left: "left"
+  center: "center"
+  right: "right"
+  front: "front"
+  back: "back"
+  top: "top"
+  bottom: "bottom"

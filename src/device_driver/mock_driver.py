@@ -1,0 +1,209 @@
+# src/device_driver/mock_driver.py
+"""
+Mock device drivers for testing without physical hardware.
+These drivers log commands to console instead of sending to real devices.
+"""
+
+import logging
+from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
+
+
+class MockDeviceBase:
+    """Base class for mock sensory effect devices."""
+
+    def __init__(
+        self, device_id: str, properties: Optional[Dict[str, Any]] = None
+    ):
+        """
+        Initialize mock device.
+
+        Args:
+            device_id: unique identifier for this device
+            properties: device-specific configuration properties
+        """
+        self.device_id = device_id
+        self.properties = properties or {}
+        self.delay = int(self.properties.get("delay", 0))
+        self.state = {}
+        logger.info(
+            f"Mock device '{device_id}' initialized "
+            f"(delay={self.delay}ms)"
+        )
+
+    def send_command(self, command: str, params: Dict[str, Any]):
+        """
+        Simulate sending a command to the device.
+
+        Args:
+            command: command name (e.g., 'set_brightness', 'set_speed')
+            params: command parameters
+        """
+        logger.info(
+            f"[{self.device_id}] Command: {command}, "
+            f"Params: {params}"
+        )
+        self.state.update(params)
+
+    def reset(self):
+        """Reset device to default state."""
+        logger.info(f"[{self.device_id}] Reset to default state")
+        self.state = {}
+
+    def get_state(self) -> Dict[str, Any]:
+        """Get current device state."""
+        return self.state.copy()
+
+
+class MockLightDevice(MockDeviceBase):
+    """Mock light/LED device."""
+
+    def __init__(
+        self, device_id: str, properties: Optional[Dict[str, Any]] = None
+    ):
+        super().__init__(device_id, properties)
+        self.state = {"r": 0, "g": 0, "b": 0, "brightness": 0}
+
+    def set_brightness(self, brightness: int):
+        """Set light brightness (0-255)."""
+        self.state["brightness"] = max(0, min(255, brightness))
+        logger.info(
+            f"[{self.device_id}] Light brightness: "
+            f"{self.state['brightness']}"
+        )
+
+    def set_color(self, r: int, g: int, b: int):
+        """Set RGB color (0-255 each)."""
+        self.state["r"] = max(0, min(255, r))
+        self.state["g"] = max(0, min(255, g))
+        self.state["b"] = max(0, min(255, b))
+        logger.info(
+            f"[{self.device_id}] Light color: RGB("
+            f"{self.state['r']}, {self.state['g']}, {self.state['b']})"
+        )
+
+    def send_command(self, command: str, params: Dict[str, Any]):
+        """Handle light-specific commands."""
+        if command == "set_brightness":
+            self.set_brightness(int(params.get("brightness", 0)))
+        elif command == "set_color":
+            self.set_color(
+                int(params.get("r", 0)),
+                int(params.get("g", 0)),
+                int(params.get("b", 0)),
+            )
+        else:
+            super().send_command(command, params)
+
+
+class MockWindDevice(MockDeviceBase):
+    """Mock wind/fan device."""
+
+    def __init__(
+        self, device_id: str, properties: Optional[Dict[str, Any]] = None
+    ):
+        super().__init__(device_id, properties)
+        self.state = {"speed": 0, "direction": "forward"}
+
+    def set_speed(self, speed: int):
+        """Set fan speed (0-100)."""
+        self.state["speed"] = max(0, min(100, speed))
+        logger.info(
+            f"[{self.device_id}] Wind speed: {self.state['speed']}%"
+        )
+
+    def set_direction(self, direction: str):
+        """Set wind direction ('forward', 'reverse')."""
+        self.state["direction"] = direction
+        logger.info(
+            f"[{self.device_id}] Wind direction: "
+            f"{self.state['direction']}"
+        )
+
+    def send_command(self, command: str, params: Dict[str, Any]):
+        """Handle wind-specific commands."""
+        if command == "set_speed":
+            self.set_speed(int(params.get("speed", 0)))
+        elif command == "set_direction":
+            self.set_direction(params.get("direction", "forward"))
+        else:
+            super().send_command(command, params)
+
+
+class MockVibrationDevice(MockDeviceBase):
+    """Mock vibration/haptic device."""
+
+    def __init__(
+        self, device_id: str, properties: Optional[Dict[str, Any]] = None
+    ):
+        super().__init__(device_id, properties)
+        self.state = {"intensity": 0, "duration": 0}
+
+    def set_intensity(self, intensity: int):
+        """Set vibration intensity (0-100)."""
+        self.state["intensity"] = max(0, min(100, intensity))
+        logger.info(
+            f"[{self.device_id}] Vibration intensity: "
+            f"{self.state['intensity']}%"
+        )
+
+    def set_duration(self, duration: int):
+        """Set vibration duration in milliseconds."""
+        self.state["duration"] = max(0, duration)
+        logger.info(
+            f"[{self.device_id}] Vibration duration: "
+            f"{self.state['duration']}ms"
+        )
+
+    def send_command(self, command: str, params: Dict[str, Any]):
+        """Handle vibration-specific commands."""
+        if command == "set_intensity":
+            self.set_intensity(int(params.get("intensity", 0)))
+        elif command == "set_duration":
+            self.set_duration(int(params.get("duration", 0)))
+        else:
+            super().send_command(command, params)
+
+
+class MockScentDevice(MockDeviceBase):
+    """Mock scent/smell diffuser device."""
+
+    def __init__(
+        self, device_id: str, properties: Optional[Dict[str, Any]] = None
+    ):
+        super().__init__(device_id, properties)
+        self.state = {"scent": None, "intensity": 0}
+
+    def set_scent(self, scent: str, intensity: int):
+        """
+        Activate a scent at a given intensity.
+
+        Args:
+            scent: scent identifier (e.g., 'rose', 'ocean', 'coffee')
+            intensity: scent intensity (0-100)
+        """
+        self.state["scent"] = scent
+        self.state["intensity"] = max(0, min(100, intensity))
+        logger.info(
+            f"[{self.device_id}] Scent: {self.state['scent']} "
+            f"at {self.state['intensity']}% intensity"
+        )
+
+    def stop_scent(self):
+        """Stop scent diffusion."""
+        self.state["scent"] = None
+        self.state["intensity"] = 0
+        logger.info(f"[{self.device_id}] Scent stopped")
+
+    def send_command(self, command: str, params: Dict[str, Any]):
+        """Handle scent-specific commands."""
+        if command == "set_scent":
+            self.set_scent(
+                params.get("scent", "unknown"),
+                int(params.get("intensity", 0)),
+            )
+        elif command == "stop_scent":
+            self.stop_scent()
+        else:
+            super().send_command(command, params)
