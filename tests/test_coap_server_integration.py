@@ -27,7 +27,6 @@ async def test_coap_server_receives_and_dispatches_effect():
     mock_client = MagicMock()
 
     dm = DeviceManager(client=mock_client)
-    dm = DeviceManager(client=mock_client)
     dispatcher = EffectDispatcher(dm)
     server = CoAPServer(
         host="127.0.0.1",

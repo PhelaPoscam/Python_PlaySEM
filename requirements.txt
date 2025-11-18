@@ -1,10 +1,12 @@
 pytest==7.4.0
 pytest-asyncio>=0.21.0
+pytest-timeout>=2.1.0
 requests==2.31.0
 numpy==1.26.4
+amqtt
 paho-mqtt==1.6.1
-pyyaml==6.0.1
-websockets==12.0
+pyyaml==6.0.2
+websockets>=9.0
 aiocoap[ws]==0.4.7
 async-upnp-client==0.36.0
 fastapi==0.104.0

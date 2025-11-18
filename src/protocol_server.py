@@ -10,8 +10,17 @@ import asyncio
 import json
 import logging
 import threading
-from typing import Optional, Callable, Dict, Any
 import paho.mqtt.client as mqtt
+from typing import Optional, Callable, Dict, Any
+
+try:
+    from amqtt.broker import Broker
+    from amqtt.mqtt.constants import QOS_0
+    AMQTT_AVAILABLE = True
+except ImportError:
+    AMQTT_AVAILABLE = False
+    Broker = None
+    QOS_0 = None
 
 from .effect_dispatcher import EffectDispatcher
 from .effect_metadata import EffectMetadata, EffectMetadataParser
@@ -22,327 +31,171 @@ logger = logging.getLogger(__name__)
 
 class MQTTServer:
     """
-    MQTT server for receiving sensory effect requests.
+    Embedded MQTT Broker for receiving sensory effect requests.
 
-    Subscribes to MQTT topics and processes incoming effect metadata,
-    dispatching effects to connected devices through the EffectDispatcher.
-
-    Example:
-        >>> dispatcher = EffectDispatcher(device_manager)
-        >>> server = MQTTServer(
-        ...     broker_address="localhost",
-        ...     dispatcher=dispatcher,
-        ...     subscribe_topic="effects/#"
-        ... )
-        >>> server.start()
-        >>> # Server now listens for effects on "effects/*" topics
-        >>> server.stop()
+    Runs a self-contained MQTT broker using hbmqtt and listens for effect
+    metadata on the 'effects/#' topic. This removes the need for an
+    external MQTT broker.
     """
 
     def __init__(
         self,
-        broker_address: str,
         dispatcher: EffectDispatcher,
-        subscribe_topic: str = "effects/#",
-        status_topic: str = "status",
+        host: str = "0.0.0.0",
         port: int = 1883,
-        client_id: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        use_tls: bool = False,
-        tls_ca_certs: Optional[str] = None,
-        tls_certfile: Optional[str] = None,
-        tls_keyfile: Optional[str] = None,
-        reconnect_on_failure: bool = True,
-        on_effect_received: Optional[Callable[[EffectMetadata], None]] = None,
+        subscribe_topic: str = "effects/#",
     ):
         """
-        Initialize MQTT server.
-
-        Args:
-            broker_address: MQTT broker hostname/IP
-            dispatcher: EffectDispatcher instance for effect execution
-            subscribe_topic: MQTT topic pattern to subscribe to
-                (supports wildcards)
-            status_topic: Topic for publishing server status messages
-            port: MQTT broker port (default: 1883, 8883 for TLS)
-            client_id: Optional MQTT client ID (auto-generated if None)
-            username: Optional username for authentication
-            password: Optional password for authentication
-            use_tls: Enable TLS/SSL encryption
-            tls_ca_certs: Path to CA certificates file for TLS
-            tls_certfile: Path to client certificate for TLS
-            tls_keyfile: Path to client private key for TLS
-            reconnect_on_failure: Auto-reconnect on connection loss
-            on_effect_received: Optional callback when effect is received
+        Initialize the embedded MQTT Broker.
         """
-        self.broker_address = broker_address
-        self.port = port
         self.dispatcher = dispatcher
+        self.host = host
+        self.port = port
         self.subscribe_topic = subscribe_topic
-        self.status_topic = status_topic
-        self.username = username
-        self.password = password
-        self.use_tls = use_tls
-        self.reconnect_on_failure = reconnect_on_failure
-        self.on_effect_received = on_effect_received
-
-        # Create MQTT client
-        self.client = mqtt.Client(client_id=client_id or "playsem_server")
-        self.client.on_connect = self._on_connect
-        self.client.on_message = self._on_message
-        self.client.on_disconnect = self._on_disconnect
-
-        # Setup authentication
-        if username and password:
-            self.client.username_pw_set(username, password)
-            logger.info("MQTT authentication enabled")
-
-        # Setup TLS
-        if use_tls:
-            import ssl
-
-            self.client.tls_set(
-                ca_certs=tls_ca_certs,
-                certfile=tls_certfile,
-                keyfile=tls_keyfile,
-                cert_reqs=ssl.CERT_REQUIRED if tls_ca_certs else ssl.CERT_NONE,
-                tls_version=ssl.PROTOCOL_TLS,
-            )
-            logger.info("MQTT TLS/SSL enabled")
-
-        # Enable automatic reconnection
-        if reconnect_on_failure:
-            self.client.reconnect_delay_set(min_delay=1, max_delay=120)
-
+        self.broker = None
         self._is_running = False
         self._lock = threading.Lock()
-        self._reconnect_attempts = 0
+        self.loop = None
+        self.internal_client = None
+        self._ready_event = asyncio.Event()
+        self._stop_event = asyncio.Event() # New stop event
 
         logger.info(
-            f"MQTT Server initialized - broker: {broker_address}:{port}, "
-            f"topic: {subscribe_topic}, auth: "
-            f"{'enabled' if username else 'disabled'}, "
-            f"tls: {'enabled' if use_tls else 'disabled'}"
+            f"Embedded MQTT Broker initialized - "
+            f"Host: {host}:{port}, Topic: {subscribe_topic}"
         )
 
     def start(self):
         """
-        Start the MQTT server.
-
-        Connects to broker and begins listening for effect requests.
+        Start the embedded MQTT Broker in a separate thread.
         """
         with self._lock:
             if self._is_running:
-                logger.warning("MQTT Server already running")
+                logger.warning("Embedded MQTT Broker already running")
                 return
 
-            try:
-                logger.info(
-                    f"Connecting to MQTT broker at "
-                    f"{self.broker_address}:{self.port}"
-                )
-                self.client.connect(
-                    self.broker_address, self.port, keepalive=60
-                )
+            logger.info(f"Starting embedded MQTT broker on {self.host}:{self.port}")
+            self.thread = threading.Thread(target=self._run_broker_loop)
+            self.thread.daemon = True
+            self.thread.start()
+            self._is_running = True
+            logger.info("Embedded MQTT Broker started successfully")
 
-                # Start network loop in background thread
-                self.client.loop_start()
+    def _run_broker_loop(self):
+        """
+        Run the asyncio event loop for the broker in a thread.
+        """
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_until_complete(self._start_broker())
+        self.loop.run_until_complete(self._broker_main_loop_with_shutdown()) # Run main loop until stop event
 
-                self._is_running = True
-                logger.info("MQTT Server started successfully")
+        self.loop.close() # Close the loop cleanly
 
-            except Exception as e:
-                logger.error(f"Failed to start MQTT Server: {e}")
-                raise
+    async def _start_broker(self):
+        """
+        Configure and start the amqtt broker.
+        """
+        if not AMQTT_AVAILABLE:
+            logger.error("amqtt library is not installed. Cannot start MQTT broker.")
+            return
+
+        config = {
+            'listeners': {
+                'default': {
+                    'bind': f'{self.host}:{self.port}',
+                    'type': 'tcp',
+                },
+            }
+        }
+        self.broker = Broker(config)
+        logger.debug("amqtt Broker instance created.")
+        await self.broker.start()
+        logger.info(f"amqtt Broker started and listening on {self.host}:{self.port}")
+        self._ready_event.set()
+
+        # Create an internal client to subscribe to topics and dispatch messages
+        self.internal_client = mqtt.Client()
+        self.internal_client.on_message = self._on_internal_message
+        self.internal_client.connect(self.host, self.port, 60)
+        self.internal_client.subscribe(self.subscribe_topic, QOS_0)
+        self.internal_client.loop_start()
+
+    def _on_internal_message(self, client, userdata, msg):
+        """
+        Callback when message is received by the internal paho-mqtt client.
+        """
+        topic = msg.topic
+        payload = msg.payload
+        try:
+            payload_str = payload.decode("utf-8")
+            logger.debug(f"Broker received message on topic '{topic}': {payload_str}")
+
+            effect = self._parse_effect(payload_str)
+            if effect:
+                self.dispatcher.dispatch_effect_metadata(effect)
+                logger.info(f"Effect '{effect.effect_type}' executed successfully via MQTT")
+            else:
+                logger.warning(f"Failed to parse effect from MQTT payload: {payload_str}")
+
+        except Exception as e:
+            logger.error(f"Error processing MQTT message: {e}")
+
+    async def _broker_main_loop_with_shutdown(self):
+        """
+        Main loop for the broker, waits for a stop signal.
+        """
+        await self._stop_event.wait() # Wait until stop event is set
+        logger.info("Stop event received, initiating amqtt broker shutdown.")
+        if self.broker:
+            await self.broker.shutdown() # Await the broker shutdown
+        logger.info("amqtt broker shutdown complete.")
+
+    async def wait_until_ready(self):
+        """
+        Wait until the embedded MQTT Broker is fully started and ready to accept connections.
+        """
+        await self._ready_event.wait()
 
     def stop(self):
         """
-        Stop the MQTT server.
-
-        Disconnects from broker and stops listening.
+        Stop the embedded MQTT Broker.
         """
         with self._lock:
             if not self._is_running:
-                logger.warning("MQTT Server not running")
+                logger.warning("Embedded MQTT Broker not running")
                 return
 
-            try:
-                logger.info("Stopping MQTT Server...")
-
-                # Publish offline status
-                self.client.publish(
-                    self.status_topic,
-                    json.dumps({"status": "offline"}),
-                    retain=True,
-                )
-
-                # Stop loop and disconnect
-                self.client.loop_stop()
-                self.client.disconnect()
-
-                self._is_running = False
-                logger.info("MQTT Server stopped")
-
-            except Exception as e:
-                logger.error(f"Error stopping MQTT Server: {e}")
-                raise
+            logger.info("Stopping embedded MQTT Broker...")
+            if self.internal_client:
+                self.internal_client.loop_stop()
+                self.internal_client.disconnect()
+            
+            self._stop_event.set() # Signal the broker main loop to stop
+            
+            # Wait for the thread to finish. It should now exit cleanly after broker shutdown.
+            self.thread.join(timeout=15) # Increased timeout just in case
+            
+            self._is_running = False
+            logger.info("Embedded MQTT Broker stopped")
 
     def is_running(self) -> bool:
         """Check if server is running."""
         with self._lock:
             return self._is_running
 
-    def _on_connect(self, client, userdata, flags, rc):
-        """
-        Callback when connected to MQTT broker.
-
-        Args:
-            rc: Connection result code (0 = success)
-        """
-        if rc == 0:
-            logger.info(
-                f"Connected to MQTT broker, subscribing to "
-                f"{self.subscribe_topic}"
-            )
-
-            # Subscribe to effect topics
-            client.subscribe(self.subscribe_topic)
-
-            # Publish online status
-            client.publish(
-                self.status_topic,
-                json.dumps({"status": "online", "version": "0.1.0"}),
-                retain=True,
-            )
-        else:
-            logger.error(
-                f"Failed to connect to MQTT broker, return code: {rc}"
-            )
-
-    def _on_disconnect(self, client, userdata, rc):
-        """
-        Callback when disconnected from MQTT broker.
-
-        Args:
-            rc: Disconnect reason code
-        """
-        if rc != 0:
-            self._reconnect_attempts += 1
-            logger.warning(
-                f"Unexpected disconnect from MQTT broker (code: {rc}), "
-                f"attempt #{self._reconnect_attempts}"
-            )
-            if self.reconnect_on_failure:
-                logger.info("Attempting to reconnect...")
-            else:
-                self._is_running = False
-        else:
-            logger.info("Disconnected from MQTT broker")
-            self._is_running = False
-
-    def _on_message(self, client, userdata, msg):
-        """
-        Callback when message is received.
-
-        Parses effect metadata and dispatches to devices.
-
-        Args:
-            msg: MQTT message object
-        """
-        topic = msg.topic if hasattr(msg, "topic") else "unknown"
-        try:
-            payload = msg.payload.decode("utf-8")
-
-            logger.debug(f"Received message on topic '{topic}': {payload}")
-
-            # Parse effect metadata from JSON/YAML payload
-            effect = self._parse_effect(payload)
-
-            if effect:
-                # Call callback if provided
-                if self.on_effect_received:
-                    self.on_effect_received(effect)
-
-                # Dispatch effect
-                self.dispatcher.dispatch_effect_metadata(effect)
-
-                # Publish success response
-                self._publish_response(topic, effect, success=True)
-
-                logger.info(
-                    f"Effect '{effect.effect_type}' executed successfully"
-                )
-            else:
-                logger.warning(
-                    f"Failed to parse effect from payload: {payload}"
-                )
-                self._publish_response(
-                    topic, None, success=False, error="Invalid effect format"
-                )
-
-        except Exception as e:
-            logger.error(f"Error processing message: {e}")
-            self._publish_response(topic, None, success=False, error=str(e))
-
     def _parse_effect(self, payload: str) -> Optional[EffectMetadata]:
         """
         Parse effect metadata from payload string.
-
         Supports both JSON and YAML formats.
-
-        Args:
-            payload: String payload (JSON or YAML)
-
-        Returns:
-            EffectMetadata object or None if parsing fails
         """
         try:
-            # Try JSON first - parse_json expects a string
             return EffectMetadataParser.parse_json(payload)
-
         except (json.JSONDecodeError, ValueError):
-            # Try YAML if JSON fails
             try:
                 return EffectMetadataParser.parse_yaml(payload)
-            except Exception as e:
-                logger.warning(f"Failed to parse as YAML: {e}")
+            except Exception:
                 return None
-
-    def _publish_response(
-        self,
-        request_topic: str,
-        effect: Optional[EffectMetadata],
-        success: bool,
-        error: Optional[str] = None,
-    ):
-        """
-        Publish execution response.
-
-        Args:
-            request_topic: Original request topic
-            effect: Effect that was executed (or None if failed)
-            success: Whether execution succeeded
-            error: Optional error message
-        """
-        try:
-            # Create response topic
-            # (e.g., "effects/light" -> "effects/light/response")
-            response_topic = f"{request_topic}/response"
-
-            response = {
-                "success": success,
-                "timestamp": effect.timestamp if effect else None,
-                "effect_type": effect.effect_type if effect else None,
-            }
-
-            if error:
-                response["error"] = error
-
-            self.client.publish(response_topic, json.dumps(response))
-
-        except Exception as e:
-            logger.error(f"Error publishing response: {e}")
 
 
 class WebSocketServer:

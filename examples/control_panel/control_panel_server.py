@@ -401,7 +401,7 @@ class ControlPanelServer:
         await websocket.accept()
         self.clients.add(websocket)
 
-        print(f"✅ Client connected. Total clients: {len(self.clients)}")
+        print(f"[OK] Client connected. Total clients: {len(self.clients)}")
 
         try:
             # Send initial device list
@@ -415,10 +415,10 @@ class ControlPanelServer:
 
         except WebSocketDisconnect:
             print(
-                f"❌ Client disconnected. Remaining clients: {len(self.clients) - 1}"
+                f"[x] Client disconnected. Remaining clients: {len(self.clients) - 1}"
             )
         except Exception as e:
-            print(f"❌ WebSocket error: {e}")
+            print(f"[x] WebSocket error: {e}")
         finally:
             self.clients.discard(websocket)
 
@@ -426,7 +426,7 @@ class ControlPanelServer:
         """Handle incoming WebSocket message."""
         msg_type = message.get("type")
 
-        print(f"📨 Received message: {msg_type}")
+        print(f"[RECV] Received message: {msg_type}")
 
         if msg_type == "get_devices":
             await self.send_device_list(websocket)
@@ -500,7 +500,7 @@ class ControlPanelServer:
 
     async def scan_devices(self, websocket: WebSocket, driver_type: str):
         """Scan for available devices."""
-        print(f"🔍 Scanning for {driver_type} devices...")
+        print(f"[SCAN] Scanning for {driver_type} devices...")
 
         try:
             if driver_type == "bluetooth":
@@ -525,7 +525,7 @@ class ControlPanelServer:
                 )
 
         except Exception as e:
-            print(f"❌ Scan error: {e}")
+            print(f"[x] Scan error: {e}")
             await websocket.send_json(
                 {"type": "error", "message": f"Scan failed: {str(e)}"}
             )
@@ -536,7 +536,7 @@ class ControlPanelServer:
             driver = BluetoothDriver()
             devices = await driver.scan_devices(timeout=5.0)
 
-            print(f"✅ Found {len(devices)} Bluetooth devices")
+            print(f"[OK] Found {len(devices)} Bluetooth devices")
 
             for device in devices:
                 await websocket.send_json(
@@ -558,7 +558,7 @@ class ControlPanelServer:
                 await asyncio.sleep(0.1)  # Small delay for UI updates
 
         except Exception as e:
-            print(f"❌ Bluetooth scan error: {e}")
+            print(f"[x] Bluetooth scan error: {e}")
             await websocket.send_json(
                 {
                     "type": "error",
@@ -571,7 +571,7 @@ class ControlPanelServer:
         try:
             ports = SerialDriver.list_ports()
 
-            print(f"✅ Found {len(ports)} Serial ports")
+            print(f"[OK] Found {len(ports)} Serial ports")
 
             for port_info in ports:
                 await websocket.send_json(
@@ -590,7 +590,7 @@ class ControlPanelServer:
                 await asyncio.sleep(0.1)
 
         except Exception as e:
-            print(f"❌ Serial scan error: {e}")
+            print(f"[x] Serial scan error: {e}")
             await websocket.send_json(
                 {"type": "error", "message": f"Serial scan failed: {str(e)}"}
             )
@@ -607,7 +607,7 @@ class ControlPanelServer:
                 },
             ]
 
-            print(f"✅ Found {len(mock_devices)} Mock devices")
+            print(f"[OK] Found {len(mock_devices)} Mock devices")
 
             for device in mock_devices:
                 await websocket.send_json(
@@ -624,7 +624,7 @@ class ControlPanelServer:
                 await asyncio.sleep(0.1)
 
         except Exception as e:
-            print(f"❌ Mock scan error: {e}")
+            print(f"[x] Mock scan error: {e}")
             await websocket.send_json(
                 {"type": "error", "message": f"Mock scan failed: {str(e)}"}
             )
@@ -633,7 +633,7 @@ class ControlPanelServer:
         self, websocket: WebSocket, address: str, driver_type: str
     ):
         """Connect to a device."""
-        print(f"🔌 Connecting to {driver_type} device: {address}")
+        print(f"[CONNECT] Connecting to {driver_type} device: {address}")
 
         try:
             device_id = (
@@ -688,7 +688,7 @@ class ControlPanelServer:
                 )
                 self.devices[device_id] = device
 
-                print(f"✅ Connected to {name}")
+                print(f"[OK] Connected to {name}")
 
                 # Notify all clients
                 await self.broadcast_device_list()
@@ -728,7 +728,7 @@ class ControlPanelServer:
             )
 
         except Exception as e:
-            print(f"❌ Connection error: {e}")
+            print(f"[x] Connection error: {e}")
             self.stats["errors"] += 1
             await websocket.send_json(
                 {"type": "error", "message": f"Connection failed: {str(e)}"}
@@ -758,7 +758,7 @@ class ControlPanelServer:
             # Remove from devices
             del self.devices[device_id]
 
-            print(f"✅ Disconnected {device.name}")
+            print(f"[OK] Disconnected {device.name}")
 
             # Notify all clients
             await self.broadcast_device_list()
@@ -768,7 +768,7 @@ class ControlPanelServer:
             )
 
         except Exception as e:
-            print(f"❌ Disconnect error: {e}")
+            print(f"[x] Disconnect error: {e}")
             await websocket.send_json(
                 {"type": "error", "message": f"Disconnect failed: {str(e)}"}
             )
@@ -817,7 +817,7 @@ class ControlPanelServer:
                     )
 
                 print(
-                    f"✅ Mock device '{mock_device.device_id}' received {effect_type.upper()} command: intensity={intensity}, duration={duration}"
+                    f"[OK] Mock device '{mock_device.device_id}' received {effect_type.upper()} command: intensity={intensity}, duration={duration}"
                 )
             else:
                 # Real devices use effect dispatcher
@@ -832,7 +832,7 @@ class ControlPanelServer:
             latency = int((time.time() - start_time) * 1000)
             self.stats["effects_sent"] += 1
 
-            print(f"✅ Effect sent to {device.name} (latency: {latency}ms)")
+            print(f"[OK] Effect sent to {device.name} (latency: {latency}ms)")
 
             await websocket.send_json(
                 {
@@ -844,7 +844,7 @@ class ControlPanelServer:
             )
 
         except Exception as e:
-            print(f"❌ Effect send error: {e}")
+            print(f"[x] Effect send error: {e}")
             self.stats["errors"] += 1
             await websocket.send_json(
                 {
@@ -857,7 +857,7 @@ class ControlPanelServer:
 
     async def start_protocol_server(self, websocket: WebSocket, protocol: str):
         """Start a protocol server (MQTT, CoAP, UPnP, HTTP)."""
-        print(f"🚀 Starting {protocol.upper()} server...")
+        print(f"[START] Starting {protocol.upper()} server...")
 
         try:
             if protocol == "mqtt":
@@ -872,18 +872,14 @@ class ControlPanelServer:
                     )
                     return
 
-                # Create MQTT server with proper dispatcher
-                # Use public test broker if localhost fails
+                # Create and start the embedded MQTT broker
                 self.mqtt_server = MQTTServer(
-                    broker_address="test.mosquitto.org",
                     dispatcher=self.global_dispatcher,
-                    subscribe_topic="effects/#",
+                    host="0.0.0.0",
                     port=1883,
+                    subscribe_topic="effects/#",
                 )
-                print("ℹ️  Using public test broker: test.mosquitto.org")
-                print("   (For production, install local Mosquitto broker)")
-                # MQTT server has synchronous start
-                await asyncio.to_thread(self.mqtt_server.start)
+                self.mqtt_server.start()
 
             elif protocol == "coap":
                 if self.coap_server and self.coap_server.is_running():
@@ -904,7 +900,7 @@ class ControlPanelServer:
                     port=5683,
                     dispatcher=self.global_dispatcher,
                 )
-                print("ℹ️  CoAP server binding to 127.0.0.1:5683")
+                print("[i]  CoAP server binding to 127.0.0.1:5683")
                 # CoAP server has async start - run in background
                 asyncio.create_task(self.coap_server.start())
                 await asyncio.sleep(0.5)  # Give it time to start
@@ -928,7 +924,7 @@ class ControlPanelServer:
                     port=8081,
                     dispatcher=self.global_dispatcher,
                 )
-                print("ℹ️  HTTP REST API starting on port 8081")
+                print("[i]  HTTP REST API starting on port 8081")
                 # HTTP server has async start - run in background
                 asyncio.create_task(self.http_api_server.start())
                 await asyncio.sleep(0.5)  # Give it time to start
@@ -976,7 +972,7 @@ class ControlPanelServer:
                     port=8765,
                     dispatcher=self.global_dispatcher,
                 )
-                print("ℹ️  WebSocket SEM server starting on port 8765")
+                print("[i]  WebSocket SEM server starting on port 8765")
                 print("   (Port 8090 is for control panel UI only)")
                 # WebSocket server has async start - run in background
                 asyncio.create_task(self.websocket_protocol_server.start())
@@ -993,7 +989,7 @@ class ControlPanelServer:
                 )
                 return
 
-            print(f"✅ {protocol.upper()} server started successfully")
+            print(f"[OK] {protocol.upper()} server started successfully")
             await websocket.send_json(
                 {
                     "type": "protocol_status",
@@ -1003,7 +999,7 @@ class ControlPanelServer:
             )
 
         except Exception as e:
-            print(f"❌ Failed to start {protocol.upper()} server: {e}")
+            print(f"[x] Failed to start {protocol.upper()} server: {e}")
             await websocket.send_json(
                 {
                     "type": "protocol_status",
@@ -1015,13 +1011,12 @@ class ControlPanelServer:
 
     async def stop_protocol_server(self, websocket: WebSocket, protocol: str):
         """Stop a protocol server."""
-        print(f"🛑 Stopping {protocol.upper()} server...")
+        print(f"[STOP] Stopping {protocol.upper()} server...")
 
         try:
             if protocol == "mqtt":
                 if self.mqtt_server:
-                    # MQTT server has synchronous stop
-                    await asyncio.to_thread(self.mqtt_server.stop)
+                    self.mqtt_server.stop()
                     self.mqtt_server = None
 
             elif protocol == "coap":
@@ -1059,7 +1054,7 @@ class ControlPanelServer:
                 )
                 return
 
-            print(f"✅ {protocol.upper()} server stopped")
+            print(f"[OK] {protocol.upper()} server stopped")
             await websocket.send_json(
                 {
                     "type": "protocol_status",
@@ -1069,7 +1064,7 @@ class ControlPanelServer:
             )
 
         except Exception as e:
-            print(f"❌ Failed to stop {protocol.upper()} server: {e}")
+            print(f"[x] Failed to stop {protocol.upper()} server: {e}")
             await websocket.send_json(
                 {
                     "type": "protocol_status",
@@ -1210,32 +1205,32 @@ class ControlPanelServer:
     ):
         """Run the control panel server."""
         print("\n" + "=" * 60)
-        print("🎮 PythonPlaySEM Control Panel Server")
+        print("[+] PythonPlaySEM Control Panel Server")
         print("=" * 60)
-        print(f"\n🌐 Server running at:")
+        print(f"\n[WEB] Server running at:")
         print(f"   HTTP: http://{host}:{port}")
         print(f"   WebSocket: ws://{host}:{port}/ws")
 
         if enable_all_protocols:
-            print(f"\n📡 Additional Protocol Servers:")
+            print(f"\n[PROTOCOLS] Additional Protocol Servers:")
             print(f"   MQTT: mqtt://{host}:1883")
             print(f"   CoAP: coap://{host}:5683")
             print(f"   HTTP API: http://{host}:{port}/api")
             print(f"   UPnP: SSDP discovery on 239.255.255.250:1900")
-            print(f"\n⚠️  Note: MQTT, CoAP, and UPnP servers run in background")
+            print(f"\n[!]  Note: MQTT, CoAP, and UPnP servers run in background")
             print(f"   Use respective client libraries to connect")
 
-        print(f"\n📱 Open your browser and navigate to:")
+        print(f"\n[i] Open your browser and navigate to:")
         print(f"   http://localhost:{port}")
-        print(f"\n💡 Features:")
-        print(f"   ✅ Real-time device discovery (Bluetooth, Serial, MQTT)")
-        print(f"   ✅ Live device connection management")
+        print(f"\n[i] Features:")
+        print(f"   [OK] Real-time device discovery (Bluetooth, Serial, MQTT)")
+        print(f"   [OK] Live device connection management")
         print(
-            f"   ✅ Multi-protocol support (WebSocket, HTTP, MQTT, CoAP, UPnP)"
+            f"   [OK] Multi-protocol support (WebSocket, HTTP, MQTT, CoAP, UPnP)"
         )
-        print(f"   ✅ Effect testing with presets")
-        print(f"   ✅ System monitoring and statistics")
-        print(f"\n⚙️  Press Ctrl+C to stop")
+        print(f"   [OK] Effect testing with presets")
+        print(f"   [OK] System monitoring and statistics")
+        print(f"\n[SETTINGS]  Press Ctrl+C to stop")
         print("=" * 60 + "\n")
 
         uvicorn.run(self.app, host=host, port=port, log_level="info")
@@ -1270,9 +1265,9 @@ def main():
             enable_all_protocols=args.all_protocols,
         )
     except KeyboardInterrupt:
-        print("\n\n⚠️  Shutting down control panel server...")
+        print("\n\n[!]  Shutting down control panel server...")
     except Exception as e:
-        print(f"\n❌ Fatal error: {e}")
+        print(f"\n[x] Fatal error: {e}")
         import traceback
 
         traceback.print_exc()
