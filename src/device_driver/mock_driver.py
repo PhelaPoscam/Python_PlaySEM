@@ -7,7 +7,47 @@ These drivers log commands to console instead of sending to real devices.
 import logging
 from typing import Dict, Any, Optional
 
+from .base_driver import BaseDriver
+
 logger = logging.getLogger(__name__)
+
+
+class MockConnectivityDriver(BaseDriver):
+    """Mock connectivity driver for testing without real hardware."""
+
+    def __init__(self):
+        self._connected = False
+        logger.info("MockConnectivityDriver initialized")
+
+    def connect(self) -> bool:
+        logger.info("MockConnectivityDriver: connect()")
+        self._connected = True
+        return True
+
+    def disconnect(self) -> bool:
+        logger.info("MockConnectivityDriver: disconnect()")
+        self._connected = False
+        return True
+
+    def send_command(
+        self,
+        device_id: str,
+        command: str,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        logger.info(
+            f"MockConnectivityDriver: send_command("
+            f"device_id='{device_id}', command='{command}', params={params})"
+        )
+        # In a real mock driver, you might want to store the state
+        # of mock devices here. For now, just logging is enough.
+        return True
+
+    def is_connected(self) -> bool:
+        return self._connected
+
+    def get_driver_type(self) -> str:
+        return "mock"
 
 
 class MockDeviceBase:

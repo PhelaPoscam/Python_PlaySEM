@@ -37,34 +37,113 @@ PythonPlaySEM aims to provide:
 - Driver integration with DeviceManager
 - Delay compensation and timing precision
 
+### ✨ Future Enhancements
+- **Service Discovery**: Implement UPnP or mDNS-based service discovery for the WebSocket server to allow clients to automatically find the server on the network.
+
 ## 📁 Project Structure
 
 ```
-PythonPlaySEM/
-├── src/                        # Core application code
-│   ├── config_loader.py        # XML/YAML configuration parser
-│   ├── device_manager.py       # Device communication manager
-│   ├── effect_dispatcher.py    # Effect routing logic
-│   ├── effect_metadata.py      # Metadata parsing
-│   ├── protocol_server.py      # Communication protocols
-│   ├── timeline.py             # Timeline scheduler
-│   ├── main.py                 # Application entry point
-│   └── device_driver/          # Device connectivity drivers
-│       ├── mock_driver.py      # Mock devices for testing
-│       └── serial_driver.py    # Serial/USB driver (Phase 3)
-├── tests/                      # Unit and integration tests
-├── examples/
-│   ├── demos/                  # Demo applications
-│   ├── clients/                # Test client scripts
-│   └── web/                    # HTML/web interfaces
-├── docs/                       # Documentation
-├── config/                     # Configuration files
-│   ├── devices.yaml
-│   └── effects.yaml
-├── .vscode/                    # VS Code settings
-├── pyproject.toml              # Modern Python project config
-├── requirements.txt            # Dependencies
-└── README.md
+d:\TUNI\Python\Python_PlaySEM\
+├───.gitignore
+├───pyproject.toml
+├───README.md
+├───requirements.txt
+├───run_tests.py
+├───.git\
+├───.pytest_cache\
+│   └───v\
+├───.qodo\
+│   ├───agents\
+│   └───workflows\
+├───.vscode\
+├───config\
+│   ├───devices.yaml
+│   └───effects.yaml
+├───docs\
+│   ├───CONTROL_PANEL_ARCHITECTURE.md
+│   ├───CONVENTIONS.md
+│   ├───DEVICE_TESTING_CHECKLIST.md
+│   ├───mqtt_broker_plan.md
+│   ├───README.md
+│   ├───ROADMAP.md
+│   ├───UNIVERSAL_DRIVER_INTEGRATION.md
+│   ├───archive\
+│   │   ├───INTEGRATION_TESTING.md
+│   │   ├───PHASE2_COMPLETION.md
+│   │   ├───PHASE2_ENHANCEMENTS.md
+│   │   ├───README.md
+│   │   └───TESTING.md
+│   ├───guides\
+│   │   ├───CONTROL_PANEL_GUIDE.md
+│   │   ├───MOBILE_PHONE_SETUP.md
+│   │   └───UPNP_GUIDE.md
+│   ├───reference\
+│   │   └───TIMELINE_PLAYER.md
+│   └───testing\
+│       └───PROTOCOL_TESTING.md
+├───examples\
+│   ├───README.md
+│   ├───clients\
+│   │   ├───test_coap_client.py
+│   │   ├───test_http_client.py
+│   │   ├───test_mqtt_client_public.py
+│   │   ├───test_mqtt_client.py
+│   │   ├───test_upnp_client.py
+│   │   └───test_websocket_client.py
+│   ├───control_panel\
+│   │   ├───control_panel_server.py
+│   │   ├───control_panel.html
+│   │   ├───PROTOCOL_TESTING.md
+│   │   ├───README.md
+│   │   ├───sample_timeline.xml
+│   │   └───TIMELINE_PLAYER.md
+│   ├───demos\
+│   │   ├───bluetooth_driver_demo.py
+│   │   ├───coap_server_demo.py
+│   │   ├───driver_integration_demo.py
+│   │   ├───end_to_end_integration_demo.py
+│   │   ├───http_server_demo.py
+│   │   ├───mock_device_demo.py
+│   │   ├───mqtt_server_demo_public.py
+│   │   ├───mqtt_server_demo.py
+│   │   ├───serial_driver_demo.py
+│   │   ├───timeline_demo.py
+│   │   ├───unified_server_demo.py
+│   │   ├───upnp_server_demo.py
+│   │   ├───websocket_control_server.py
+│   │   └───websocket_server_demo.py
+│   └───web\
+│       ├───phone_tester_server.py
+│       ├───phone_tester.html
+│       └───websocket_client.html
+├───src\
+│   ├───config_loader.py
+│   ├───device_manager.py
+│   ├───effect_dispatcher.py
+│   ├───effect_metadata.py
+│   ├───main.py
+│   ├───protocol_server.py
+│   ├───timeline.py
+│   └───device_driver\
+│       ├───__init__.py
+│       ├───base_driver.py
+│       ├───bluetooth_driver.py
+│       ├───driver_factory.py
+│       ├───mock_driver.py
+│       ├───mqtt_driver.py
+│       └───serial_driver.py
+├───tests\
+│   ├───conftest.py
+│   ├───test_coap_server_integration.py
+│   ├───test_config_loader.py
+│   ├───test_device_manager.py
+│   ├───test_effect_dispatcher.py
+│   ├───test_effect_metadata.py
+│   ├───test_mqtt_broker.py
+│   ├───test_timeline.py
+│   ├───test_upnp_server.py
+│   └───test_websocket_server.py
+└───venv\
 ```
 
 ## 📦 Installation
@@ -99,7 +178,73 @@ PythonPlaySEM/
 
 ## 🎮 Usage
 
-### Basic Example
+The `examples` directory contains a variety of scripts to demonstrate the features of PythonPlaySEM.
+
+### Standalone Server Demos (`examples/demos/`)
+These scripts show how to run each protocol server in isolation. They are great for understanding how each component works.
+
+- **WebSocket server + HTML client** (ws://localhost:8765):
+   ```powershell
+   .\.venv\Scripts\python.exe examples\demos\websocket_server_demo.py
+   ```
+   *This will generate a QR code to easily connect from your phone.*
+
+- **HTTP REST server** (http://localhost:8080):
+   ```powershell
+   .\.venv\Scripts\python.exe examples\demos\http_server_demo.py
+   ```
+
+- **MQTT public-broker demo** (test.mosquitto.org):
+   ```powershell
+   .\.venv\Scripts\python.exe examples\demos\mqtt_server_demo_public.py
+   ```
+
+- **CoAP server** (coap://localhost:5683):
+   ```powershell
+   .\.venv\Scripts\python.exe examples\demos\coap_server_demo.py
+   ```
+
+- **UPnP device discovery** (SSDP multicast):
+   ```powershell
+   .\.venv\Scripts\python.exe examples\demos\upnp_server_demo.py
+   ```
+
+### Protocol Test Clients (`examples/clients/`)
+Use these simple test scripts to send effects to the servers and verify that they are working correctly.
+
+- **HTTP REST client:**
+  ```powershell
+  # Submit effect
+  curl -X POST http://localhost:8080/api/effects \
+    -H "Content-Type: application/json" \
+    -d '{"effect_type":"light","intensity":200,"duration":1000}'
+  ```
+
+- **MQTT client:**
+  ```powershell
+  .\.venv\Scripts\python.exe examples\clients\test_mqtt_client_public.py
+  ```
+
+- **CoAP client:**
+  ```powershell
+  .\.venv\Scripts\python.exe examples\clients\test_coap_client.py
+  ```
+
+- **UPnP client:**
+  ```powershell
+  .\.venv\Scripts\python.exe examples\clients\test_upnp_client.py
+  ```
+
+### Web Control Panel (`examples/control_panel/`)
+This is the recommended way to test the full capabilities of PythonPlaySEM. It provides a full-featured web interface for device management, effect testing, and real-time logging.
+
+```powershell
+python examples\control_panel\control_panel_server.py
+```
+Then open `http://localhost:8090` in your browser.
+For more details, see the **[Comprehensive Control Panel Guide](docs/guides/CONTROL_PANEL_GUIDE.md)**.
+
+### Basic Example (programmatic usage)
 
 ```python
 from src.config_loader import load_config
@@ -118,51 +263,6 @@ effect_dispatcher = EffectDispatcher(device_manager=device_manager)
 # Dispatch a light effect
 effect_dispatcher.dispatch_effect("light", {"intensity": "high"})
 ```
-
-### Demos
-
-Run these from the project root (PowerShell examples):
-
-- **WebSocket server + HTML client** (ws://localhost:8765):
-   ```powershell
-   .\.venv\Scripts\python.exe examples\demos\websocket_server_demo.py
-   start examples\web\websocket_client.html
-   ```
-   Tip: The HTML client includes fields for URL and optional auth token.
-
-- **MQTT public-broker demos** (test.mosquitto.org):
-   ```powershell
-   .\.venv\Scripts\python.exe examples\demos\mqtt_server_demo_public.py
-   .\.venv\Scripts\python.exe examples\clients\test_mqtt_client_public.py
-   ```
-
-- **CoAP server and client** (coap://localhost:5683):
-   ```powershell
-   .\.venv\Scripts\python.exe examples\demos\coap_server_demo.py
-   .\.venv\Scripts\python.exe examples\clients\test_coap_client.py
-   ```
-
-- **HTTP REST server** (http://localhost:8080):
-   ```powershell
-   .\.venv\Scripts\python.exe examples\demos\http_server_demo.py
-   # Health
-   curl http://localhost:8080/api/status
-   # Submit effect
-   curl -X POST http://localhost:8080/api/effects ^
-     -H "Content-Type: application/json" ^
-     -d '{"effect_type":"light","intensity":200,"duration":1000}'
-   # Devices (requires API key if enabled)
-   curl -H "X-API-Key: your_secret_key" http://localhost:8080/api/devices
-   ```
-
-- **UPnP device discovery** (SSDP multicast):
-   ```powershell
-   # Start UPnP server (advertises on network)
-   .\.venv\Scripts\python.exe examples\demos\upnp_server_demo.py
-   
-   # Discover PlaySEM devices on network
-   .\.venv\Scripts\python.exe examples\clients\test_upnp_client.py
-   ```
 
 ### 🔒 Security Features
 

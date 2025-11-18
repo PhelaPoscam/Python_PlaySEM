@@ -1,5 +1,6 @@
 pytest==7.4.0
-pytest-asyncio>=0.21.0
+pytest-asyncio
+qrcode[pil]>=0.21.0
 pytest-timeout>=2.1.0
 requests==2.31.0
 numpy==1.26.4
@@ -14,3 +15,5 @@ uvicorn==0.24.0
 python-multipart>=0.0.6
 pyserial>=3.5
 bleak>=0.21.0
+aiohttp>=3.8.0
+aiohttp-cors>=0.7.0

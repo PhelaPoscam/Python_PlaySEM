@@ -1,162 +1,149 @@
-# 🎮 Control Panel Quick Start Guide
+# 🎮 Comprehensive Control Panel Guide
 
-## What is this?
+## Overview
 
-A web-based control panel that lets you:
-- Choose between WebSocket, MQTT, or CoAP protocols
-- Configure server connection settings
-- Send sensory effects (light, wind, vibration, scent)
-- Adjust intensity and duration with sliders
-- See real-time activity logs
+The Control Panel provides a user-friendly web interface for testing and controlling your PythonPlaySEM devices in real-time. It is the recommended way to interact with the framework for debugging, device management, and advanced testing workflows.
 
-## 🚀 Quick Start (WebSocket - Canonical PlaySEM Flow)
+**IMPORTANT — Canonical PlaySEM Flow:**
+- For **quick end-to-end tests**, the most direct method is using `examples/demos/websocket_server_demo.py` combined with `examples/web/websocket_client.html`. This is the minimal and preferred way to verify a basic PlaySEM setup.
+- The **Control Panel** described in this guide is a richer, full-featured application for when you need to manage multiple devices, discover them on the network, and access more advanced debugging tools.
 
-Important: This guide describes the *canonical* PlaySEM flow. Use the `examples/demos/*` servers and `examples/web/websocket_client.html` for minimal end-to-end testing. The `examples/control_panel` folder contains a richer FastAPI control panel for advanced device discovery and management — it is not required for basic tests.
+---
 
-### Step 1: Start the canonical server (recommended)
-```powershell
-& 'C:\TUNI - Projects\Python Project\PythonPlaySEM\.venv\Scripts\python.exe' examples\demos\unified_server_demo.py
+## 🚀 Quick Start
+
+This quick start will get you running with the full control panel.
+
+### 1. Start the Server
+
+In your activated `(venv)` terminal, run the following command:
+```bash
+python examples/control_panel/control_panel_server.py
 ```
+The server will start on `http://localhost:8090`.
 
-You should see:
-```
-============================================================
-Servers Running:
-============================================================
-✅ WebSocket: ws://localhost:8765
-⚠️  MQTT:      localhost:1883 (topics: effects/#)
-✅ CoAP:      coap://localhost:5683/effects
+### 2. Open in Browser
 
-Control Panel:
-   → Open: examples/control_panel.html
-```
+**Desktop:** Navigate to http://localhost:8090
 
-### Step 2: Open the control panel
-```powershell
-start examples\web\control_panel.html
-```
+**Mobile Phone:**
+- Find your PC's IP address (e.g., `192.168.1.100`).
+- Open a browser on your phone and go to `http://YOUR_PC_IP:8090`.
 
-Or double-click `examples/control_panel.html` in File Explorer.
+### 3. Connect and Test
+1.  Click the **"Connect"** button (WebSocket is selected by default).
+2.  You should see "✅ Connected to WebSocket server" in the log.
+3.  Click any effect button (e.g., 💡 Light) to send an effect to the server.
+4.  Adjust the intensity and duration sliders and send more effects.
+5.  Watch the server terminal and the control panel's activity log for real-time updates.
 
-### Step 3: Connect and test
-1. Click **"Connect"** button (WebSocket is selected by default)
-2. You should see "✅ Connected to WebSocket server" in the log
-3. Click any effect button (💡 Light, 💨 Wind, etc.) — this sends an `effect` JSON object to the server and the server forwards it to any connected DeviceManager/driver.
-4. Adjust intensity/duration sliders
-5. Watch the server terminal for received effects
+---
 
-## 🎯 Canonical Features & Quick Use
+## 📱 Features
 
-Use these components when you want to test PlaySEM quickly and reliably:
+### 🔌 Server Connection
+- Connect to the backend server.
+- WebSocket is used for real-time updates.
+- A status indicator shows the current connection status.
 
-- `examples/demos/websocket_server_demo.py` — Lightweight WebSocket server that integrates with PlaySEM Dispatcher/DeviceManager
-- `examples/web/websocket_client.html` — Minimal browser client that connects to WebSocket server and sends effects
+### 🔍 Device Discovery
+- **Bluetooth (BLE):** Scan for nearby Bluetooth devices like phones, smartwatches, or haptic vests.
+- **Serial (USB):** Automatically detect connected Arduino/ESP32 devices by listing all available COM ports.
+- **MQTT (Network):** Connect to network devices via an MQTT broker.
 
-For advanced device discovery and live device management, use:
+### 📱 Connected Devices
+- View a list of all connected devices.
+- Test each device individually.
+- Disconnect devices when you're done.
 
-- `examples/control_panel/control_panel_server.py` + `examples/control_panel/control_panel.html` — Full feature FastAPI server and UI for discovery (BLE/Serial/MQTT), connection, and effect testing
+### ⚡ Effect Testing
+- Select a target device from the list of connected devices.
+- Choose an effect type (vibration, light, wind, etc.).
+- Adjust intensity (0-100%) and duration (100-5000ms) with sliders.
+- Use quick presets for common effect patterns:
+  - **Short Buzz:** 20% / 200ms
+  - **Medium Pulse:** 50% / 1s
+  - **Strong Vibe:** 80% / 2s
+  - **Maximum:** 100% / 3s
 
-Tip: `examples/web/phone_tester.html` is a convenience page for verifying the Web Vibration API on your phone; it is not required to test PlaySEM end-to-end.
-
-### Protocol Selection
-- **WebSocket**: Best for browser-based apps (fully supported)
-- **MQTT**: For IoT devices (requires broker, not available in browser)
-- **CoAP**: For constrained devices (not available in browser)
-
-### Effect Controls
-- **4 Effect Types**: Light, Wind, Vibration, Scent
-- **Intensity Slider**: 0-100
-- **Duration Slider**: 100-5000ms
-- **Location**: Optional spatial positioning
-
-### Keyboard Shortcuts (when connected)
+### ⌨️ Keyboard Shortcuts (when connected)
 - `L` - Trigger Light effect
 - `W` - Trigger Wind effect
 - `V` - Trigger Vibration effect
 - `S` - Trigger Scent effect
 
-### Activity Log
-Real-time log showing:
-- Connection events
-- Sent effects
-- Received responses
-- Errors and warnings
+### 📊 System Statistics
+- Total number of effects sent.
+- Average effect latency.
+- System uptime.
+- Total error count.
 
-## 📊 What You'll See
-
-**In the control panel:**
-```
-[14:30:25] Connecting to ws://localhost:8765...
-[14:30:25] ✅ Connected to WebSocket server
-[14:30:30] ✅ Sent light effect (intensity: 80, duration: 1000ms)
-[14:30:30] Received: {"type":"response","success":true,...}
-```
-
-**In the server terminal:**
-```
-14:30:25 - [INFO] 🔗 Client connected: 127.0.0.1:52341
-14:30:30 - [INFO] ✓ Received effect: light (intensity=80, duration=1000ms)
-```
-
-## 🔧 Advanced: MQTT Setup
-
-If you want to test MQTT (optional):
-
-1. **Install Mosquitto broker:**
-   ```powershell
-   choco install mosquitto
-   ```
-
-2. **Start broker:**
-   ```powershell
-   mosquitto
-   ```
-
-3. **Restart unified server** - it will detect the broker automatically
-
-Note: MQTT in browser requires a WebSocket bridge, which is complex to set up. The control panel shows this as unavailable.
-
-## 🛠️ Troubleshooting
-
-### "Connection refused" error
-- Make sure `unified_server_demo.py` is running
-- Check that port 8765 is not blocked by firewall
-- Verify the URL is `ws://localhost:8765` (not `http://`)
-
-### Effects not sending
-- Ensure you clicked "Connect" first
-- Check the activity log for error messages
-- Verify server is still running in the terminal
-
-### Page not loading
-- Use a modern browser (Chrome, Firefox, Edge)
-- Check browser console (F12) for JavaScript errors
-- Try refreshing the page
-
-## 📁 Files
-
- - `examples/control_panel/control_panel.html` - Full-feature UI (FastAPI)
-- `examples/demos/unified_server_demo.py` - Server that runs all protocols
-- `examples/demos/websocket_server_demo.py` - WebSocket only
-- `examples/demos/coap_server_demo.py` - CoAP only
-- `examples/demos/mqtt_server_demo_public.py` - MQTT only
-
-## 🎓 Tips
-
-1. **Keep the server terminal visible** - you'll see effects as they arrive
-2. **Use keyboard shortcuts** - faster than clicking buttons
-3. **Adjust sliders while connected** - changes apply to next effect
-4. **Check the activity log** - helpful for debugging
-5. **Try different intensities/durations** - see how they affect behavior
-
-## 🚀 Next Steps
-
-- Integrate with Unity/Unreal game engine (use WebSocket protocol)
-- Connect real hardware devices (fans, LEDs, etc.)
-- Add custom effects in `config/effects.yaml`
-- Build your own control interface using the same protocol
-- Add timeline/sequence support for complex effect patterns
+### 📝 Activity Log
+- A real-time log of all system events.
+- See connection events, effect dispatch results, and error messages.
 
 ---
 
-**Enjoy testing your mulsemedia system! 🎉**
+## 🧪 Usage Scenarios & Testing
+
+### 📳 Laptop → Phone via WebSocket (Recommended for quick phone tests)
+
+This method uses the lightweight WebSocket demo to test phone vibration without needing the full control panel server.
+
+1.  **Start the WebSocket server demo** (on your laptop):
+    ```powershell
+    .venv\Scripts\python.exe examples\demos\websocket_server_demo.py
+    ```
+
+2.  **Serve the web client** (so your phone can load it over HTTP):
+    ```powershell
+    # From the repo root, in a new terminal
+    cd examples\web
+    python -m http.server 8000
+    ```
+
+3.  **On your phone** (connected to the same Wi-Fi):
+    - Open the QR code generated by the server, or manually navigate to `http://<YOUR_PC_IP>:8000/websocket_client.html`.
+    - The WebSocket URL should be pre-filled.
+    - Check the "Phone mode" box.
+    - Tap "Connect to Server".
+
+4.  **Send a vibration effect:**
+    - From another client (like the same page open on your laptop's browser), send a vibration effect. Your phone will vibrate.
+
+### Scenario 1: Quick Phone Vibration Test
+**Goal:** Verify your phone's Web Vibration API.
+1.  Serve the phone tester page: `cd examples\web` and then `python phone_tester_server.py`.
+2.  On your phone, open: `http://YOUR_PC_IP:8091/phone_tester.html`.
+3.  Tap the "Short Buzz" button and feel the vibration immediately.
+
+### Scenario 2: BLE Integration Test
+**Goal:** Test Bluetooth connectivity and effect dispatch.
+1.  Set up your phone as a BLE peripheral (using an app like nRF Connect).
+2.  From the Control Panel, scan for Bluetooth devices.
+3.  Connect to your phone.
+4.  Send vibration effects and measure the latency in the activity log (should be < 150ms).
+
+---
+
+## 🛠️ Advanced Usage & Troubleshooting
+
+### Advanced: MQTT Setup
+If you want to test with MQTT (optional):
+1.  **Install Mosquitto broker:** `choco install mosquitto` (on Windows).
+2.  **Start broker:** `mosquitto`.
+3.  The control panel server should detect the broker automatically on startup.
+*Note: MQTT in the browser requires a WebSocket bridge, which is complex. The control panel shows this as unavailable for the browser client.*
+
+### Troubleshooting
+- **Control Panel won't load:** Check that the `control_panel_server.py` is running and that your firewall is not blocking port 8090.
+- **Can't connect to devices:** For Bluetooth, ensure your device is advertising. For Serial, check that drivers are installed. For MQTT, verify the broker is running.
+- **Phone not vibrating:** Make sure your phone is not in silent mode and that the browser has permission to use the Vibration API. Test with `phone_tester.html` first.
+
+---
+
+## 📁 Relevant Files
+
+- **`examples/control_panel/control_panel_server.py`**: The backend server for the control panel.
+- **`examples/control_panel/control_panel.html`**: The web UI for the control panel.
+- **`docs/MOBILE_PHONE_SETUP.md`**: Detailed guide for setting up your phone for testing.

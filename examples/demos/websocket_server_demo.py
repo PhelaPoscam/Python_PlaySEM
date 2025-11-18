@@ -10,11 +10,11 @@ This example shows how to:
 4. Handle real-time bidirectional communication
 
 Prerequisites:
-- Install: pip install websockets
+- Install: pip install websockets qrcode[pil]
 
 To test:
 1. Run this script: python examples/websocket_server_demo.py
-2. Open examples/websocket_client.html in a web browser
+2. Scan the generated QR code with your phone
 3. Send effects through the web interface
 """
 
@@ -22,6 +22,8 @@ import sys
 import asyncio
 import logging
 from pathlib import Path
+import qrcode
+import socket
 
 # Add parent directory to path before importing local modules
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -38,6 +40,22 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+
+def get_local_ip():
+    """Gets the local IP address of the machine."""
+    s = None
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # Doesn't have to be reachable
+        s.connect(('8.8.8.8', 1))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = '127.0.0.1'
+    finally:
+        if s:
+            s.close()
+    return ip
 
 
 def on_effect_received(effect):
@@ -73,10 +91,28 @@ async def main():
     # Create dispatcher
     dispatcher = EffectDispatcher(device_manager)
 
+    # --- QR Code Generation ---
+    host_ip = get_local_ip()
+    http_port = 8000  # Standard port for the simple HTTP server
+    ws_port = 8765
+    client_url = f"http://{host_ip}:{http_port}/websocket_client.html?ws_url=ws://{host_ip}:{ws_port}"
+
+    print("\n" + "=" * 60)
+    print("📱 Connect with your phone")
+    print("=" * 60)
+    print("\nScan the QR code below to open the client:")
+
+    qr = qrcode.QRCode()
+    qr.add_data(client_url)
+    qr.print_ascii(invert=True)
+
+    print(f"\nOr open manually: {client_url}")
+    # --- End of QR Code Generation ---
+
     # Create WebSocket server
     server = WebSocketServer(
-        host="localhost",
-        port=8765,  # Changed from 8080 to avoid conflicts
+        host="0.0.0.0",
+        port=ws_port,
         dispatcher=dispatcher,
         on_effect_received=on_effect_received,
         on_client_connected=on_client_connected,
@@ -86,15 +122,7 @@ async def main():
     print("\n" + "=" * 60)
     print("WebSocket Server is starting...")
     print("=" * 60)
-    print("\nServer URL: ws://localhost:8765")
-    print("\nTo test the server:")
-    print("1. Open 'examples/websocket_client.html' in your web browser")
-    print("2. Or use a WebSocket client tool")
-    print("3. Send JSON messages like:")
-    print(
-        '   {"type":"effect","effect_type":"light",'
-        '"intensity":100,"duration":1000}'
-    )
+    print(f"\nServer URL: ws://{host_ip}:{ws_port}")
     print("\nPress Ctrl+C to stop the server.\n")
 
     try:

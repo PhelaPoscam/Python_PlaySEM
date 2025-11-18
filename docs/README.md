@@ -36,11 +36,11 @@ Conventions for adding new docs are in docs/CONVENTIONS.md.
 
 - External Clients & Web Tools
   - Clients (HTTP/MQTT/CoAP/UPnP/WebSocket): [examples/clients/](../examples/clients/)
-  - Web Phone Tester: [web/phone_tester.html](../web/phone_tester.html) and [web/phone_tester_server.py](../web/phone_tester_server.py)
-  - WebSocket Client Demo: [web/websocket_client.html](../web/websocket_client.html)
+  - Web Phone Tester: [web/phone_tester.html](../examples/web/phone_tester.html) and [web/phone_tester_server.py](../examples/web/phone_tester_server.py)
+  - WebSocket Client Demo: [web/websocket_client.html](../examples/web/websocket_client.html)
 
 - Demos
-  - See runnable demos under [demos/](../demos/)
+  - See runnable demos under [demos/](../examples/demos/)
 
 - Source & Tests
   - Source code: [src/](../src/)

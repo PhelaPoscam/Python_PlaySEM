@@ -85,6 +85,7 @@ async def test_broker_publish_and_dispatch(mqtt_broker, effect_dispatcher):
     """
     Test that the broker receives a message and dispatches the effect.
     """
+    effect_dispatcher.dispatch_effect_metadata.reset_mock()
     # The mqtt_broker fixture has already started the server
 
     # Use a standard paho-mqtt client to connect and publish

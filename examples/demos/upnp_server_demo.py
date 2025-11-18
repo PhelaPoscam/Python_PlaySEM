@@ -30,6 +30,7 @@ from src.device_driver.mock_driver import (
     MockWindDevice,
     MockVibrationDevice,
     MockScentDevice,
+    MockConnectivityDriver,
 )
 
 # Setup logging
@@ -47,7 +48,8 @@ async def main():
     logger.info("=" * 60)
 
     # Create device manager with mock devices
-    device_manager = DeviceManager()
+    mock_driver = MockConnectivityDriver()
+    device_manager = DeviceManager(connectivity_driver=mock_driver)
 
     # Create some mock devices for demonstration
     # Note: In a real application, these would be registered with the manager
@@ -64,34 +66,21 @@ async def main():
     dispatcher = EffectDispatcher(device_manager)
     logger.info("Effect dispatcher created")
 
-    # Define callback for received effects
-    def on_effect_received(effect: EffectMetadata):
-        logger.info(f"📨 Effect received via UPnP: {effect.effect_type}")
-        logger.info(
-            f"   Duration: {effect.duration}ms, "
-            f"Intensity: {effect.intensity}"
-        )
-
-    # Create UPnP server
-    hostname = socket.gethostname()
-    local_ip = socket.gethostbyname(hostname)
-
+    # Create UPnP server. The server will auto-detect the host IP.
+    # The http_port is for serving the XML description files.
     server = UPnPServer(
         friendly_name="PlaySEM Python Server",
         dispatcher=dispatcher,
-        location_url=f"http://{local_ip}:8080/description.xml",
+        http_port=8080, # You can change this port if needed
         manufacturer="PlaySEM Community",
         model_name="PlaySEM Python Server",
         model_version="1.0.0",
-        on_effect_received=on_effect_received,
     )
 
     logger.info("UPnP Server configured:")
-    logger.info("  - Friendly Name: PlaySEM Python Server")
-    logger.info(f"  - Local IP: {local_ip}")
+    logger.info(f"  - Friendly Name: {server.friendly_name}")
+    logger.info(f"  - Location URL: {server.location_url}")
     logger.info(f"  - UUID: {server.uuid}")
-    logger.info(f"  - Device Type: {server.device_type}")
-    logger.info(f"  - Service Type: {server.service_type}")
 
     try:
         # Start the server

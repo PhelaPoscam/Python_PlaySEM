@@ -20,6 +20,7 @@ async def test_coap_server_receives_and_dispatches_effect():
         port = s.getsockname()[1]
 
     received = {}
+
     def on_effect_received(effect):
         received["effect"] = effect
 

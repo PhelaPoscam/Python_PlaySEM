@@ -335,7 +335,16 @@
         
         // Auto-connect on page load
         window.onload = function() {
-            log('PythonPlaySEM WebSocket Client initialized', 'info');
+            const wsUrlInput = document.getElementById('wsUrl');
+            const urlParams = new URLSearchParams(window.location.search);
+            const wsUrl = urlParams.get('ws_url');
+
+            if (wsUrl) {
+                wsUrlInput.value = wsUrl;
+                log('WebSocket URL pre-filled from URL parameter.', 'info');
+            } else {
+                log('PythonPlaySEM WebSocket Client initialized', 'info');
+            }
             log('Click "Connect to Server" to start', 'info');
         };
         
