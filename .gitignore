@@ -63,3 +63,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 temp/
+
+# Ignore the temporary Java project
+temp_java_project/
