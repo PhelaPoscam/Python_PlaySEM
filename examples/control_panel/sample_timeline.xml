@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SEM title="Sample Sensory Effect Timeline">
+    <metadata>
+        <title>Action Scene Demo</title>
+        <author>PlaySEM</author>
+        <description>Sample timeline with vibration, light, and wind effects</description>
+    </metadata>
+    
+    <SensoryEffects>
+        <!-- Initial vibration burst -->
+        <Effect type="vibration" timestamp="0" duration="500" intensity="80" location="center"/>
+        
+        <!-- Red light flash -->
+        <Effect type="light" timestamp="200" duration="800" intensity="100" location="center" color="#FF0000"/>
+        
+        <!-- Wind gust -->
+        <Effect type="wind" timestamp="500" duration="1000" intensity="60" location="center"/>
+        
+        <!-- Strong vibration -->
+        <Effect type="vibration" timestamp="1500" duration="700" intensity="100" location="everywhere"/>
+        
+        <!-- Blue light pulse -->
+        <Effect type="light" timestamp="1800" duration="600" intensity="75" location="center" color="#0000FF"/>
+        
+        <!-- Medium vibration -->
+        <Effect type="vibration" timestamp="2500" duration="400" intensity="50" location="center"/>
+        
+        <!-- Gentle wind -->
+        <Effect type="wind" timestamp="3000" duration="1500" intensity="30" location="everywhere"/>
+        
+        <!-- Final vibration -->
+        <Effect type="vibration" timestamp="4000" duration="300" intensity="40" location="center"/>
+    </SensoryEffects>
+</SEM>

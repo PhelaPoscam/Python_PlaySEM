@@ -352,17 +352,16 @@ This project is based on the PlaySEM Sensory Effects Renderer framework develope
 
 ## 📖 Documentation
 
-Detailed guides are available in the `docs/` folder:
-- **[ROADMAP.md](docs/ROADMAP.md)**: Project phases and future plans
-- **[TESTING.md](docs/TESTING.md)**: Testing strategy and coverage
-- **[UPNP_GUIDE.md](docs/UPNP_GUIDE.md)**: UPnP/SSDP implementation details
-- **[CONTROL_PANEL_GUIDE.md](docs/CONTROL_PANEL_GUIDE.md)**: WebSocket control panel usage
-- **[PHASE2_COMPLETION.md](docs/PHASE2_COMPLETION.md)**: Phase 2 completion report
-- **[INTEGRATION_TESTING.md](docs/INTEGRATION_TESTING.md)**: Integration testing guide
- - **[PHASE2_ENHANCEMENTS.md](docs/PHASE2_ENHANCEMENTS.md)**: Auth + HTTP REST details
+Start here: [docs/README.md](docs/README.md) — centralized index of all guides, reference, testing, and roadmap documents.
+
+Key entries:
+- Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
+- Control Panel Guide: [docs/guides/CONTROL_PANEL_GUIDE.md](docs/guides/CONTROL_PANEL_GUIDE.md)
+- UPnP Guide: [docs/guides/UPNP_GUIDE.md](docs/guides/UPNP_GUIDE.md)
+- Protocol Testing: [docs/testing/PROTOCOL_TESTING.md](docs/testing/PROTOCOL_TESTING.md)
 
 ---
 
-**Note**: This is an active translation project. Many features from the original Java implementation are still being ported to Python. See `docs/ROADMAP.md` for planned features and timeline.
- 
-Project status: Paused. See `docs/ROADMAP.md` for the latest status and how to resume.
+Note: This is an active translation project. Many features from the original Java implementation are still being ported to Python. See [docs/ROADMAP.md](docs/ROADMAP.md) for planned features and timeline.
+
+Project status: Paused. See [docs/ROADMAP.md](docs/ROADMAP.md) for the latest status and how to resume.

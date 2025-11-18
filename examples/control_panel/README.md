@@ -281,6 +281,8 @@ After successfully testing with control panel:
 6. **⬜ Build custom driver** - Extend to other hardware
 7. **⬜ Integrate with app** - Use in your own projects
 
+For canonical protocol and testing instructions, see `PROTOCOL_TESTING.md`.
+
 ---
 
 ## 📁 File Structure
@@ -289,9 +291,7 @@ After successfully testing with control panel:
 examples/control_panel/
 ├── control_panel.html          # Main web interface
 ├── control_panel_server.py     # Backend server (FastAPI + WebSocket)
-├── HOW_TO_TEST.md              # Comprehensive testing guide
-├── QUICKSTART.md               # 3-minute quick start
-├── PROTOCOL_TESTING.md         # Protocol examples
+├── PROTOCOL_TESTING.md         # Advanced protocol testing guide
 └── README.md                   # This file
 
 examples/web/

@@ -23,7 +23,7 @@ import json
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 import uvicorn
@@ -44,6 +44,8 @@ from src.protocol_server import (
     HTTPServer,
     WebSocketServer,
 )
+from src.timeline import Timeline
+from src.effect_metadata import EffectMetadataParser
 
 
 @dataclass
@@ -86,6 +88,17 @@ class ControlPanelServer:
         self.upnp_server = None
         self.http_api_server = None
         self.websocket_protocol_server = None  # For SEM effects
+
+        # Timeline player
+        self.timeline_player = Timeline(
+            effect_dispatcher=self.global_dispatcher,
+            tick_interval=0.01  # 10ms precision
+        )
+        self.current_timeline = None
+        self.timeline_player.set_callbacks(
+            on_effect=self._on_timeline_effect,
+            on_complete=self._on_timeline_complete
+        )
 
         self._setup_routes()
 
@@ -322,6 +335,67 @@ class ControlPanelServer:
                     "device_id": device_id,
                 }
 
+        @self.app.post("/api/timeline/upload")
+        async def upload_timeline(file: UploadFile = File(...)):
+            """Upload and parse XML timeline."""
+            try:
+                xml_content = await file.read()
+                xml_str = xml_content.decode('utf-8')
+                
+                timeline = EffectMetadataParser.parse_mpegv_xml(xml_str)
+                self.current_timeline = timeline
+                self.timeline_player.load_timeline(timeline)
+                
+                return {
+                    "type": "timeline_loaded",
+                    "success": True,
+                    "effect_count": len(timeline.effects),
+                    "duration": timeline.total_duration,
+                    "metadata": timeline.metadata
+                }
+            except Exception as e:
+                return {
+                    "type": "timeline_error",
+                    "success": False,
+                    "error": str(e)
+                }
+
+    def _on_timeline_effect(self, effect):
+        """Callback when timeline effect is executed."""
+        # Broadcast to all connected clients
+        asyncio.create_task(self._broadcast_timeline_effect(effect))
+
+    def _on_timeline_complete(self):
+        """Callback when timeline completes."""
+        asyncio.create_task(self._broadcast_timeline_status())
+
+    async def _broadcast_timeline_effect(self, effect):
+        """Broadcast timeline effect execution to all clients."""
+        message = {
+            "type": "timeline_effect",
+            "effect_type": effect.effect_type,
+            "intensity": effect.intensity,
+            "duration": effect.duration
+        }
+        for client in list(self.clients):
+            try:
+                await client.send_json(message)
+            except Exception:
+                self.clients.discard(client)
+
+    async def _broadcast_timeline_status(self):
+        """Broadcast timeline status to all clients."""
+        status = self.timeline_player.get_status()
+        message = {
+            "type": "timeline_status",
+            **status
+        }
+        for client in list(self.clients):
+            try:
+                await client.send_json(message)
+            except Exception:
+                self.clients.discard(client)
+
     async def handle_client(self, websocket: WebSocket):
         """Handle WebSocket client connection."""
         await websocket.accept()
@@ -382,6 +456,25 @@ class ControlPanelServer:
         elif msg_type == "stop_protocol_server":
             protocol = message.get("protocol")
             await self.stop_protocol_server(websocket, protocol)
+
+        elif msg_type == "upload_timeline":
+            xml_content = message.get("xml_content")
+            await self.handle_timeline_upload(websocket, xml_content)
+
+        elif msg_type == "play_timeline":
+            await self.play_timeline(websocket)
+
+        elif msg_type == "pause_timeline":
+            await self.pause_timeline(websocket)
+
+        elif msg_type == "resume_timeline":
+            await self.resume_timeline(websocket)
+
+        elif msg_type == "stop_timeline":
+            await self.stop_timeline(websocket)
+
+        elif msg_type == "get_timeline_status":
+            await self.get_timeline_status(websocket)
 
         else:
             await websocket.send_json(
@@ -985,6 +1078,108 @@ class ControlPanelServer:
                     "error": str(e),
                 }
             )
+
+    async def handle_timeline_upload(self, websocket: WebSocket, xml_content: str):
+        """Handle XML timeline upload via WebSocket."""
+        try:
+            timeline = EffectMetadataParser.parse_mpegv_xml(xml_content)
+            self.current_timeline = timeline
+            self.timeline_player.load_timeline(timeline)
+            
+            await websocket.send_json({
+                "type": "timeline_loaded",
+                "success": True,
+                "effect_count": len(timeline.effects),
+                "duration": timeline.total_duration,
+                "metadata": timeline.metadata
+            })
+        except Exception as e:
+            await websocket.send_json({
+                "type": "timeline_error",
+                "success": False,
+                "error": str(e)
+            })
+
+    async def play_timeline(self, websocket: WebSocket):
+        """Start playing the loaded timeline."""
+        try:
+            if not self.current_timeline:
+                await websocket.send_json({
+                    "type": "timeline_error",
+                    "error": "No timeline loaded"
+                })
+                return
+            
+            self.timeline_player.start()
+            await websocket.send_json({
+                "type": "timeline_status",
+                "is_running": True,
+                "message": "Timeline playback started"
+            })
+        except Exception as e:
+            await websocket.send_json({
+                "type": "timeline_error",
+                "error": str(e)
+            })
+
+    async def pause_timeline(self, websocket: WebSocket):
+        """Pause timeline playback."""
+        try:
+            self.timeline_player.pause()
+            await websocket.send_json({
+                "type": "timeline_status",
+                "is_paused": True,
+                "message": "Timeline paused"
+            })
+        except Exception as e:
+            await websocket.send_json({
+                "type": "timeline_error",
+                "error": str(e)
+            })
+
+    async def resume_timeline(self, websocket: WebSocket):
+        """Resume timeline playback."""
+        try:
+            self.timeline_player.resume()
+            await websocket.send_json({
+                "type": "timeline_status",
+                "is_paused": False,
+                "message": "Timeline resumed"
+            })
+        except Exception as e:
+            await websocket.send_json({
+                "type": "timeline_error",
+                "error": str(e)
+            })
+
+    async def stop_timeline(self, websocket: WebSocket):
+        """Stop timeline playback."""
+        try:
+            self.timeline_player.stop()
+            await websocket.send_json({
+                "type": "timeline_status",
+                "is_running": False,
+                "message": "Timeline stopped"
+            })
+        except Exception as e:
+            await websocket.send_json({
+                "type": "timeline_error",
+                "error": str(e)
+            })
+
+    async def get_timeline_status(self, websocket: WebSocket):
+        """Get current timeline status."""
+        try:
+            status = self.timeline_player.get_status()
+            await websocket.send_json({
+                "type": "timeline_status",
+                **status
+            })
+        except Exception as e:
+            await websocket.send_json({
+                "type": "timeline_error",
+                "error": str(e)
+            })
 
     async def broadcast_device_list(self):
         """Broadcast device list to all connected clients."""

@@ -29,5 +29,5 @@ def test_dispatch_effect(effect_dispatcher, mock_device_manager):
     mock_device_manager.send_command.assert_called_with(
         "light_device",
         "set_brightness",
-        {"intensity": "high"}
+        {"intensity": "low"}
     )

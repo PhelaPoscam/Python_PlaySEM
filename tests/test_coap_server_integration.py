@@ -13,7 +13,7 @@ from src.protocol_server import CoAPServer  # noqa: E402
 
 
 @pytest.mark.asyncio
-async def test_coap_server_receives_and_dispatches_effect(event_loop):
+async def test_coap_server_receives_and_dispatches_effect():
     # Pick a free UDP port
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.bind(("127.0.0.1", 0))
@@ -46,7 +46,7 @@ async def test_coap_server_receives_and_dispatches_effect(event_loop):
     try:
         # Prepare client request
         from aiocoap import Context, Message, Code  # type: ignore
-        from aiocoap.numbers import media_types_rev  # type: ignore
+        from aiocoap.numbers import ContentFormat  # type: ignore
 
         payload = {
             "effect_type": "light",
@@ -63,9 +63,7 @@ async def test_coap_server_receives_and_dispatches_effect(event_loop):
             uri=uri,
             payload=json.dumps(payload).encode("utf-8"),
         )
-        request.opt.content_format = media_types_rev.get(
-            "application/json", 50
-        )
+        request.opt.content_format = ContentFormat.by_media_type("application/json")
 
         client = await Context.create_client_context()
         try:
