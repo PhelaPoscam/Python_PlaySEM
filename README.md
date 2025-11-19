@@ -43,9 +43,9 @@ PythonPlaySEM aims to provide:
 ## Roadmap / TODO
 
 ### 1. Dynamic Protocol Configuration
--   [ ] **Goal**: Allow servers (MQTT, WebSocket, etc.) to be enabled and configured via a `settings.yaml` file instead of being hard-coded.
--   [ ] **Task**: Enhance `config_loader.py` to read protocol settings.
--   [ ] **Task**: Update `main.py` and example scripts to start servers based on the loaded configuration.
+-   [x] **Goal**: Allow servers (MQTT, WebSocket, etc.) to be enabled and configured via a `settings.yaml` file instead of being hard-coded.
+-   [x] **Task**: Enhance `config_loader.py` to read protocol settings.
+-   [x] **Task**: Update `main.py` and example scripts to start servers based on the loaded configuration.
 
 ### 2. Uploading Configuration Files
 -   [ ] **Goal**: Enable users to upload a timeline file (e.g., JSON, YAML) through the web control panel to orchestrate a sequence of sensory effects.
