@@ -108,6 +108,10 @@ class EffectDispatcher:
         Args:
             effect: EffectMetadata containing effect details
         """
+        if effect.effect_type == "reconfigure":
+            self._reconfigure_system(effect.parameters)
+            return
+
         # Merge intensity into parameters if present
         params = effect.parameters.copy()
         if effect.intensity is not None:
@@ -118,6 +122,25 @@ class EffectDispatcher:
             params['location'] = effect.location
 
         self.dispatch_effect(effect.effect_type, params)
+
+    def _reconfigure_system(self, config_data: Dict[str, Any]):
+        """
+        Reconfigures the system based on new settings.
+        This method updates DeviceManager settings and potentially
+        signals for ProtocolServer settings updates.
+        """
+        print(f"Received reconfigure command with data: {config_data}")
+
+        # Reconfigure DeviceManager if relevant data is present
+        if "device_manager" in config_data:
+            if self.device_manager.reconfigure(config_data["device_manager"]):
+                print("DeviceManager reconfigured successfully.")
+            else:
+                print("DeviceManager reconfiguration failed or not supported.")
+        
+        # TODO: Implement signaling for ProtocolServer reconfiguration
+        # This would likely involve a callback to the ControlPanelServer
+        # or a similar managing entity.
 
     def _map_parameters(
         self,
