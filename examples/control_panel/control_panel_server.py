@@ -458,8 +458,9 @@ class ControlPanelServer:
             await self.stop_protocol_server(websocket, protocol)
 
         elif msg_type == "upload_timeline":
-            xml_content = message.get("xml_content")
-            await self.handle_timeline_upload(websocket, xml_content)
+            file_content = message.get("file_content")
+            file_type = message.get("file_type")
+            await self.handle_timeline_upload(websocket, file_content, file_type)
 
         elif msg_type == "play_timeline":
             await self.play_timeline(websocket)
@@ -1074,10 +1075,19 @@ class ControlPanelServer:
                 }
             )
 
-    async def handle_timeline_upload(self, websocket: WebSocket, xml_content: str):
-        """Handle XML timeline upload via WebSocket."""
+    async def handle_timeline_upload(self, websocket: WebSocket, file_content: str, file_type: str):
+        """Handle timeline upload via WebSocket, supporting XML, JSON, and YAML."""
         try:
-            timeline = EffectMetadataParser.parse_mpegv_xml(xml_content)
+            timeline = None
+            if file_type == "xml":
+                timeline = EffectMetadataParser.parse_mpegv_xml(file_content)
+            elif file_type == "json":
+                timeline = EffectMetadataParser.parse_json_timeline(file_content)
+            elif file_type == "yaml":
+                timeline = EffectMetadataParser.parse_yaml_timeline(file_content)
+            else:
+                raise ValueError(f"Unsupported timeline file type: {file_type}")
+
             self.current_timeline = timeline
             self.timeline_player.load_timeline(timeline)
             
