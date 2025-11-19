@@ -54,9 +54,9 @@ PythonPlaySEM aims to provide:
 -   [x] **Task**: Use the `Timeline` class to parse and execute the effects from the uploaded file.
 
 ### 3. Sending "Configuration + Package" Together
--   [ ] **Goal**: Allow the system to be reconfigured on-the-fly by sending a special package, without needing to restart the server.
--   [ ] **Task**: Design a "meta-effect" or a dedicated control endpoint for receiving reconfiguration commands.
--   [ ] **Task**: Implement the logic to safely update `DeviceManager` or `ProtocolServer` settings in real-time.
+-   [x] **Goal**: Allow the system to be reconfigured on-the-fly by sending a special package, without needing to restart the server.
+-   [x] **Task**: Design a "meta-effect" or a dedicated control endpoint for receiving reconfiguration commands.
+-   [x] **Task**: Implement the logic to safely update `DeviceManager` or `ProtocolServer` settings in real-time.
 
 ---
 
