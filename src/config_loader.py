@@ -149,3 +149,17 @@ def load_effects_yaml(yaml_path: str) -> Dict:
         Dictionary containing effect mappings
     """
     return load_yaml_config(yaml_path)
+
+
+def load_protocols_yaml(yaml_path: str) -> Dict:
+    """
+    Load protocol server configurations from a YAML file.
+
+    Args:
+        yaml_path: The path to the protocols.yaml file.
+
+    Returns:
+        A dictionary containing the protocol configurations.
+    """
+    return load_yaml_config(yaml_path)
+

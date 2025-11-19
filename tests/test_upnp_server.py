@@ -114,19 +114,25 @@ async def test_upnp_http_endpoints(upnp_server):
             assert response.content_type == "application/xml"
             text = await response.text()
             assert '<scpd xmlns="urn:schemas-upnp-org:service-1-0">' in text
-            assert "<name>SetPlay</name>" in text
+            assert "<name>SendEffect</name>" in text
 
         # 3. Test the control endpoint (stub)
-        soap_request_body = "<s:Envelope><s:Body><u:SetPlay xmlns:u='urn:schemas-upnp-org:service:PlaySEM:1'></u:SetPlay></s:Body></s:Envelope>"
+        soap_request_body = (
+            '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><u:SendEffect '
+            "xmlns:u='urn:schemas-upnp-org:service:PlaySEM:1'>"
+            "</u:SendEffect></s:Body></s:Envelope>"
+        )
         headers = {
             "Content-Type": 'text/xml; charset="utf-8"',
-            "SOAPAction": '"urn:schemas-upnp-org:service:PlaySEM:1#SetPlay"'
+            "SOAPAction": '"urn:schemas-upnp-org:service:PlaySEM:1#SendEffect"'
         }
-        async with session.post(control_url, data=soap_request_body, headers=headers) as response:
+        async with session.post(
+            control_url, data=soap_request_body, headers=headers
+        ) as response:
             assert response.status == 500
             text = await response.text()
             assert "<faultstring>UPnPError</faultstring>" in text
-            assert "<errorCode>NotSupported</errorCode>" in text
+            assert "<errorCode>501</errorCode>" in text
 
 
 @pytest.mark.asyncio
@@ -140,7 +146,9 @@ async def test_ssdp_discovery(upnp_server):
     assert upnp_server._transport is not None
     
     # Check that the server is listening on the SSDP port
-    assert upnp_server._transport.get_extra_info('socket').getsockname()[1] == 1900
+    sockname = upnp_server._transport.get_extra_info('socket').getsockname()
+    assert sockname[1] == 1900
 
-    # The fixture handles start and stop, so we just need to ensure it ran without error
+    # The fixture handles start and stop, so we just need to ensure
+    # it ran without error
     await asyncio.sleep(0.1)

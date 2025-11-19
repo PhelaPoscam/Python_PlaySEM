@@ -938,18 +938,19 @@ class UPnPServer:
 </s:Envelope>'''
             return web.Response(
                 text=response_xml,
-                content_type='text/xml; charset="utf-8"',
+                content_type='text/xml',
+                charset='utf-8',
                 status=200
             )
 
         except ET.ParseError as e:
             logger.error(f"Error parsing SOAP request: {e}")
             fault_xml = self._get_soap_fault("600", "Invalid XML")
-            return web.Response(text=fault_xml, content_type='text/xml; charset="utf-8"', status=500)
+            return web.Response(text=fault_xml, content_type='text/xml', charset='utf-8', status=500)
         except Exception as e:
             logger.error(f"Error processing UPnP control request: {e}")
             fault_xml = self._get_soap_fault("501", str(e))
-            return web.Response(text=fault_xml, content_type='text/xml; charset="utf-8"', status=500)
+            return web.Response(text=fault_xml, content_type='text/xml', charset='utf-8', status=500)
 
     async def start(self):
         """

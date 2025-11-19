@@ -40,6 +40,26 @@ PythonPlaySEM aims to provide:
 ### ✨ Future Enhancements
 - **Service Discovery**: Implement UPnP or mDNS-based service discovery for the WebSocket server to allow clients to automatically find the server on the network.
 
+## Roadmap / TODO
+
+### 1. Dynamic Protocol Configuration
+-   [ ] **Goal**: Allow servers (MQTT, WebSocket, etc.) to be enabled and configured via a `settings.yaml` file instead of being hard-coded.
+-   [ ] **Task**: Enhance `config_loader.py` to read protocol settings.
+-   [ ] **Task**: Update `main.py` and example scripts to start servers based on the loaded configuration.
+
+### 2. Uploading Configuration Files
+-   [ ] **Goal**: Enable users to upload a timeline file (e.g., JSON, YAML) through the web control panel to orchestrate a sequence of sensory effects.
+-   [ ] **Task**: Add a file upload UI to `control_panel.html`.
+-   [ ] **Task**: Create a new server endpoint in `control_panel_server.py` to receive the file.
+-   [ ] **Task**: Use the `Timeline` class to parse and execute the effects from the uploaded file.
+
+### 3. Sending "Configuration + Package" Together
+-   [ ] **Goal**: Allow the system to be reconfigured on-the-fly by sending a special package, without needing to restart the server.
+-   [ ] **Task**: Design a "meta-effect" or a dedicated control endpoint for receiving reconfiguration commands.
+-   [ ] **Task**: Implement the logic to safely update `DeviceManager` or `ProtocolServer` settings in real-time.
+
+---
+
 ## 📁 Project Structure
 
 ```
