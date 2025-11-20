@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Receiver</title>
+    <style>
+        body { font-family: sans-serif; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        #effects-log { margin-top: 15px; padding: 10px; background-color: #f0f0f0; height: 300px; overflow-y: scroll; }
+        .effect { border-bottom: 1px solid #ccc; padding: 5px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Super Receiver</h1>
+        <div id="status">Waiting for effects...</div>
+        <div id="effects-log"></div>
+    </div>
+
+    <script>
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        const statusDiv = document.getElementById('status');
+        const effectsLog = document.getElementById('effects-log');
+
+        ws.onopen = () => {
+            statusDiv.textContent = 'Connected to server. Waiting for effects...';
+        };
+
+        ws.onmessage = (event) => {
+            const effect = JSON.parse(event.data);
+            const effectDiv = document.createElement('div');
+            effectDiv.className = 'effect';
+            effectDiv.textContent = `Received effect: ${JSON.stringify(effect)}`;
+            effectsLog.appendChild(effectDiv);
+
+            if (effect.effect_type === 'light') {
+                document.body.style.backgroundColor = 'yellow';
+                setTimeout(() => {
+                    document.body.style.backgroundColor = '';
+                }, effect.duration);
+            } else if (effect.effect_type === 'vibration' && 'vibrate' in navigator) {
+                navigator.vibrate(effect.duration);
+            }
+        };
+
+        ws.onclose = () => {
+            statusDiv.textContent = 'Disconnected from server.';
+        };
+    </script>
+</body>
+</html>

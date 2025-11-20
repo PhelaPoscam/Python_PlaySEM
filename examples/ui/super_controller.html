@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Controller</title>
+    <style>
+        body { font-family: sans-serif; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 8px; box-sizing: border-box; }
+        button { padding: 10px 15px; cursor: pointer; }
+        #status { margin-top: 15px; padding: 10px; background-color: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Super Controller</h1>
+        <div class="form-group">
+            <label for="protocol">Protocol</label>
+            <select id="protocol">
+                <option value="websocket">WebSocket</option>
+                <option value="http">HTTP</option>
+                <option value="mqtt">MQTT</option>
+                <option value="coap">CoAP</option>
+                <option value="upnp">UPnP</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="modality">Modality</label>
+            <select id="modality">
+                <option value="vibration">Vibration</option>
+                <option value="light">Light</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="intensity">Intensity (0-100)</label>
+            <input type="number" id="intensity" min="0" max="100" value="50">
+        </div>
+        <div class="form-group">
+            <label for="duration">Duration (ms)</label>
+            <input type="number" id="duration" value="500">
+        </div>
+        <button id="sendEffect">Send Effect</button>
+        <div id="status">Waiting for connection...</div>
+    </div>
+
+    <script>
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        const statusDiv = document.getElementById('status');
+        const sendButton = document.getElementById('sendEffect');
+
+        ws.onopen = () => {
+            statusDiv.textContent = 'Connected to server.';
+        };
+
+        ws.onmessage = (event) => {
+            statusDiv.textContent = `Message from server: ${event.data}`;
+        };
+
+        ws.onclose = () => {
+            statusDiv.textContent = 'Disconnected from server.';
+        };
+
+        sendButton.addEventListener('click', () => {
+            const protocol = document.getElementById('protocol').value;
+            const modality = document.getElementById('modality').value;
+            const intensity = document.getElementById('intensity').value;
+            const duration = document.getElementById('duration').value;
+
+            const effect = {
+                protocol: protocol,
+                effect: {
+                    modality: modality,
+                    intensity: parseInt(intensity),
+                    duration: parseInt(duration)
+                }
+            };
+
+            ws.send(JSON.stringify(effect));
+            statusDiv.textContent = 'Sent effect to server.';
+        });
+    </script>
+</body>
+</html>

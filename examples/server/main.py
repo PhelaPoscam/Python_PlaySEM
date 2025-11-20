@@ -26,8 +26,9 @@ from dataclasses import dataclass
 from typing import Dict, Set
 
 import uvicorn
+import httpx
 from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from src.device_driver import BluetoothDriver, MQTTDriver, SerialDriver  # noqa: E402
 from src.device_driver.mock_driver import (  # noqa: E402
@@ -107,9 +108,36 @@ class ControlPanelServer:
 
         @self.app.get("/")
         async def root():
-            """Serve the control panel HTML."""
-            control_panel_path = Path(__file__).parent / "control_panel.html"
-            with open(control_panel_path, "r", encoding="utf-8") as f:
+            """Redirect to the super controller."""
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url="/super_controller")
+
+        @self.app.get("/controller")
+        async def get_controller():
+            """Serve the controller HTML."""
+            path = Path(__file__).parent.parent / "ui" / "controller.html"
+            with open(path, "r", encoding="utf-8") as f:
+                return HTMLResponse(content=f.read())
+
+        @self.app.get("/receiver")
+        async def get_receiver():
+            """Serve the receiver HTML."""
+            path = Path(__file__).parent.parent / "ui" / "receiver.html"
+            with open(path, "r", encoding="utf-8") as f:
+                return HTMLResponse(content=f.read())
+
+        @self.app.get("/super_controller")
+        async def get_super_controller():
+            """Serve the super_controller HTML."""
+            path = Path(__file__).parent.parent / "ui" / "super_controller.html"
+            with open(path, "r", encoding="utf-8") as f:
+                return HTMLResponse(content=f.read())
+
+        @self.app.get("/super_receiver")
+        async def get_super_receiver():
+            """Serve the super_receiver HTML."""
+            path = Path(__file__).parent.parent / "ui" / "super_receiver.html"
+            with open(path, "r", encoding="utf-8") as f:
                 return HTMLResponse(content=f.read())
 
         @self.app.websocket("/ws")
@@ -402,14 +430,20 @@ class ControlPanelServer:
         print(f"[OK] Client connected. Total clients: {len(self.clients)}")
 
         try:
-            # Send initial device list
-            await self.send_device_list(websocket)
-
             # Handle incoming messages
             while True:
                 data = await websocket.receive_text()
-                message = json.loads(data)
-                await self.handle_message(websocket, message)
+                try:
+                    message = json.loads(data)
+                    if "protocol" in message and "effect" in message:
+                        await self.handle_super_controller_message(websocket, message)
+                    else:
+                        await self.handle_message(websocket, message)
+                except json.JSONDecodeError:
+                    await self.handle_message(websocket, {"type": data})
+                except Exception:
+                    await self.handle_message(websocket, {"type": data})
+
 
         except WebSocketDisconnect:
             print(
@@ -419,6 +453,16 @@ class ControlPanelServer:
             print(f"[x] WebSocket error: {e}")
         finally:
             self.clients.discard(websocket)
+
+    async def handle_super_controller_message(self, websocket: WebSocket, message: dict):
+        """Handle incoming WebSocket message from the super controller."""
+        protocol = message.get("protocol")
+        effect_data = message.get("effect")
+        # The super controller sends 'modality', but create_effect expects 'effect_type'
+        effect_data['effect_type'] = effect_data.get('modality')
+        print(f"[RECV] Received super controller message for protocol {protocol}")
+
+        await self.send_effect_protocol(websocket, protocol, effect_data)
 
     async def handle_message(self, websocket: WebSocket, message: dict):
         """Handle incoming WebSocket message."""
@@ -446,6 +490,21 @@ class ControlPanelServer:
             device_id = message.get("device_id")
             effect_data = message.get("effect")
             await self.send_effect(websocket, device_id, effect_data)
+
+        elif msg_type == "send_effect_protocol":
+            protocol = message.get("protocol")
+            effect_data = message.get("effect")
+            await self.send_effect_protocol(websocket, protocol, effect_data)
+
+        elif msg_type == "effect": # New handler for simple, broadcast-only effects
+            print("[DEBUG] Handling simple 'effect' message.")
+            effect = create_effect(
+                effect_type=message.get("effect_type", "vibration"),
+                intensity=message.get("intensity", 50),
+                duration=message.get("duration", 1000),
+            )
+            print(f"[DEBUG] Created effect: {effect.effect_type}")
+            await self._broadcast_effect(effect, "broadcast", "websocket")
 
         elif msg_type == "start_protocol_server":
             protocol = message.get("protocol")
@@ -631,7 +690,10 @@ class ControlPanelServer:
             )
 
     async def connect_device(
-        self, websocket: WebSocket, address: str, driver_type: str
+        self,
+        websocket: WebSocket,
+        address: str,
+        driver_type: str,
     ):
         """Connect to a device."""
         print(f"[CONNECT] Connecting to {driver_type} device: {address}")
@@ -778,7 +840,10 @@ class ControlPanelServer:
             )
 
     async def send_effect(
-        self, websocket: WebSocket, device_id: str, effect_data: dict
+        self,
+        websocket: WebSocket,
+        device_id: str,
+        effect_data: dict,
     ):
         """Send effect to a device."""
         if device_id not in self.devices:
@@ -791,48 +856,34 @@ class ControlPanelServer:
             device = self.devices[device_id]
             start_time = time.time()
 
+            # Create the effect object first to use for dispatch and broadcast
+            effect = create_effect(
+                effect_type=effect_data.get("effect_type", "vibration"),
+                intensity=effect_data.get("intensity", 50),
+                duration=effect_data.get("duration", 1000),
+                timestamp=0,
+            )
+
             if device.type == "mock":
                 # Mock devices handle effects directly
-                effect_type = effect_data.get("effect_type", "vibration")
-                intensity = effect_data.get("intensity", 50)
-                duration = effect_data.get("duration", 1000)
-
-                mock_device = device.driver  # Mock device stored as driver
-
-                # Send command based on effect type
-                if effect_type == "light":
-                    # Map intensity (0-100) to brightness (0-255)
-                    brightness = int(intensity * 2.55)
-                    mock_device.send_command(
-                        "set_brightness", {"brightness": brightness}
-                    )
-                elif effect_type == "wind":
-                    mock_device.send_command("set_speed", {"speed": intensity})
-                elif effect_type == "vibration":
-                    mock_device.send_command(
-                        "set_intensity",
-                        {"intensity": intensity, "duration": duration},
-                    )
+                mock_device = device.driver
+                if effect.effect_type == "light":
+                    brightness = int(effect.intensity * 2.55)
+                    mock_device.send_command("set_brightness", {"brightness": brightness})
+                elif effect.effect_type == "wind":
+                    mock_device.send_command("set_speed", {"speed": effect.intensity})
+                elif effect.effect_type == "vibration":
+                    mock_device.send_command("set_intensity", {"intensity": effect.intensity, "duration": effect.duration})
                 else:
-                    # Generic command for other types
-                    mock_device.send_command(
-                        effect_type,
-                        {"intensity": intensity, "duration": duration},
-                    )
-
+                    mock_device.send_command(effect.effect_type, {"intensity": effect.intensity, "duration": effect.duration})
+                
                 print(
                     f"[OK] Mock device '{mock_device.device_id}' received "
-                    f"{effect_type.upper()} command: intensity={intensity}, "
-                    f"duration={duration}"
+                    f"{effect.effect_type.upper()} command: intensity={effect.intensity}, "
+                    f"duration={effect.duration}"
                 )
             else:
                 # Real devices use effect dispatcher
-                effect = create_effect(
-                    effect_type=effect_data.get("effect_type", "vibration"),
-                    intensity=effect_data.get("intensity", 50),
-                    duration=effect_data.get("duration", 1000),
-                    timestamp=0,
-                )
                 device.dispatcher.dispatch_effect_metadata(effect)
 
             latency = int((time.time() - start_time) * 1000)
@@ -840,14 +891,19 @@ class ControlPanelServer:
 
             print(f"[OK] Effect sent to {device.name} (latency: {latency}ms)")
 
+            # Send private confirmation to the sender
             await websocket.send_json(
                 {
                     "type": "effect_result",
                     "success": True,
                     "latency": latency,
                     "device_id": device_id,
+                    "effect_type": effect.effect_type, # Include for client-side logic
                 }
             )
+            
+            # Broadcast the effect to all clients (for receivers)
+            await self._broadcast_effect(effect, device_id, "websocket")
 
         except Exception as e:
             print(f"[x] Effect send error: {e}")
@@ -860,6 +916,120 @@ class ControlPanelServer:
                     "device_id": device_id,
                 }
             )
+
+    async def send_effect_protocol(self, websocket: WebSocket, protocol: str, effect_data: dict):
+        """Send effect over a specific protocol."""
+        try:
+            effect = create_effect(
+                effect_type=effect_data.get("effect_type", "vibration"),
+                intensity=effect_data.get("intensity", 50),
+                duration=effect_data.get("duration", 1000),
+                timestamp=0,
+            )
+
+            if protocol == "websocket":
+                print(f"[OK] Effect sent via WebSocket broadcast")
+
+            elif protocol == "mqtt":
+                if not self.mqtt_server or not self.mqtt_server.is_running():
+                    await self.start_protocol_server(websocket, "mqtt")
+                
+                if self.mqtt_server and self.mqtt_server.internal_client:
+                    payload = json.dumps({
+                        "effect_type": effect.effect_type,
+                        "intensity": effect.intensity,
+                        "duration": effect.duration,
+                    })
+                    # The topic needs to be correct, let's check the MQTTServer implementation
+                    self.mqtt_server.internal_client.publish("effects/sem", payload)
+                    print(f"[OK] Effect sent via MQTT")
+                else:
+                    raise Exception("MQTT server not available")
+
+            elif protocol == "http":
+                if not self.http_api_server:
+                    await self.start_protocol_server(websocket, "http")
+                
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        f"http://localhost:8081/api/effects",
+                        json={
+                            "effect_type": effect.effect_type,
+                            "intensity": effect.intensity,
+                            "duration": effect.duration,
+                        }
+                    )
+                    response.raise_for_status()
+                print(f"[OK] Effect sent via HTTP")
+
+            elif protocol == "coap":
+                if not self.coap_server:
+                    await self.start_protocol_server(websocket, "coap")
+
+                # This is a bit more complex, as it requires a CoAP client.
+                # For now, let's just log it.
+                print(f"[INFO] CoAP protocol selected, but client not implemented yet.")
+                await websocket.send_json(
+                    {
+                        "type": "info",
+                        "message": "CoAP client not implemented yet.",
+                    }
+                )
+
+            elif protocol == "upnp":
+                # This is also complex and requires a UPnP client.
+                print(f"[INFO] UPnP protocol selected, but client not implemented yet.")
+                await websocket.send_json(
+                    {
+                        "type": "info",
+                        "message": "UPnP client not implemented yet.",
+                    }
+                )
+
+            else:
+                raise ValueError(f"Unsupported protocol: {protocol}")
+
+            # Broadcast the effect to all WebSocket clients (receivers)
+            await self._broadcast_effect(effect, "broadcast", protocol)
+
+            await websocket.send_json(
+                {
+                    "type": "effect_protocol_result",
+                    "success": True,
+                    "protocol": protocol,
+                    "effect_type": effect.effect_type,
+                }
+            )
+
+        except Exception as e:
+            print(f"[x] Effect protocol send error: {e}")
+            await websocket.send_json(
+                {
+                    "type": "effect_protocol_result",
+                    "success": False,
+                    "error": str(e),
+                    "protocol": protocol,
+                }
+            )
+
+    async def _broadcast_effect(self, effect, device_id: str, protocol: str = "websocket"):
+        """Broadcast that an effect was executed to all clients."""
+        print(f"[DEBUG] Broadcasting effect '{effect.effect_type}' to {len(self.clients)} clients.")
+        message = {
+            "type": "effect_broadcast",
+            "effect_type": effect.effect_type,
+            "duration": effect.duration,
+            "intensity": effect.intensity,
+            "device_id": device_id,
+            "protocol": protocol,
+        }
+        # Create a copy of the client set to avoid issues with modification during iteration
+        for client in list(self.clients):
+            try:
+                await client.send_json(message)
+            except Exception:
+                # Client is likely disconnected, remove them
+                self.clients.discard(client)
 
     async def start_protocol_server(self, websocket: WebSocket, protocol: str):
         """Start a protocol server (MQTT, CoAP, UPnP, HTTP)."""
@@ -1081,7 +1251,10 @@ class ControlPanelServer:
             )
 
     async def handle_timeline_upload(
-        self, websocket: WebSocket, file_content: str, file_type: str
+        self,
+        websocket: WebSocket,
+        file_content: str,
+        file_type: str,
     ):
         """Handle timeline upload via WebSocket, supporting XML, JSON, and YAML."""
         try:

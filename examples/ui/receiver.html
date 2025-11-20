@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>PlaySEM Receiver</title>
+    <style>
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background-color: #111;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            transition: background-color 0.3s ease;
+        }
+        .content {
+            padding: 2rem;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        .status {
+            font-size: 1.2rem;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 99px;
+            display: inline-block;
+        }
+        .status.connected {
+            background-color: #28a745;
+        }
+        .status.disconnected {
+            background-color: #dc3545;
+        }
+        .last-effect {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 1rem;
+            line-height: 1.5;
+            min-width: 250px;
+        }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <h1>Effect Receiver</h1>
+        <div id="status" class="status disconnected">Disconnected</div>
+        <div id="last-effect" class="last-effect">Waiting for effect...</div>
+    </div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const body = document.body;
+        let socket;
+
+        function connect() {
+            const url = `ws://${window.location.hostname}:${window.location.port}/ws`;
+            socket = new WebSocket(url);
+
+            socket.onopen = () => {
+                statusDiv.textContent = 'Connected';
+                statusDiv.className = 'status connected';
+            };
+
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'effect_broadcast' || data.type === 'effect_executed') {
+                        handleEffect(data);
+                    }
+                } catch (e) {
+                    console.error('Invalid message from server:', event.data);
+                }
+            };
+
+            socket.onclose = () => {
+                statusDiv.textContent = 'Disconnected';
+                statusDiv.className = 'status disconnected';
+                setTimeout(connect, 3000); // Try to reconnect
+            };
+
+            socket.onerror = (error) => {
+                console.error('WebSocket Error:', error);
+                socket.close();
+            };
+        }
+
+        function handleEffect(effect) {
+            const display = document.getElementById('last-effect');
+            const protocol = effect.protocol || 'websocket';
+            display.innerHTML = `Received: <strong>${effect.effect_type}</strong><br>
+                                 Intensity: ${effect.intensity}%<br>
+                                 Duration: ${effect.duration}ms<br>
+                                 Protocol: ${protocol}`;
+
+            if (effect.effect_type === 'vibration') {
+                if ('vibrate' in navigator) {
+                    const duration = effect.duration || 500;
+                    navigator.vibrate(duration);
+                }
+            } else if (effect.effect_type === 'light') {
+                const originalColor = body.style.backgroundColor;
+                const color = effect.color || '#FFFFFF';
+                body.style.backgroundColor = color;
+
+                const duration = effect.duration || 1000;
+                setTimeout(() => {
+                    body.style.backgroundColor = originalColor;
+                }, duration);
+            }
+        }
+
+        // Initial connection attempt
+        connect();
+    </script>
+</body>
+</html>

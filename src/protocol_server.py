@@ -47,6 +47,7 @@ class MQTTServer:
         host: str = "0.0.0.0",
         port: int = 1883,
         subscribe_topic: str = "effects/#",
+        on_effect_broadcast: Optional[Callable] = None,
     ):
         """
         Initialize the embedded MQTT Broker.
@@ -55,6 +56,7 @@ class MQTTServer:
         self.host = host
         self.port = port
         self.subscribe_topic = subscribe_topic
+        self.on_effect_broadcast = on_effect_broadcast
         self.broker = None
         self._is_running = False
         self._lock = threading.Lock()
@@ -150,6 +152,9 @@ class MQTTServer:
                 logger.info(
                     f"Effect '{effect.effect_type}' executed successfully via MQTT"
                 )
+                if self.on_effect_broadcast:
+                    # Run async callback in the broker's event loop
+                    asyncio.run_coroutine_threadsafe(self.on_effect_broadcast(effect, "mqtt_broadcast"), self.loop)
             else:
                 logger.warning(
                     f"Failed to parse effect from MQTT payload: {payload_str}"
@@ -1360,6 +1365,7 @@ class HTTPServer:
         api_key: Optional[str] = None,
         cors_origins: Optional[list] = None,
         on_effect_received: Optional[Callable[[EffectMetadata], None]] = None,
+        on_effect_broadcast: Optional[Callable] = None,
     ):
         """
         Initialize HTTP REST server.
@@ -1378,6 +1384,7 @@ class HTTPServer:
         self.api_key = api_key
         self.cors_origins = cors_origins or ["*"]
         self.on_effect_received = on_effect_received
+        self.on_effect_broadcast = on_effect_broadcast
 
         self._server = None
         self._app = None
@@ -1530,7 +1537,11 @@ class HTTPServer:
                 self.dispatcher.dispatch_effect_metadata(metadata)
                 self._effects_processed += 1
 
-                # Call callback if provided
+                # Call broadcast callback if provided
+                if self.on_effect_broadcast:
+                    await self.on_effect_broadcast(metadata, "http_broadcast")
+
+                # Call local callback if provided
                 if self.on_effect_received:
                     self.on_effect_received(metadata)
 

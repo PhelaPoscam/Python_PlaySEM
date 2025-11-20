@@ -6,6 +6,8 @@
 
 **PythonPlaySEM** is a versatile and extensible Python framework for orchestrating sensory effects across a wide range of devices and protocols. It provides a unified system for receiving, dispatching, and rendering effects like light, wind, vibration, and scent, making it ideal for immersive media, simulations, and interactive experiences.
 
+This version is a Python-based implementation and expansion of the original Java-based PlaySEM framework developed by [Estevão Bissoli](https://github.com/estevaobissoli).
+
 ## Core Features
 
 -   **Multi-Protocol Support**: Ingests effect commands from a variety of standard protocols, including:
@@ -24,22 +26,22 @@
     -   Uploading and controlling effect timelines (XML, JSON, YAML).
 -   **Configuration-Driven**: Easily map effects to devices and define custom parameters using simple YAML configuration files.
 
-## Architecture Overview
+## Project Structure
 
-The framework follows a clean, decoupled data flow, making it easy to understand, extend, and maintain.
+The project is organized into several key directories:
 
-```
-[Client] -> [Protocol Server] -> [Effect Dispatcher] -> [Device Manager] -> [Device Driver] -> [Hardware]
-```
-
-1.  **Protocol Servers**: Listen for incoming effect requests via various protocols (e.g., WebSocket, MQTT).
-2.  **Effect Dispatcher**: Receives a standardized `EffectMetadata` object and uses `effects.yaml` to determine which device should handle the effect.
-3.  **Device Manager**: Abstracts the hardware by holding a reference to the active `Device Driver`. It forwards the command to the driver.
-4.  **Device Drivers**: The final layer that implements the specific logic to communicate with the hardware (e.g., writing to a serial port, sending a BLE packet).
+-   `src/`: Contains the core framework source code.
+-   `examples/`: Contains example code and applications.
+    -   `server/`: The main server application.
+    -   `ui/`: HTML files for the web-based user interfaces.
+    -   `clients/`: Example client scripts for various protocols.
+    -   `demos/`: Standalone scripts for demonstrating specific features.
+    -   `docs/`: Documentation related to the examples.
+    -   `data/`: Sample data files.
+-   `docs/`: Project-level documentation.
+-   `tests/`: Unit and integration tests.
 
 ## Getting Started
-
-The easiest way to get started is by running the web-based control panel.
 
 **1. Clone the Repository**
 
@@ -74,15 +76,26 @@ This crucial step makes the `src` package available to the rest of the project, 
 pip install -e .
 ```
 
-**5. Run the Control Panel**
+**5. Run the Server**
 
 ```bash
-python examples/control_panel/control_panel_server.py
+python examples/server/main.py
 ```
 
-Now, open your web browser and navigate to **`http://localhost:8090`**. From here, you can scan for devices, manage protocol servers, and test effects.
+Now, open your web browser and navigate to **`http://localhost:8090`**. This will open the main controller interface.
 
 ## How It Works
+
+The framework follows a clean, decoupled data flow, making it easy to understand, extend, and maintain.
+
+```
+[Client] -> [Protocol Server] -> [Effect Dispatcher] -> [Device Manager] -> [Device Driver] -> [Hardware]
+```
+
+1.  **Protocol Servers**: Listen for incoming effect requests via various protocols (e.g., WebSocket, MQTT).
+2.  **Effect Dispatcher**: Receives a standardized `EffectMetadata` object and uses `effects.yaml` to determine which device should handle the effect.
+3.  **Device Manager**: Abstracts the hardware by holding a reference to the active `Device Driver`. It forwards the command to the driver.
+4.  **Device Drivers**: The final layer that implements the specific logic to communicate with the hardware (e.g., writing to a serial port, sending a BLE packet).
 
 ### Supported Protocols
 
@@ -105,12 +118,16 @@ Device drivers are the bridge to the physical hardware. The following drivers ar
 -   **`MQTTDriver`**: For controlling devices that are themselves MQTT clients.
 -   **`MockDriver`**: A software-only driver for testing and development without hardware.
 
-### Examples
+## Examples
 
-The `examples/` directory contains numerous scripts for testing individual components, including:
--   Client scripts for each protocol (`examples/clients/`).
--   Demos for each server and driver (`examples/demos/`).
--   The flagship **Control Panel** (`examples/control_panel/`).
+The `examples/` directory is structured to provide a clear separation of concerns:
+
+-   **`server/`**: Contains the main server application (`main.py`) that runs the web interface and protocol servers.
+-   **`ui/`**: Holds the HTML files for the web-based interfaces, including the main controller and receiver pages.
+-   **`clients/`**: A collection of Python scripts demonstrating how to send effects to the server using different protocols.
+-   **`demos/`**: Standalone scripts that showcase specific functionalities, such as individual drivers or servers.
+-   **`docs/`**: Documentation specific to the examples.
+-   **`data/`**: Sample data, such as the `sample_timeline.xml` for the timeline player.
 
 ## Contributing
 
