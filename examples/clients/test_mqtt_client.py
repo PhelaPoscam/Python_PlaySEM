@@ -14,11 +14,10 @@ import sys
 import time
 import json
 from pathlib import Path
+import paho.mqtt.client as mqtt
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-import paho.mqtt.client as mqtt
 
 
 def on_connect(client, userdata, flags, rc):
@@ -37,7 +36,7 @@ def on_message(client, userdata, msg):
         if "response" in msg.topic:
             payload = json.loads(msg.payload.decode())
             print(f"📥 Response received: {json.dumps(payload, indent=2)}")
-    except:
+    except json.JSONDecodeError:
         pass
 
 

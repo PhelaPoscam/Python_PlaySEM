@@ -71,7 +71,7 @@ async def main():
     server = UPnPServer(
         friendly_name="PlaySEM Python Server",
         dispatcher=dispatcher,
-        http_port=8080, # You can change this port if needed
+        http_port=8080,  # You can change this port if needed
         manufacturer="PlaySEM Community",
         model_name="PlaySEM Python Server",
         model_version="1.0.0",

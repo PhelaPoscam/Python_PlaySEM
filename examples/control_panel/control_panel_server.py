@@ -14,38 +14,38 @@ Features:
 """
 
 import sys
-import asyncio
-import time
 from pathlib import Path
-from typing import Dict, List, Optional, Set
-from dataclasses import dataclass, asdict
-import json
 
+# Add parent directory to path to allow importing from 'src'
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
-import uvicorn
+import asyncio
+import json
+import time
+from dataclasses import dataclass
+from typing import Dict, Set
 
-from src.device_driver import SerialDriver, BluetoothDriver, MQTTDriver
-from src.device_driver.mock_driver import (
+import uvicorn
+from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
+
+from src.device_driver import BluetoothDriver, MQTTDriver, SerialDriver  # noqa: E402
+from src.device_driver.mock_driver import (  # noqa: E402
     MockLightDevice,
-    MockWindDevice,
     MockVibrationDevice,
+    MockWindDevice,
 )
-from src.device_manager import DeviceManager
-from src.effect_dispatcher import EffectDispatcher
-from src.effect_metadata import create_effect
-from src.protocol_server import (
-    MQTTServer,
+from src.device_manager import DeviceManager  # noqa: E402
+from src.effect_dispatcher import EffectDispatcher  # noqa: E402
+from src.effect_metadata import EffectMetadataParser, create_effect  # noqa: E402
+from src.protocol_server import (  # noqa: E402
     CoAPServer,
-    UPnPServer,
     HTTPServer,
+    MQTTServer,
+    UPnPServer,
     WebSocketServer,
 )
-from src.timeline import Timeline
-from src.effect_metadata import EffectMetadataParser
+from src.timeline import Timeline  # noqa: E402
 
 
 @dataclass
@@ -92,12 +92,12 @@ class ControlPanelServer:
         # Timeline player
         self.timeline_player = Timeline(
             effect_dispatcher=self.global_dispatcher,
-            tick_interval=0.01  # 10ms precision
+            tick_interval=0.01,  # 10ms precision
         )
         self.current_timeline = None
         self.timeline_player.set_callbacks(
             on_effect=self._on_timeline_effect,
-            on_complete=self._on_timeline_complete
+            on_complete=self._on_timeline_complete,
         )
 
         self._setup_routes()
@@ -217,7 +217,8 @@ class ControlPanelServer:
 
             # Reuse existing WebSocket connection logic
             try:
-                device_id = f"{driver_type}_{address.replace(':', '_').replace('/', '_')}"
+                safe_address = address.replace(":", "_").replace("/", "_")
+                device_id = f"{driver_type}_{safe_address}"
 
                 if device_id in self.devices:
                     return {
@@ -340,24 +341,24 @@ class ControlPanelServer:
             """Upload and parse XML timeline."""
             try:
                 xml_content = await file.read()
-                xml_str = xml_content.decode('utf-8')
-                
+                xml_str = xml_content.decode("utf-8")
+
                 timeline = EffectMetadataParser.parse_mpegv_xml(xml_str)
                 self.current_timeline = timeline
                 self.timeline_player.load_timeline(timeline)
-                
+
                 return {
                     "type": "timeline_loaded",
                     "success": True,
                     "effect_count": len(timeline.effects),
                     "duration": timeline.total_duration,
-                    "metadata": timeline.metadata
+                    "metadata": timeline.metadata,
                 }
             except Exception as e:
                 return {
                     "type": "timeline_error",
                     "success": False,
-                    "error": str(e)
+                    "error": str(e),
                 }
 
     def _on_timeline_effect(self, effect):
@@ -375,7 +376,7 @@ class ControlPanelServer:
             "type": "timeline_effect",
             "effect_type": effect.effect_type,
             "intensity": effect.intensity,
-            "duration": effect.duration
+            "duration": effect.duration,
         }
         for client in list(self.clients):
             try:
@@ -386,10 +387,7 @@ class ControlPanelServer:
     async def _broadcast_timeline_status(self):
         """Broadcast timeline status to all clients."""
         status = self.timeline_player.get_status()
-        message = {
-            "type": "timeline_status",
-            **status
-        }
+        message = {"type": "timeline_status", **status}
         for client in list(self.clients):
             try:
                 await client.send_json(message)
@@ -460,7 +458,9 @@ class ControlPanelServer:
         elif msg_type == "upload_timeline":
             file_content = message.get("file_content")
             file_type = message.get("file_type")
-            await self.handle_timeline_upload(websocket, file_content, file_type)
+            await self.handle_timeline_upload(
+                websocket, file_content, file_type
+            )
 
         elif msg_type == "play_timeline":
             await self.play_timeline(websocket)
@@ -637,9 +637,8 @@ class ControlPanelServer:
         print(f"[CONNECT] Connecting to {driver_type} device: {address}")
 
         try:
-            device_id = (
-                f"{driver_type}_{address.replace(':', '_').replace('/', '_')}"
-            )
+            safe_address = address.replace(":", "_").replace("/", "_")
+            device_id = f"{driver_type}_{safe_address}"
 
             if device_id in self.devices:
                 await websocket.send_json(
@@ -674,7 +673,11 @@ class ControlPanelServer:
                     mock_device = MockVibrationDevice(address)
                 else:
                     mock_device = MockLightDevice(address)  # Default
-                name = f"Mock {mock_device.__class__.__name__.replace('Mock', '').replace('Device', '')} ({address})"
+                device_class_name = mock_device.__class__.__name__
+                clean_name = (
+                    device_class_name.replace("Mock", "").replace("Device", "").strip()
+                )
+                name = f"Mock {clean_name} ({address})"
 
                 # Store mock device directly (no manager/driver needed)
                 device = ConnectedDevice(
@@ -818,7 +821,9 @@ class ControlPanelServer:
                     )
 
                 print(
-                    f"[OK] Mock device '{mock_device.device_id}' received {effect_type.upper()} command: intensity={intensity}, duration={duration}"
+                    f"[OK] Mock device '{mock_device.device_id}' received "
+                    f"{effect_type.upper()} command: intensity={intensity}, "
+                    f"duration={duration}"
                 )
             else:
                 # Real devices use effect dispatcher
@@ -1075,116 +1080,123 @@ class ControlPanelServer:
                 }
             )
 
-    async def handle_timeline_upload(self, websocket: WebSocket, file_content: str, file_type: str):
+    async def handle_timeline_upload(
+        self, websocket: WebSocket, file_content: str, file_type: str
+    ):
         """Handle timeline upload via WebSocket, supporting XML, JSON, and YAML."""
         try:
             timeline = None
             if file_type == "xml":
                 timeline = EffectMetadataParser.parse_mpegv_xml(file_content)
             elif file_type == "json":
-                timeline = EffectMetadataParser.parse_json_timeline(file_content)
+                timeline = EffectMetadataParser.parse_json_timeline(
+                    file_content
+                )
             elif file_type == "yaml":
-                timeline = EffectMetadataParser.parse_yaml_timeline(file_content)
+                timeline = EffectMetadataParser.parse_yaml_timeline(
+                    file_content
+                )
             else:
-                raise ValueError(f"Unsupported timeline file type: {file_type}")
+                raise ValueError(
+                    f"Unsupported timeline file type: {file_type}"
+                )
 
             self.current_timeline = timeline
             self.timeline_player.load_timeline(timeline)
-            
-            await websocket.send_json({
-                "type": "timeline_loaded",
-                "success": True,
-                "effect_count": len(timeline.effects),
-                "duration": timeline.total_duration,
-                "metadata": timeline.metadata
-            })
+
+            await websocket.send_json(
+                {
+                    "type": "timeline_loaded",
+                    "success": True,
+                    "effect_count": len(timeline.effects),
+                    "duration": timeline.total_duration,
+                    "metadata": timeline.metadata,
+                }
+            )
         except Exception as e:
-            await websocket.send_json({
-                "type": "timeline_error",
-                "success": False,
-                "error": str(e)
-            })
+            await websocket.send_json(
+                {"type": "timeline_error", "success": False, "error": str(e)}
+            )
 
     async def play_timeline(self, websocket: WebSocket):
         """Start playing the loaded timeline."""
         try:
             if not self.current_timeline:
-                await websocket.send_json({
-                    "type": "timeline_error",
-                    "error": "No timeline loaded"
-                })
+                await websocket.send_json(
+                    {"type": "timeline_error", "error": "No timeline loaded"}
+                )
                 return
-            
+
             self.timeline_player.start()
-            await websocket.send_json({
-                "type": "timeline_status",
-                "is_running": True,
-                "message": "Timeline playback started"
-            })
+            await websocket.send_json(
+                {
+                    "type": "timeline_status",
+                    "is_running": True,
+                    "message": "Timeline playback started",
+                }
+            )
         except Exception as e:
-            await websocket.send_json({
-                "type": "timeline_error",
-                "error": str(e)
-            })
+            await websocket.send_json(
+                {"type": "timeline_error", "error": str(e)}
+            )
 
     async def pause_timeline(self, websocket: WebSocket):
         """Pause timeline playback."""
         try:
             self.timeline_player.pause()
-            await websocket.send_json({
-                "type": "timeline_status",
-                "is_paused": True,
-                "message": "Timeline paused"
-            })
+            await websocket.send_json(
+                {
+                    "type": "timeline_status",
+                    "is_paused": True,
+                    "message": "Timeline paused",
+                }
+            )
         except Exception as e:
-            await websocket.send_json({
-                "type": "timeline_error",
-                "error": str(e)
-            })
+            await websocket.send_json(
+                {"type": "timeline_error", "error": str(e)}
+            )
 
     async def resume_timeline(self, websocket: WebSocket):
         """Resume timeline playback."""
         try:
             self.timeline_player.resume()
-            await websocket.send_json({
-                "type": "timeline_status",
-                "is_paused": False,
-                "message": "Timeline resumed"
-            })
+            await websocket.send_json(
+                {
+                    "type": "timeline_status",
+                    "is_paused": False,
+                    "message": "Timeline resumed",
+                }
+            )
         except Exception as e:
-            await websocket.send_json({
-                "type": "timeline_error",
-                "error": str(e)
-            })
+            await websocket.send_json(
+                {"type": "timeline_error", "error": str(e)}
+            )
 
     async def stop_timeline(self, websocket: WebSocket):
         """Stop timeline playback."""
         try:
             self.timeline_player.stop()
-            await websocket.send_json({
-                "type": "timeline_status",
-                "is_running": False,
-                "message": "Timeline stopped"
-            })
+            await websocket.send_json(
+                {
+                    "type": "timeline_status",
+                    "is_running": False,
+                    "message": "Timeline stopped",
+                }
+            )
         except Exception as e:
-            await websocket.send_json({
-                "type": "timeline_error",
-                "error": str(e)
-            })
+            await websocket.send_json(
+                {"type": "timeline_error", "error": str(e)}
+            )
 
     async def get_timeline_status(self, websocket: WebSocket):
         """Get current timeline status."""
         try:
             status = self.timeline_player.get_status()
-            await websocket.send_json({
-                "type": "timeline_status",
-                **status
-            })
+            await websocket.send_json({"type": "timeline_status", **status})
         except Exception as e:
-            await websocket.send_json({
-                "type": "timeline_error",
-                "error": str(e)
-            })
+            await websocket.send_json(
+                {"type": "timeline_error", "error": str(e)}
+            )
 
     async def broadcast_device_list(self):
         """Broadcast device list to all connected clients."""
@@ -1217,30 +1229,28 @@ class ControlPanelServer:
         print("\n" + "=" * 60)
         print("[+] PythonPlaySEM Control Panel Server")
         print("=" * 60)
-        print(f"\n[WEB] Server running at:")
+        print("\n[WEB] Server running at:")
         print(f"   HTTP: http://{host}:{port}")
         print(f"   WebSocket: ws://{host}:{port}/ws")
 
         if enable_all_protocols:
-            print(f"\n[PROTOCOLS] Additional Protocol Servers:")
+            print("\n[PROTOCOLS] Additional Protocol Servers:")
             print(f"   MQTT: mqtt://{host}:1883")
             print(f"   CoAP: coap://{host}:5683")
             print(f"   HTTP API: http://{host}:{port}/api")
-            print(f"   UPnP: SSDP discovery on 239.255.255.250:1900")
-            print(f"\n[!]  Note: MQTT, CoAP, and UPnP servers run in background")
-            print(f"   Use respective client libraries to connect")
+            print("   UPnP: SSDP discovery on 239.255.255.250:1900")
+            print("\n[!]  Note: MQTT, CoAP, and UPnP servers run in background")
+            print("   Use respective client libraries to connect")
 
-        print(f"\n[i] Open your browser and navigate to:")
+        print("\n[i] Open your browser and navigate to:")
         print(f"   http://localhost:{port}")
-        print(f"\n[i] Features:")
-        print(f"   [OK] Real-time device discovery (Bluetooth, Serial, MQTT)")
-        print(f"   [OK] Live device connection management")
-        print(
-            f"   [OK] Multi-protocol support (WebSocket, HTTP, MQTT, CoAP, UPnP)"
-        )
-        print(f"   [OK] Effect testing with presets")
-        print(f"   [OK] System monitoring and statistics")
-        print(f"\n[SETTINGS]  Press Ctrl+C to stop")
+        print("\n[i] Features:")
+        print("   [OK] Real-time device discovery (Bluetooth, Serial, MQTT)")
+        print("   [OK] Live device connection management")
+        print("   [OK] Multi-protocol support (WebSocket, HTTP, MQTT, CoAP, UPnP)")
+        print("   [OK] Effect testing with presets")
+        print("   [OK] System monitoring and statistics")
+        print("\n[SETTINGS]  Press Ctrl+C to stop")
         print("=" * 60 + "\n")
 
         uvicorn.run(self.app, host=host, port=port, log_level="info")

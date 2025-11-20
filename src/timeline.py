@@ -116,7 +116,11 @@ class Timeline:
     def resume(self):
         """Resume timeline playback from pause."""
         with self._lock:
-            if not self.is_paused or self.pause_time is None or self.start_time is None:
+            if (
+                not self.is_paused
+                or self.pause_time is None
+                or self.start_time is None
+            ):
                 return
 
             self.is_paused = False

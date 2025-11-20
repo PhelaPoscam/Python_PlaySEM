@@ -40,13 +40,13 @@ async def send_effect(
         response = await asyncio.wait_for(websocket.recv(), timeout=2.0)
         result = json.loads(response)
         if result.get("status") == "success":
-            print(f"  ✓ Effect executed successfully")
+            print("  ✓ Effect executed successfully")
         else:
             print(
                 f"  ✗ Effect failed: {result.get('message', 'Unknown error')}"
             )
     except asyncio.TimeoutError:
-        print(f"  ⚠ No response (server may not send confirmations)")
+        print("  ⚠ No response (server may not send confirmations)")
     except Exception as e:
         print(f"  ✗ Error: {e}")
 
@@ -71,7 +71,7 @@ async def test_websocket_protocol():
 
     try:
         async with websockets.connect(uri) as websocket:
-            print(f"✓ Connected to PlaySEM WebSocket server\n")
+            print("✓ Connected to PlaySEM WebSocket server\n")
 
             # Test sequence of effects
             print("Sending effect sequence...\n")

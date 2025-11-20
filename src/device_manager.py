@@ -177,7 +177,6 @@ class DeviceManager:
         """
         return self.driver.get_driver_info()
 
-
     def reconfigure(self, config_data: Dict[str, Any]) -> bool:
         """
         Reconfigure the DeviceManager's underlying driver.
@@ -188,38 +187,54 @@ class DeviceManager:
         Returns:
             bool: True if reconfiguration was successful, False otherwise.
         """
-        logger.info(f"Attempting to reconfigure DeviceManager with: {config_data}")
-        
+        logger.info(
+            f"Attempting to reconfigure DeviceManager with: {config_data}"
+        )
+
         if isinstance(self.driver, MQTTDriver):
             mqtt_config = config_data.get("mqtt_driver", {})
             new_broker_address = mqtt_config.get("broker")
             new_port = mqtt_config.get("port")
 
             if new_broker_address or new_port:
-                logger.info(f"Reconfiguring MQTTDriver. New broker: {new_broker_address}, new port: {new_port}")
-                
+                logger.info(
+                    f"Reconfiguring MQTTDriver. New broker: {new_broker_address}, new port: {new_port}"
+                )
+
                 # Disconnect current driver
                 self.disconnect()
-                
+
                 # Create a new MQTTDriver instance with updated settings
                 # Preserve existing settings if not provided in config_data
                 current_broker = self.driver.broker
                 current_port = self.driver.port
-                
-                updated_broker = new_broker_address if new_broker_address is not None else current_broker
-                updated_port = new_port if new_port is not None else current_port
+
+                updated_broker = (
+                    new_broker_address
+                    if new_broker_address is not None
+                    else current_broker
+                )
+                updated_port = (
+                    new_port if new_port is not None else current_port
+                )
 
                 try:
-                    new_driver = MQTTDriver(broker=updated_broker, port=updated_port)
+                    new_driver = MQTTDriver(
+                        broker=updated_broker, port=updated_port
+                    )
                     self.driver = new_driver
-                    self.connect() # Reconnect with new driver
-                    logger.info(f"MQTTDriver reconfigured to {updated_broker}:{updated_port}")
+                    self.connect()  # Reconnect with new driver
+                    logger.info(
+                        f"MQTTDriver reconfigured to {updated_broker}:{updated_port}"
+                    )
                     return True
                 except Exception as e:
                     logger.error(f"Failed to reconfigure MQTTDriver: {e}")
                     return False
             else:
-                logger.warning("No MQTT driver specific configuration found in reconfigure data.")
+                logger.warning(
+                    "No MQTT driver specific configuration found in reconfigure data."
+                )
                 return False
         else:
             logger.warning(
@@ -227,6 +242,7 @@ class DeviceManager:
                 f"{self.driver.get_driver_type()}"
             )
             return False
+
 
 class _LegacyMQTTClientWrapper(BaseDriver):
     """

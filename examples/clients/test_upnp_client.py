@@ -12,7 +12,6 @@ This will scan the network for PlaySEM servers and display their details.
 
 import asyncio
 import socket
-import struct
 import sys
 import logging
 from pathlib import Path

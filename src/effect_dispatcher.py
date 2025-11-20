@@ -1,4 +1,3 @@
-
 # src/effect_dispatcher.py
 
 from typing import Dict, Any, Optional
@@ -19,7 +18,7 @@ class EffectDispatcher:
     def __init__(
         self,
         device_manager: DeviceManager,
-        effects_config_path: Optional[str] = None
+        effects_config_path: Optional[str] = None,
     ):
         """
         Initialize effect dispatcher.
@@ -45,31 +44,27 @@ class EffectDispatcher:
     def _use_default_mappings(self):
         """Set up default hardcoded effect mappings as fallback."""
         self.effects_config = {
-            'effects': {
-                'light': {
-                    'device': 'light_device',
-                    'command': 'set_brightness',
+            "effects": {
+                "light": {
+                    "device": "light_device",
+                    "command": "set_brightness",
                 },
-                'wind': {
-                    'device': 'wind_device',
-                    'command': 'set_speed',
+                "wind": {
+                    "device": "wind_device",
+                    "command": "set_speed",
                 },
-                'vibration': {
-                    'device': 'vibration_device',
-                    'command': 'set_intensity',
+                "vibration": {
+                    "device": "vibration_device",
+                    "command": "set_intensity",
                 },
-                'scent': {
-                    'device': 'scent_device',
-                    'command': 'set_scent',
-                }
+                "scent": {
+                    "device": "scent_device",
+                    "command": "set_scent",
+                },
             }
         }
 
-    def dispatch_effect(
-        self,
-        effect_name: str,
-        parameters: Dict[str, Any]
-    ):
+    def dispatch_effect(self, effect_name: str, parameters: Dict[str, Any]):
         """
         Dispatch an effect with given parameters (legacy interface).
 
@@ -77,15 +72,13 @@ class EffectDispatcher:
             effect_name: Name of effect (e.g., 'light', 'wind')
             parameters: Effect parameters
         """
-        effect_config = self.effects_config.get('effects', {}).get(
-            effect_name
-        )
+        effect_config = self.effects_config.get("effects", {}).get(effect_name)
 
         if not effect_config:
             raise ValueError(f"Unknown effect: {effect_name}")
 
-        device_id = effect_config.get('device')
-        command = effect_config.get('command')
+        device_id = effect_config.get("device")
+        command = effect_config.get("command")
 
         if not device_id or not command:
             raise ValueError(
@@ -95,11 +88,7 @@ class EffectDispatcher:
         # Map parameters based on config
         mapped_params = self._map_parameters(effect_config, parameters)
 
-        self.device_manager.send_command(
-            device_id,
-            command,
-            mapped_params
-        )
+        self.device_manager.send_command(device_id, command, mapped_params)
 
     def dispatch_effect_metadata(self, effect: EffectMetadata):
         """
@@ -115,11 +104,11 @@ class EffectDispatcher:
         # Merge intensity into parameters if present
         params = effect.parameters.copy()
         if effect.intensity is not None:
-            params['intensity'] = effect.intensity
+            params["intensity"] = effect.intensity
 
         # Add location if not 'everywhere'
-        if effect.location != 'everywhere':
-            params['location'] = effect.location
+        if effect.location != "everywhere":
+            params["location"] = effect.location
 
         self.dispatch_effect(effect.effect_type, params)
 
@@ -137,15 +126,13 @@ class EffectDispatcher:
                 print("DeviceManager reconfigured successfully.")
             else:
                 print("DeviceManager reconfiguration failed or not supported.")
-        
+
         # TODO: Implement signaling for ProtocolServer reconfiguration
         # This would likely involve a callback to the ControlPanelServer
         # or a similar managing entity.
 
     def _map_parameters(
-        self,
-        effect_config: Dict[str, Any],
-        parameters: Dict[str, Any]
+        self, effect_config: Dict[str, Any], parameters: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Map parameter values based on effect configuration.
@@ -160,18 +147,18 @@ class EffectDispatcher:
             Mapped parameters
         """
         mapped = parameters.copy()
-        param_configs = effect_config.get('parameters', [])
+        param_configs = effect_config.get("parameters", [])
 
         for param_config in param_configs:
-            param_name = param_config.get('name')
+            param_name = param_config.get("name")
             if param_name not in parameters:
                 # Use default if specified
-                if 'default' in param_config:
-                    mapped[param_name] = param_config['default']
+                if "default" in param_config:
+                    mapped[param_name] = param_config["default"]
                 continue
 
             param_value = parameters[param_name]
-            mapping = param_config.get('mapping', {})
+            mapping = param_config.get("mapping", {})
 
             # If mapping exists and value is in mapping, use mapped value
             if mapping and param_value in mapping:
@@ -186,4 +173,4 @@ class EffectDispatcher:
         Returns:
             List of effect names
         """
-        return list(self.effects_config.get('effects', {}).keys())
+        return list(self.effects_config.get("effects", {}).keys())

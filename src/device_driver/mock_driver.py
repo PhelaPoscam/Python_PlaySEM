@@ -68,8 +68,7 @@ class MockDeviceBase:
         self.delay = int(self.properties.get("delay", 0))
         self.state = {}
         logger.info(
-            f"Mock device '{device_id}' initialized "
-            f"(delay={self.delay}ms)"
+            f"Mock device '{device_id}' initialized " f"(delay={self.delay}ms)"
         )
 
     def send_command(self, command: str, params: Dict[str, Any]):
@@ -81,8 +80,7 @@ class MockDeviceBase:
             params: command parameters
         """
         logger.info(
-            f"[{self.device_id}] Command: {command}, "
-            f"Params: {params}"
+            f"[{self.device_id}] Command: {command}, " f"Params: {params}"
         )
         self.state.update(params)
 
@@ -149,16 +147,13 @@ class MockWindDevice(MockDeviceBase):
     def set_speed(self, speed: int):
         """Set fan speed (0-100)."""
         self.state["speed"] = max(0, min(100, speed))
-        logger.info(
-            f"[{self.device_id}] Wind speed: {self.state['speed']}%"
-        )
+        logger.info(f"[{self.device_id}] Wind speed: {self.state['speed']}%")
 
     def set_direction(self, direction: str):
         """Set wind direction ('forward', 'reverse')."""
         self.state["direction"] = direction
         logger.info(
-            f"[{self.device_id}] Wind direction: "
-            f"{self.state['direction']}"
+            f"[{self.device_id}] Wind direction: " f"{self.state['direction']}"
         )
 
     def send_command(self, command: str, params: Dict[str, Any]):

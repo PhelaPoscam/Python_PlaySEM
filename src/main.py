@@ -27,7 +27,9 @@ async def main():
     Main entry point for the PythonPlaySEM application.
     """
     # Load protocol configurations
-    protocols_config_path = Path(__file__).parent.parent / "config" / "protocols.yaml"
+    protocols_config_path = (
+        Path(__file__).parent.parent / "config" / "protocols.yaml"
+    )
     protocols_config = load_protocols_yaml(str(protocols_config_path))
 
     # Create core components
@@ -79,7 +81,7 @@ async def main():
             port=mqtt_config.get("port", 1883),
             dispatcher=effect_dispatcher,
         )
-        mqtt_server.start() # This is a blocking call in a thread
+        mqtt_server.start()  # This is a blocking call in a thread
         servers.append(mqtt_server)
         logger.info("MQTT Server is enabled.")
 
@@ -97,7 +99,9 @@ async def main():
     if protocols_config.get("upnp_server", {}).get("enabled"):
         upnp_config = protocols_config["upnp_server"]
         upnp_server = UPnPServer(
-            friendly_name=upnp_config.get("friendly_name", "PlaySEM Python Server"),
+            friendly_name=upnp_config.get(
+                "friendly_name", "PlaySEM Python Server"
+            ),
             http_port=upnp_config.get("http_port", 8080),
             dispatcher=effect_dispatcher,
         )
@@ -110,7 +114,7 @@ async def main():
         return
 
     logger.info("All enabled servers are starting...")
-    
+
     try:
         await asyncio.gather(*tasks)
     except KeyboardInterrupt:
@@ -124,10 +128,10 @@ async def main():
                 server.stop()
             else:
                 stop_tasks.append(server.stop())
-        
+
         if stop_tasks:
             await asyncio.gather(*stop_tasks)
-        
+
         logger.info("All servers have been shut down.")
 
 

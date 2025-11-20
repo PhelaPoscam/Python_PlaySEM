@@ -39,9 +39,7 @@ async def mqtt_broker(effect_dispatcher):
     """
     logger.info("mqtt_broker fixture: Starting setup.")
     server = MQTTServer(
-        dispatcher=effect_dispatcher,
-        host="127.0.0.1",
-        port=1883
+        dispatcher=effect_dispatcher, host="127.0.0.1", port=1883
     )
     logger.info("mqtt_broker fixture: MQTTServer instance created.")
     server.start()
@@ -65,18 +63,16 @@ async def test_broker_start_stop(effect_dispatcher):
     Test that the embedded MQTT broker can start and stop correctly.
     """
     server = MQTTServer(
-        dispatcher=effect_dispatcher,
-        host="127.0.0.1",
-        port=1883
+        dispatcher=effect_dispatcher, host="127.0.0.1", port=1883
     )
     assert not server.is_running()
-    
+
     server.start()
     await asyncio.sleep(0.5)  # Give broker thread time to start
     assert server.is_running()
-    
+
     server.stop()
-    await asyncio.sleep(0.5) # Give broker thread time to stop
+    await asyncio.sleep(0.5)  # Give broker thread time to stop
     assert not server.is_running()
 
 
@@ -92,54 +88,58 @@ async def test_broker_publish_and_dispatch(mqtt_broker, effect_dispatcher):
     client = mqtt.Client(client_id="test_client")
     connection_result = {"value": -1}
     message_published = {"done": False}
-    
+
     def on_connect(client, userdata, flags, rc):
         connection_result["value"] = rc
         logger.info(f"paho-mqtt client connected with result code: {rc}")
-    
+
     def on_publish(client, userdata, mid):
         message_published["done"] = True
         logger.info(f"Message published: {mid}")
 
     client.on_connect = on_connect
     client.on_publish = on_publish
-    
+
     try:
         # Connect in executor with timeout
         loop = asyncio.get_running_loop()
         await asyncio.wait_for(
-            loop.run_in_executor(None, lambda: client.connect("127.0.0.1", 1883, 60)),
-            timeout=3.0
+            loop.run_in_executor(
+                None, lambda: client.connect("127.0.0.1", 1883, 60)
+            ),
+            timeout=3.0,
         )
-        
+
         # Start network loop in background
         client.loop_start()
-        
+
         # Wait for connection to be established
         for _ in range(10):
             if connection_result["value"] == 0:
                 break
             await asyncio.sleep(0.1)
-        
-        assert connection_result["value"] == 0, f"Connection failed with code {connection_result['value']}"
+
+        assert (
+            connection_result["value"] == 0
+        ), f"Connection failed with code {connection_result['value']}"
 
         # Prepare and publish the effect message
         effect_payload = {
             "effect_type": "vibration",
             "duration": 500,
-            "intensity": 80
+            "intensity": 80,
         }
-        
+
         # Publish message
         result = client.publish("effects/test", json.dumps(effect_payload))
         result.wait_for_publish(timeout=2.0)
-        
+
         # Wait for message to be processed
         await asyncio.sleep(1.0)
-        
+
         # Assert that the dispatcher was called
         effect_dispatcher.dispatch_effect_metadata.assert_called_once()
-        
+
         # Check the content of the call
         call_args = effect_dispatcher.dispatch_effect_metadata.call_args
         dispatched_effect = call_args[0][0]

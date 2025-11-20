@@ -28,6 +28,7 @@ class EffectMetadata:
         parameters: Additional effect-specific parameters
         event_id: Optional event identifier for event-based triggering
     """
+
     effect_type: str
     timestamp: int = 0  # milliseconds
     duration: int = 0  # milliseconds
@@ -57,6 +58,7 @@ class EffectTimeline:
         total_duration: Total timeline duration in milliseconds
         metadata: Additional timeline metadata (title, author, etc.)
     """
+
     effects: List[EffectMetadata] = field(default_factory=list)
     total_duration: int = 0
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -81,8 +83,10 @@ class EffectTimeline:
         """
         active = []
         for effect in self.effects:
-            if effect.timestamp <= time_ms < (
-                effect.timestamp + effect.duration
+            if (
+                effect.timestamp
+                <= time_ms
+                < (effect.timestamp + effect.duration)
             ):
                 active.append(effect)
         return active
@@ -118,13 +122,13 @@ class EffectMetadataParser:
         """
         data = json.loads(json_str)
         return EffectMetadata(
-            effect_type=data['effect_type'],
-            timestamp=data.get('timestamp', 0),
-            duration=data.get('duration', 0),
-            intensity=data.get('intensity'),
-            location=data.get('location', 'everywhere'),
-            parameters=data.get('parameters', {}),
-            event_id=data.get('event_id')
+            effect_type=data["effect_type"],
+            timestamp=data.get("timestamp", 0),
+            duration=data.get("duration", 0),
+            intensity=data.get("intensity"),
+            location=data.get("location", "everywhere"),
+            parameters=data.get("parameters", {}),
+            event_id=data.get("event_id"),
         )
 
     @staticmethod
@@ -140,13 +144,13 @@ class EffectMetadataParser:
         """
         data = yaml.safe_load(yaml_str)
         return EffectMetadata(
-            effect_type=data['effect_type'],
-            timestamp=data.get('timestamp', 0),
-            duration=data.get('duration', 0),
-            intensity=data.get('intensity'),
-            location=data.get('location', 'everywhere'),
-            parameters=data.get('parameters', {}),
-            event_id=data.get('event_id')
+            effect_type=data["effect_type"],
+            timestamp=data.get("timestamp", 0),
+            duration=data.get("duration", 0),
+            intensity=data.get("intensity"),
+            location=data.get("location", "everywhere"),
+            parameters=data.get("parameters", {}),
+            event_id=data.get("event_id"),
         )
 
     @staticmethod
@@ -161,13 +165,13 @@ class EffectMetadataParser:
             EffectMetadata object
         """
         return EffectMetadata(
-            effect_type=data['effect_type'],
-            timestamp=data.get('timestamp', 0),
-            duration=data.get('duration', 0),
-            intensity=data.get('intensity'),
-            location=data.get('location', 'everywhere'),
-            parameters=data.get('parameters', {}),
-            event_id=data.get('event_id')
+            effect_type=data["effect_type"],
+            timestamp=data.get("timestamp", 0),
+            duration=data.get("duration", 0),
+            intensity=data.get("intensity"),
+            location=data.get("location", "everywhere"),
+            parameters=data.get("parameters", {}),
+            event_id=data.get("event_id"),
         )
 
     @staticmethod
@@ -191,11 +195,9 @@ class EffectMetadataParser:
             }
         """
         data = json.loads(json_str)
-        timeline = EffectTimeline(
-            metadata=data.get('metadata', {})
-        )
+        timeline = EffectTimeline(metadata=data.get("metadata", {}))
 
-        for effect_data in data.get('effects', []):
+        for effect_data in data.get("effects", []):
             effect = EffectMetadataParser.parse_dict(effect_data)
             timeline.add_effect(effect)
 
@@ -214,11 +216,9 @@ class EffectMetadataParser:
             EffectTimeline object
         """
         data = yaml.safe_load(yaml_str)
-        timeline = EffectTimeline(
-            metadata=data.get('metadata', {})
-        )
+        timeline = EffectTimeline(metadata=data.get("metadata", {}))
 
-        for effect_data in data.get('effects', []):
+        for effect_data in data.get("effects", []):
             effect = EffectMetadataParser.parse_dict(effect_data)
             timeline.add_effect(effect)
 
@@ -237,13 +237,13 @@ class EffectMetadataParser:
             Dictionary representation
         """
         return {
-            'effect_type': effect.effect_type,
-            'timestamp': effect.timestamp,
-            'duration': effect.duration,
-            'intensity': effect.intensity,
-            'location': effect.location,
-            'parameters': effect.parameters,
-            'event_id': effect.event_id
+            "effect_type": effect.effect_type,
+            "timestamp": effect.timestamp,
+            "duration": effect.duration,
+            "intensity": effect.intensity,
+            "location": effect.location,
+            "parameters": effect.parameters,
+            "event_id": effect.event_id,
         }
 
     @staticmethod
@@ -258,27 +258,24 @@ class EffectMetadataParser:
         Returns:
             JSON string
         """
-        return json.dumps(
-            EffectMetadataParser.to_dict(effect),
-            indent=indent
-        )
+        return json.dumps(EffectMetadataParser.to_dict(effect), indent=indent)
 
     @staticmethod
     def parse_mpegv_xml(xml_content: str) -> EffectTimeline:
         """
         Parse MPEG-V XML format into EffectTimeline.
-        
+
         MPEG-V format example:
         <SEM>
             <SensoryEffect>
-                <Effect type="vibration" timestamp="1000" duration="500" 
+                <Effect type="vibration" timestamp="1000" duration="500"
                         intensity="75" location="center"/>
             </SensoryEffect>
         </SEM>
-        
+
         Args:
             xml_content: XML string in MPEG-V format
-            
+
         Returns:
             EffectTimeline object with parsed effects
         """
@@ -286,38 +283,38 @@ class EffectMetadataParser:
             root = ET.fromstring(xml_content)
         except ET.ParseError as e:
             raise ValueError(f"Invalid XML format: {e}")
-        
+
         timeline = EffectTimeline()
-        
+
         # Try different common root element names
         sensory_effects = (
-            root.findall('.//SensoryEffect') +
-            root.findall('.//SensoryEffects') +
-            root.findall('.//Effect') +
-            root.findall('.//effect')
+            root.findall(".//SensoryEffect")
+            + root.findall(".//SensoryEffects")
+            + root.findall(".//Effect")
+            + root.findall(".//effect")
         )
-        
+
         for se_elem in sensory_effects:
             # Parse effect from element or its children
             effect = EffectMetadataParser._parse_effect_element(se_elem)
             if effect:
                 timeline.add_effect(effect)
-        
+
         # Try to parse metadata from root
-        if root.get('title'):
-            timeline.metadata['title'] = root.get('title')
-        if root.get('duration'):
+        if root.get("title"):
+            timeline.metadata["title"] = root.get("title")
+        if root.get("duration"):
             try:
-                timeline.total_duration = int(root.get('duration'))
+                timeline.total_duration = int(root.get("duration"))
             except (ValueError, TypeError):
                 pass
-        
+
         # Parse metadata from separate elements
-        metadata_elem = root.find('.//metadata') or root.find('.//Metadata')
+        metadata_elem = root.find(".//metadata") or root.find(".//Metadata")
         if metadata_elem is not None:
             for child in metadata_elem:
                 timeline.metadata[child.tag] = child.text
-        
+
         timeline.sort_effects()
         return timeline
 
@@ -325,127 +322,146 @@ class EffectMetadataParser:
     def _parse_effect_element(elem: ET.Element) -> Optional[EffectMetadata]:
         """
         Parse a single effect element from XML.
-        
+
         Supports both attribute-based and child-element-based formats.
-        
+
         Args:
             elem: XML Element representing an effect
-            
+
         Returns:
             EffectMetadata object or None if parsing fails
         """
         # Try to find effect type
         effect_type = (
-            elem.get('type') or 
-            elem.get('effectType') or
-            elem.get('Type') or
-            EffectMetadataParser._get_child_text(elem, ['type', 'Type', 'effectType'])
+            elem.get("type")
+            or elem.get("effectType")
+            or elem.get("Type")
+            or EffectMetadataParser._get_child_text(
+                elem, ["type", "Type", "effectType"]
+            )
         )
-        
+
         if not effect_type:
             # Check if element itself contains Effect child
-            effect_child = elem.find('.//Effect') or elem.find('.//effect')
+            effect_child = elem.find(".//Effect") or elem.find(".//effect")
             if effect_child is not None:
                 return EffectMetadataParser._parse_effect_element(effect_child)
             return None
-        
+
         # Map common MPEG-V effect types to our types
         effect_type = EffectMetadataParser._normalize_effect_type(effect_type)
-        
+
         # Parse timestamp (milliseconds)
         timestamp = EffectMetadataParser._parse_int_attr(
-            elem, ['timestamp', 'Timestamp', 'time', 'Time'], default=0
+            elem, ["timestamp", "Timestamp", "time", "Time"], default=0
         )
-        
+
         # Parse duration (milliseconds)
         duration = EffectMetadataParser._parse_int_attr(
-            elem, ['duration', 'Duration'], default=1000
+            elem, ["duration", "Duration"], default=1000
         )
-        
+
         # Parse intensity (0-100)
         intensity = EffectMetadataParser._parse_int_attr(
-            elem, ['intensity', 'Intensity', 'magnitude', 'Magnitude'], default=None
+            elem,
+            ["intensity", "Intensity", "magnitude", "Magnitude"],
+            default=None,
         )
-        
+
         # Parse location
         location = (
-            elem.get('location') or
-            elem.get('Location') or
-            EffectMetadataParser._get_child_text(elem, ['location', 'Location']) or
-            'everywhere'
+            elem.get("location")
+            or elem.get("Location")
+            or EffectMetadataParser._get_child_text(
+                elem, ["location", "Location"]
+            )
+            or "everywhere"
         )
-        
+
         # Parse additional parameters
         parameters = {}
-        
+
         # Color for light effects
         color = (
-            elem.get('color') or elem.get('Color') or
-            EffectMetadataParser._get_child_text(elem, ['color', 'Color'])
+            elem.get("color")
+            or elem.get("Color")
+            or EffectMetadataParser._get_child_text(elem, ["color", "Color"])
         )
         if color:
-            parameters['color'] = color
-        
+            parameters["color"] = color
+
         # RGB values for light effects
-        r = EffectMetadataParser._parse_int_attr(elem, ['r', 'R', 'red'], default=None)
-        g = EffectMetadataParser._parse_int_attr(elem, ['g', 'G', 'green'], default=None)
-        b = EffectMetadataParser._parse_int_attr(elem, ['b', 'B', 'blue'], default=None)
+        r = EffectMetadataParser._parse_int_attr(
+            elem, ["r", "R", "red"], default=None
+        )
+        g = EffectMetadataParser._parse_int_attr(
+            elem, ["g", "G", "green"], default=None
+        )
+        b = EffectMetadataParser._parse_int_attr(
+            elem, ["b", "B", "blue"], default=None
+        )
         if r is not None and g is not None and b is not None:
-            parameters['rgb'] = [r, g, b]
-        
+            parameters["rgb"] = [r, g, b]
+
         # Scent information
         scent = (
-            elem.get('scent') or elem.get('Scent') or
-            EffectMetadataParser._get_child_text(elem, ['scent', 'Scent'])
+            elem.get("scent")
+            or elem.get("Scent")
+            or EffectMetadataParser._get_child_text(elem, ["scent", "Scent"])
         )
         if scent:
-            parameters['scent'] = scent
-        
+            parameters["scent"] = scent
+
         # Wind direction
         direction = (
-            elem.get('direction') or elem.get('Direction') or
-            EffectMetadataParser._get_child_text(elem, ['direction', 'Direction'])
+            elem.get("direction")
+            or elem.get("Direction")
+            or EffectMetadataParser._get_child_text(
+                elem, ["direction", "Direction"]
+            )
         )
         if direction:
-            parameters['direction'] = direction
-        
+            parameters["direction"] = direction
+
         # Temperature value
         temp = EffectMetadataParser._parse_int_attr(
-            elem, ['temperature', 'Temperature', 'temp'], default=None
+            elem, ["temperature", "Temperature", "temp"], default=None
         )
         if temp is not None:
-            parameters['temperature'] = temp
-        
+            parameters["temperature"] = temp
+
         return EffectMetadata(
             effect_type=effect_type,
             timestamp=timestamp,
             duration=duration,
             intensity=intensity,
             location=location,
-            parameters=parameters
+            parameters=parameters,
         )
 
     @staticmethod
     def _normalize_effect_type(effect_type: str) -> str:
         """Normalize effect type names to match PlaySEM conventions."""
         effect_type_lower = effect_type.lower()
-        
+
         # Map MPEG-V types to PlaySEM types
         type_map = {
-            'lighteffect': 'light',
-            'windeffect': 'wind',
-            'vibrationeffect': 'vibration',
-            'tactileeffect': 'vibration',
-            'scenteffect': 'scent',
-            'olfactoryeffect': 'scent',
-            'temperatureeffect': 'temperature',
-            'thermaleffect': 'temperature',
+            "lighteffect": "light",
+            "windeffect": "wind",
+            "vibrationeffect": "vibration",
+            "tactileeffect": "vibration",
+            "scenteffect": "scent",
+            "olfactoryeffect": "scent",
+            "temperatureeffect": "temperature",
+            "thermaleffect": "temperature",
         }
-        
+
         return type_map.get(effect_type_lower, effect_type_lower)
 
     @staticmethod
-    def _parse_int_attr(elem: ET.Element, attr_names: list, default: Optional[int] = None) -> Optional[int]:
+    def _parse_int_attr(
+        elem: ET.Element, attr_names: list, default: Optional[int] = None
+    ) -> Optional[int]:
         """Try to parse an integer from element attributes or child elements."""
         for name in attr_names:
             # Try as attribute
@@ -455,22 +471,30 @@ class EffectMetadataParser:
                     return int(float(val))  # Handle "1000.0" format
                 except (ValueError, TypeError):
                     pass
-            
+
             # Try as child element
-            child = elem.find(name) or elem.find(name.lower()) or elem.find(name.upper())
+            child = (
+                elem.find(name)
+                or elem.find(name.lower())
+                or elem.find(name.upper())
+            )
             if child is not None and child.text:
                 try:
                     return int(float(child.text))
                 except (ValueError, TypeError):
                     pass
-        
+
         return default
 
     @staticmethod
     def _get_child_text(elem: ET.Element, tag_names: list) -> Optional[str]:
         """Get text content from child element with various possible tag names."""
         for tag in tag_names:
-            child = elem.find(tag) or elem.find(tag.lower()) or elem.find(tag.upper())
+            child = (
+                elem.find(tag)
+                or elem.find(tag.lower())
+                or elem.find(tag.upper())
+            )
             if child is not None and child.text:
                 return child.text.strip()
         return None
@@ -479,25 +503,22 @@ class EffectMetadataParser:
     def parse_xml_file(filepath: str) -> EffectTimeline:
         """
         Parse XML timeline from file.
-        
+
         Args:
             filepath: Path to XML file
-            
+
         Returns:
             EffectTimeline object
         """
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             xml_content = f.read()
-        
+
         return EffectMetadataParser.parse_mpegv_xml(xml_content)
 
 
 # Convenience functions for common use cases
 def create_effect(
-    effect_type: str,
-    timestamp: int = 0,
-    duration: int = 0,
-    **kwargs
+    effect_type: str, timestamp: int = 0, duration: int = 0, **kwargs
 ) -> EffectMetadata:
     """
     Create an EffectMetadata object with convenience syntax.
@@ -524,10 +545,10 @@ def create_effect(
         effect_type=effect_type,
         timestamp=timestamp,
         duration=duration,
-        intensity=kwargs.get('intensity'),
-        location=kwargs.get('location', 'everywhere'),
-        parameters=kwargs.get('parameters', {}),
-        event_id=kwargs.get('event_id')
+        intensity=kwargs.get("intensity"),
+        location=kwargs.get("location", "everywhere"),
+        parameters=kwargs.get("parameters", {}),
+        event_id=kwargs.get("event_id"),
     )
 
 

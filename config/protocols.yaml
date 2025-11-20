@@ -1,44 +1,32 @@
-# Protocol Server Configuration
-# Enable or disable servers and configure their settings.
-
-device_manager:
-  broker_address: "localhost"
-
+# config/protocols.yaml
 http_server:
   enabled: true
-  host: "localhost"
-  port: 8080
-  api_key: "your_secret_api_key"
-  cors_origins:
-    - "http://localhost:8090"
-    - "http://127.0.0.1:8090"
+  host: "127.0.0.1"
+  port: 8000
+  api_key: "your_http_api_key"
+  cors_origins: ["http://localhost:3000"]
 
 websocket_server:
   enabled: true
-  host: "localhost"
-  port: 8765
-  auth_token: "secret_token_123"
+  host: "127.0.0.1"
+  port: 8001
+  auth_token: "your_websocket_auth_token"
   use_ssl: false
-  ssl_certfile: null
-  ssl_keyfile: null
 
 mqtt_server:
-  enabled: true
+  enabled: false # Set to true if you want to test MQTT
   broker_address: "localhost"
   port: 1883
-  username: null
-  password: null
-  use_tls: false
-  tls_ca_certs: null
-  tls_certfile: null
-  tls_keyfile: null
 
 coap_server:
-  enabled: true
-  host: "localhost"
+  enabled: false # Set to true if you want to test CoAP
+  host: "127.0.0.1"
   port: 5683
 
 upnp_server:
   enabled: true
   friendly_name: "PlaySEM Python Server"
   http_port: 8080
+
+device_manager:
+  broker_address: "mqtt://localhost:1883" # Example broker address for device manager

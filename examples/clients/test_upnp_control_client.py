@@ -4,6 +4,7 @@ from async_upnp_client.client_factory import UpnpFactory
 from async_upnp_client.aiohttp import AiohttpRequester
 from async_upnp_client.ssdp import SsdpListener
 
+
 async def main():
     """
     Discover a PlaySEM UPnP server, send an effect command, and print the response.
@@ -16,7 +17,9 @@ async def main():
         nonlocal playsem_device_info
         if "PlaySEM" in device.friendly_name and not playsem_device_info:
             playsem_device_info = device
-            print(f"Found PlaySEM server: {device.friendly_name} at {device.location}")
+            print(
+                f"Found PlaySEM server: {device.friendly_name} at {device.location}"
+            )
 
     listener = SsdpListener(on_device_discovered)
     await listener.async_start()
@@ -31,7 +34,9 @@ async def main():
     requester = AiohttpRequester()
     factory = UpnpFactory(requester)
     try:
-        playsem_device = await factory.async_create_device(playsem_device_info.location)
+        playsem_device = await factory.async_create_device(
+            playsem_device_info.location
+        )
     except Exception as e:
         print(f"Error creating device: {e}")
         return
@@ -39,7 +44,9 @@ async def main():
     print(f"Successfully created device: {playsem_device.name}")
 
     # Get the PlaySEM service
-    playsem_service = playsem_device.service("urn:schemas-upnp-org:service:PlaySEM:1")
+    playsem_service = playsem_device.service(
+        "urn:schemas-upnp-org:service:PlaySEM:1"
+    )
     if not playsem_service:
         print("Could not find PlaySEM service on the device.")
         return
@@ -48,7 +55,8 @@ async def main():
 
     # Construct the SOAP request
     soap_body = f"""<?xml version="1.0"?>
-<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+            s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
     <s:Body>
         <u:SendEffect xmlns:u="{playsem_service.service_type}">
             <EffectType>vibration</EffectType>
@@ -70,7 +78,9 @@ async def main():
     print("\nSending 'vibration' effect via UPnP...")
     async with aiohttp.ClientSession() as session:
         try:
-            async with session.post(playsem_service.control_url, headers=headers, data=soap_body) as response:
+            async with session.post(
+                playsem_service.control_url, headers=headers, data=soap_body
+            ) as response:
                 response_text = await response.text()
                 print(f"Response status: {response.status}")
                 print(f"Response body:\n{response_text}")

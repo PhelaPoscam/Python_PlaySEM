@@ -18,6 +18,7 @@ from typing import Optional, Callable, Dict, Any
 try:
     from amqtt.broker import Broker
     from amqtt.mqtt.constants import QOS_0
+
     AMQTT_AVAILABLE = True
 except ImportError:
     AMQTT_AVAILABLE = False
@@ -60,7 +61,7 @@ class MQTTServer:
         self.loop = None
         self.internal_client = None
         self._ready_event = asyncio.Event()
-        self._stop_event = asyncio.Event() # New stop event
+        self._stop_event = asyncio.Event()  # New stop event
 
         logger.info(
             f"Embedded MQTT Broker initialized - "
@@ -76,7 +77,9 @@ class MQTTServer:
                 logger.warning("Embedded MQTT Broker already running")
                 return
 
-            logger.info(f"Starting embedded MQTT broker on {self.host}:{self.port}")
+            logger.info(
+                f"Starting embedded MQTT broker on {self.host}:{self.port}"
+            )
             self.thread = threading.Thread(target=self._run_broker_loop)
             self.thread.daemon = True
             self.thread.start()
@@ -90,30 +93,36 @@ class MQTTServer:
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         self.loop.run_until_complete(self._start_broker())
-        self.loop.run_until_complete(self._broker_main_loop_with_shutdown()) # Run main loop until stop event
+        self.loop.run_until_complete(
+            self._broker_main_loop_with_shutdown()
+        )  # Run main loop until stop event
 
-        self.loop.close() # Close the loop cleanly
+        self.loop.close()  # Close the loop cleanly
 
     async def _start_broker(self):
         """
         Configure and start the amqtt broker.
         """
         if not AMQTT_AVAILABLE:
-            logger.error("amqtt library is not installed. Cannot start MQTT broker.")
+            logger.error(
+                "amqtt library is not installed. Cannot start MQTT broker."
+            )
             return
 
         config = {
-            'listeners': {
-                'default': {
-                    'bind': f'{self.host}:{self.port}',
-                    'type': 'tcp',
+            "listeners": {
+                "default": {
+                    "bind": f"{self.host}:{self.port}",
+                    "type": "tcp",
                 },
             }
         }
         self.broker = Broker(config)
         logger.debug("amqtt Broker instance created.")
         await self.broker.start()
-        logger.info(f"amqtt Broker started and listening on {self.host}:{self.port}")
+        logger.info(
+            f"amqtt Broker started and listening on {self.host}:{self.port}"
+        )
         self._ready_event.set()
 
         # Create an internal client to subscribe to topics and dispatch messages
@@ -131,14 +140,20 @@ class MQTTServer:
         payload = msg.payload
         try:
             payload_str = payload.decode("utf-8")
-            logger.debug(f"Broker received message on topic '{topic}': {payload_str}")
+            logger.debug(
+                f"Broker received message on topic '{topic}': {payload_str}"
+            )
 
             effect = self._parse_effect(payload_str)
             if effect:
                 self.dispatcher.dispatch_effect_metadata(effect)
-                logger.info(f"Effect '{effect.effect_type}' executed successfully via MQTT")
+                logger.info(
+                    f"Effect '{effect.effect_type}' executed successfully via MQTT"
+                )
             else:
-                logger.warning(f"Failed to parse effect from MQTT payload: {payload_str}")
+                logger.warning(
+                    f"Failed to parse effect from MQTT payload: {payload_str}"
+                )
 
         except Exception as e:
             logger.error(f"Error processing MQTT message: {e}")
@@ -147,10 +162,10 @@ class MQTTServer:
         """
         Main loop for the broker, waits for a stop signal.
         """
-        await self._stop_event.wait() # Wait until stop event is set
+        await self._stop_event.wait()  # Wait until stop event is set
         logger.info("Stop event received, initiating amqtt broker shutdown.")
         if self.broker:
-            await self.broker.shutdown() # Await the broker shutdown
+            await self.broker.shutdown()  # Await the broker shutdown
         logger.info("amqtt broker shutdown complete.")
 
     async def wait_until_ready(self):
@@ -172,12 +187,12 @@ class MQTTServer:
             if self.internal_client:
                 self.internal_client.loop_stop()
                 self.internal_client.disconnect()
-            
-            self._stop_event.set() # Signal the broker main loop to stop
-            
+
+            self._stop_event.set()  # Signal the broker main loop to stop
+
             # Wait for the thread to finish. It should now exit cleanly after broker shutdown.
-            self.thread.join(timeout=15) # Increased timeout just in case
-            
+            self.thread.join(timeout=15)  # Increased timeout just in case
+
             self._is_running = False
             logger.info("Embedded MQTT Broker stopped")
 
@@ -830,14 +845,16 @@ class UPnPServer:
         self.dispatcher = dispatcher
         self.uuid = uuid or f"uuid:{uuid_module.uuid4()}"
         self.http_port = http_port
-        
+
         if http_host:
             self.http_host = http_host
         else:
             self.http_host = self._get_local_ip()
 
-        self.location_url = f"http://{self.http_host}:{self.http_port}/description.xml"
-        
+        self.location_url = (
+            f"http://{self.http_host}:{self.http_port}/description.xml"
+        )
+
         self.manufacturer = manufacturer
         self.model_name = model_name
         self.model_version = model_version
@@ -864,10 +881,10 @@ class UPnPServer:
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             # Doesn't have to be reachable
-            s.connect(('10.255.255.255', 1))
+            s.connect(("10.255.255.255", 1))
             ip = s.getsockname()[0]
         except Exception:
-            ip = '127.0.0.1'
+            ip = "127.0.0.1"
         finally:
             if s:
                 s.close()
@@ -894,24 +911,26 @@ class UPnPServer:
             # Parse the SOAP envelope
             root = ET.fromstring(body)
             ns = {
-                's': 'http://schemas.xmlsoap.org/soap/envelope/',
-                'u': self.service_type
+                "s": "http://schemas.xmlsoap.org/soap/envelope/",
+                "u": self.service_type,
             }
 
             # Find the action node
-            action_node = root.find('.//u:SendEffect', ns)
+            action_node = root.find(".//u:SendEffect", ns)
             if action_node is None:
                 raise ValueError("SendEffect action not found in SOAP request")
 
             # Extract arguments
-            effect_type = action_node.findtext('EffectType')
-            duration_str = action_node.findtext('Duration')
-            intensity_str = action_node.findtext('Intensity')
-            location = action_node.findtext('Location', default='')
-            parameters_str = action_node.findtext('Parameters', default='{}')
+            effect_type = action_node.findtext("EffectType")
+            duration_str = action_node.findtext("Duration")
+            intensity_str = action_node.findtext("Intensity")
+            location = action_node.findtext("Location", default="")
+            parameters_str = action_node.findtext("Parameters", default="{}")
 
             if not all([effect_type, duration_str, intensity_str]):
-                raise ValueError("Missing required arguments in SendEffect action")
+                raise ValueError(
+                    "Missing required arguments in SendEffect action"
+                )
 
             # Create EffectMetadata
             effect = EffectMetadata(
@@ -919,38 +938,52 @@ class UPnPServer:
                 duration=int(duration_str),
                 intensity=int(intensity_str),
                 location=location,
-                parameters=json.loads(parameters_str)
+                parameters=json.loads(parameters_str),
             )
 
             # Dispatch the effect
             if self.dispatcher:
                 self.dispatcher.dispatch_effect_metadata(effect)
-                logger.info(f"Dispatched effect '{effect.effect_type}' via UPnP")
+                logger.info(
+                    f"Dispatched effect '{effect.effect_type}' via UPnP"
+                )
             else:
-                logger.warning("No dispatcher configured for UPnP server. Effect not dispatched.")
+                logger.warning(
+                    "No dispatcher configured for UPnP server. Effect not dispatched."
+                )
 
             # Send success response
-            response_xml = f'''<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+            response_xml = f"""<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
     <s:Body>
         <u:SendEffectResponse xmlns:u="{self.service_type}">
         </u:SendEffectResponse>
     </s:Body>
-</s:Envelope>'''
+</s:Envelope>"""
             return web.Response(
                 text=response_xml,
-                content_type='text/xml',
-                charset='utf-8',
-                status=200
+                content_type="text/xml",
+                charset="utf-8",
+                status=200,
             )
 
         except ET.ParseError as e:
             logger.error(f"Error parsing SOAP request: {e}")
             fault_xml = self._get_soap_fault("600", "Invalid XML")
-            return web.Response(text=fault_xml, content_type='text/xml', charset='utf-8', status=500)
+            return web.Response(
+                text=fault_xml,
+                content_type="text/xml",
+                charset="utf-8",
+                status=500,
+            )
         except Exception as e:
             logger.error(f"Error processing UPnP control request: {e}")
             fault_xml = self._get_soap_fault("501", str(e))
-            return web.Response(text=fault_xml, content_type='text/xml', charset='utf-8', status=500)
+            return web.Response(
+                text=fault_xml,
+                content_type="text/xml",
+                charset="utf-8",
+                status=500,
+            )
 
     async def start(self):
         """
@@ -972,12 +1005,16 @@ class UPnPServer:
             app.router.add_get("/description.xml", self._handle_description)
             app.router.add_get("/scpd.xml", self._handle_scpd)
             app.router.add_post("/control", self._handle_control)
-            
+
             self._http_runner = web.AppRunner(app)
             await self._http_runner.setup()
-            self._http_site = web.TCPSite(self._http_runner, self.http_host, self.http_port)
+            self._http_site = web.TCPSite(
+                self._http_runner, self.http_host, self.http_port
+            )
             await self._http_site.start()
-            logger.info(f"UPnP HTTP server started at http://{self.http_host}:{self.http_port}")
+            logger.info(
+                f"UPnP HTTP server started at http://{self.http_host}:{self.http_port}"
+            )
 
             # 2. Start the SSDP multicast listener
             class SSDPProtocol(asyncio.DatagramProtocol):
@@ -989,27 +1026,37 @@ class UPnPServer:
                     self.server._transport = transport
 
                 def datagram_received(self, data, addr):
-                    asyncio.create_task(self.server._handle_datagram(data, addr))
+                    asyncio.create_task(
+                        self.server._handle_datagram(data, addr)
+                    )
 
                 def error_received(self, exc):
                     logger.error(f"SSDP protocol error: {exc}")
 
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            sock = socket.socket(
+                socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP
+            )
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind(("", self.SSDP_PORT))
-            mreq = socket.inet_aton(self.SSDP_ADDR) + socket.inet_aton(self.http_host)
+            mreq = socket.inet_aton(self.SSDP_ADDR) + socket.inet_aton(
+                self.http_host
+            )
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 
             transport, protocol = await loop.create_datagram_endpoint(
                 lambda: SSDPProtocol(self), sock=sock
             )
 
-            self._advertisement_task = asyncio.create_task(self._advertise_periodically())
+            self._advertisement_task = asyncio.create_task(
+                self._advertise_periodically()
+            )
 
             with self._lock:
                 self._is_running = True
 
-            logger.info(f"UPnP SSDP discovery started on {self.SSDP_ADDR}:{self.SSDP_PORT}")
+            logger.info(
+                f"UPnP SSDP discovery started on {self.SSDP_ADDR}:{self.SSDP_PORT}"
+            )
             await self._send_notify_alive()
 
         except Exception as e:
@@ -1037,7 +1084,7 @@ class UPnPServer:
                     await self._advertisement_task
                 except asyncio.CancelledError:
                     pass
-            
+
             await self._send_notify_byebye()
             if self._transport:
                 self._transport.close()
@@ -1068,19 +1115,33 @@ class UPnPServer:
             message = data.decode("utf-8")
             if message.startswith("M-SEARCH"):
                 logger.debug(f"Received M-SEARCH from {addr[0]}:{addr[1]}")
-                st_line = [line for line in message.split("\r\n") if line.upper().startswith("ST:")]
+                st_line = [
+                    line
+                    for line in message.split("\r\n")
+                    if line.upper().startswith("ST:")
+                ]
                 if not st_line:
                     return
                 search_target = st_line[0].split(":", 1)[1].strip()
 
-                if search_target in ["ssdp:all", "upnp:rootdevice", self.device_type, self.service_type, self.uuid]:
+                if search_target in [
+                    "ssdp:all",
+                    "upnp:rootdevice",
+                    self.device_type,
+                    self.service_type,
+                    self.uuid,
+                ]:
                     await self._send_msearch_response(addr, search_target)
         except Exception as e:
             logger.error(f"Error handling SSDP datagram: {e}")
 
     async def _send_msearch_response(self, addr: tuple, search_target: str):
         """Send M-SEARCH response to a discovery request."""
-        usn = self.uuid if search_target == "upnp:rootdevice" else f"{self.uuid}::{search_target}"
+        usn = (
+            self.uuid
+            if search_target == "upnp:rootdevice"
+            else f"{self.uuid}::{search_target}"
+        )
         response = (
             "HTTP/1.1 200 OK\r\n"
             f"CACHE-CONTROL: max-age=1800\r\n"
@@ -1093,7 +1154,9 @@ class UPnPServer:
         )
         if self._transport:
             self._transport.sendto(response.encode("utf-8"), addr)
-            logger.debug(f"Sent M-SEARCH response to {addr[0]}:{addr[1]} for {search_target}")
+            logger.debug(
+                f"Sent M-SEARCH response to {addr[0]}:{addr[1]} for {search_target}"
+            )
 
     async def _send_notify_alive(self):
         """Send NOTIFY alive announcements."""
@@ -1116,7 +1179,9 @@ class UPnPServer:
                 f"\r\n"
             )
             if self._transport:
-                self._transport.sendto(notify.encode("utf-8"), (self.SSDP_ADDR, self.SSDP_PORT))
+                self._transport.sendto(
+                    notify.encode("utf-8"), (self.SSDP_ADDR, self.SSDP_PORT)
+                )
         logger.info("Sent NOTIFY alive announcements")
 
     async def _send_notify_byebye(self):
@@ -1137,7 +1202,9 @@ class UPnPServer:
                 f"\r\n"
             )
             if self._transport:
-                self._transport.sendto(notify.encode("utf-8"), (self.SSDP_ADDR, self.SSDP_PORT))
+                self._transport.sendto(
+                    notify.encode("utf-8"), (self.SSDP_ADDR, self.SSDP_PORT)
+                )
         logger.info("Sent NOTIFY byebye announcements")
 
     async def _advertise_periodically(self):
@@ -1256,7 +1323,6 @@ class UPnPServer:
         </s:Fault>
     </s:Body>
 </s:Envelope>"""
-
 
 
 class HTTPServer:

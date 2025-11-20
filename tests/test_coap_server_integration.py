@@ -64,7 +64,9 @@ async def test_coap_server_receives_and_dispatches_effect():
             uri=uri,
             payload=json.dumps(payload).encode("utf-8"),
         )
-        request.opt.content_format = ContentFormat.by_media_type("application/json")
+        request.opt.content_format = ContentFormat.by_media_type(
+            "application/json"
+        )
 
         client = await Context.create_client_context()
         try:

@@ -46,7 +46,7 @@ async def upnp_server(dispatcher):
         model_name="Test Model",
         model_version="1.0.0",
     )
-    
+
     await server.start()
     yield server
     await server.stop()
@@ -55,9 +55,7 @@ async def upnp_server(dispatcher):
 def test_upnp_server_initialization(dispatcher):
     """Test UPnP server initialization and dynamic URL generation."""
     server = UPnPServer(
-        dispatcher=dispatcher, 
-        http_host="127.0.0.1", 
-        http_port=9999
+        dispatcher=dispatcher, http_host="127.0.0.1", http_port=9999
     )
     assert server.http_port == 9999
     assert server.http_host == "127.0.0.1"
@@ -77,7 +75,7 @@ def test_device_description_xml_generation(dispatcher):
     server = UPnPServer(
         dispatcher=dispatcher,
         friendly_name="Test & Demo <Server>",
-        uuid="uuid:test-xml"
+        uuid="uuid:test-xml",
     )
     xml = server.get_device_description_xml()
     assert '<?xml version="1.0"?>' in xml
@@ -94,10 +92,14 @@ async def test_upnp_http_endpoints(upnp_server):
     Test that the integrated HTTP server correctly serves the UPnP XML files.
     """
     assert upnp_server.is_running()
-    
+
     desc_url = upnp_server.location_url
-    scpd_url = f"http://{upnp_server.http_host}:{upnp_server.http_port}/scpd.xml"
-    control_url = f"http://{upnp_server.http_host}:{upnp_server.http_port}/control"
+    scpd_url = (
+        f"http://{upnp_server.http_host}:{upnp_server.http_port}/scpd.xml"
+    )
+    control_url = (
+        f"http://{upnp_server.http_host}:{upnp_server.http_port}/control"
+    )
 
     async with aiohttp.ClientSession() as session:
         # 1. Test the description.xml endpoint
@@ -124,7 +126,7 @@ async def test_upnp_http_endpoints(upnp_server):
         )
         headers = {
             "Content-Type": 'text/xml; charset="utf-8"',
-            "SOAPAction": '"urn:schemas-upnp-org:service:PlaySEM:1#SendEffect"'
+            "SOAPAction": '"urn:schemas-upnp-org:service:PlaySEM:1#SendEffect"',
         }
         async with session.post(
             control_url, data=soap_request_body, headers=headers
@@ -144,9 +146,9 @@ async def test_ssdp_discovery(upnp_server):
     """
     assert upnp_server.is_running()
     assert upnp_server._transport is not None
-    
+
     # Check that the server is listening on the SSDP port
-    sockname = upnp_server._transport.get_extra_info('socket').getsockname()
+    sockname = upnp_server._transport.get_extra_info("socket").getsockname()
     assert sockname[1] == 1900
 
     # The fixture handles start and stop, so we just need to ensure

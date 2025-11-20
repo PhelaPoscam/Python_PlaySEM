@@ -17,10 +17,7 @@ def effect_dispatcher(mock_device_manager):
 
 
 def test_dispatch_effect(effect_dispatcher, mock_device_manager):
-    effect_dispatcher.dispatch_effect(
-        "light",
-        {"intensity": "high"}
-    )
+    effect_dispatcher.dispatch_effect("light", {"intensity": "high"})
     # Verify that send_command was called at least once
     assert mock_device_manager.send_command.called
     # Check the first call
