@@ -3,6 +3,7 @@ Tests for the embedded MQTT Broker in protocol_server.py
 """
 
 import asyncio
+import socket
 import json
 import pytest
 import logging
@@ -38,8 +39,14 @@ async def mqtt_broker(effect_dispatcher):
     Fixture to create and manage the embedded MQTTServer broker.
     """
     logger.info("mqtt_broker fixture: Starting setup.")
+    # Allocate a random free port to avoid conflicts across tests
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(("127.0.0.1", 0))
+    free_port = sock.getsockname()[1]
+    sock.close()
+
     server = MQTTServer(
-        dispatcher=effect_dispatcher, host="127.0.0.1", port=1883
+        dispatcher=effect_dispatcher, host="127.0.0.1", port=free_port
     )
     logger.info("mqtt_broker fixture: MQTTServer instance created.")
     server.start()
@@ -62,8 +69,14 @@ async def test_broker_start_stop(effect_dispatcher):
     """
     Test that the embedded MQTT broker can start and stop correctly.
     """
+    # Allocate a random free port to avoid conflicts across tests
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(("127.0.0.1", 0))
+    free_port = sock.getsockname()[1]
+    sock.close()
+
     server = MQTTServer(
-        dispatcher=effect_dispatcher, host="127.0.0.1", port=1883
+        dispatcher=effect_dispatcher, host="127.0.0.1", port=free_port
     )
     assert not server.is_running()
 
@@ -105,7 +118,7 @@ async def test_broker_publish_and_dispatch(mqtt_broker, effect_dispatcher):
         loop = asyncio.get_running_loop()
         await asyncio.wait_for(
             loop.run_in_executor(
-                None, lambda: client.connect("127.0.0.1", 1883, 60)
+                None, lambda: client.connect("127.0.0.1", mqtt_broker.port, 60)
             ),
             timeout=3.0,
         )

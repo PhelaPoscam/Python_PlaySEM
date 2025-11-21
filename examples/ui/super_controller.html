@@ -44,6 +44,24 @@
         </div>
         <button id="sendEffect">Send Effect</button>
         <div id="status">Waiting for connection...</div>
+
+        <hr>
+        <h2>Device Capabilities</h2>
+        <div class="form-group">
+            <label for="deviceSelect">Device</label>
+            <select id="deviceSelect"></select>
+        </div>
+        <div class="form-group">
+            <button id="fetchCaps">Fetch Capabilities</button>
+        </div>
+        <div class="form-group">
+            <label>Effect</label>
+            <select id="capEffectType"></select>
+        </div>
+        <div class="form-group" id="capParams"></div>
+        <div class="form-group">
+            <button id="sendCapEffect">Send Effect From Capabilities</button>
+        </div>
     </div>
 
     <script>
@@ -51,11 +69,27 @@
         const statusDiv = document.getElementById('status');
         const sendButton = document.getElementById('sendEffect');
 
+        // Capabilities UI elements
+        const deviceSelect = document.getElementById('deviceSelect');
+        const fetchCapsBtn = document.getElementById('fetchCaps');
+        const capEffectType = document.getElementById('capEffectType');
+        const capParams = document.getElementById('capParams');
+        const sendCapEffectBtn = document.getElementById('sendCapEffect');
+        let latestCaps = null;
+
         ws.onopen = () => {
             statusDiv.textContent = 'Connected to server.';
         };
 
         ws.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'device_list') {
+                    refreshDeviceOptions(msg.devices || []);
+                    statusDiv.textContent = `Devices: ${msg.devices.length}`;
+                    return;
+                }
+            } catch(_) {}
             statusDiv.textContent = `Message from server: ${event.data}`;
         };
 
@@ -80,6 +114,121 @@
 
             ws.send(JSON.stringify(effect));
             statusDiv.textContent = 'Sent effect to server.';
+        });
+
+        function refreshDeviceOptions(devices) {
+            deviceSelect.innerHTML = '';
+            devices.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.id;
+                opt.textContent = `${d.name} (${d.id})`;
+                deviceSelect.appendChild(opt);
+            });
+        }
+
+        // Ask for devices on load
+        ws.onopen = () => {
+            statusDiv.textContent = 'Connected to server.';
+            ws.send(JSON.stringify({ type: 'get_devices' }));
+        };
+
+        async function fetchCapabilitiesForSelected(){
+            const id = deviceSelect.value;
+            if (!id) { statusDiv.textContent = 'Select a device first.'; return; }
+            statusDiv.textContent = 'Fetching capabilities...';
+            try {
+                const res = await fetch(`/api/capabilities/${encodeURIComponent(id)}`);
+                const caps = await res.json();
+                latestCaps = caps;
+                populateCapabilityUI(caps);
+                statusDiv.textContent = 'Capabilities loaded.';
+            } catch (e) {
+                statusDiv.textContent = 'Failed to fetch capabilities.';
+            }
+        }
+
+        fetchCapsBtn.addEventListener('click', async () => {
+            fetchCapabilitiesForSelected();
+        });
+        deviceSelect.addEventListener('change', () => {
+            // Auto-fetch on selection change for faster workflow
+            fetchCapabilitiesForSelected();
+        });
+
+        function populateCapabilityUI(caps) {
+            const effects = (caps && caps.effects) || [];
+            capEffectType.innerHTML = '';
+            effects.forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e.effect_type;
+                opt.textContent = e.effect_type;
+                capEffectType.appendChild(opt);
+            });
+            renderParamsForSelectedEffect();
+            capEffectType.onchange = renderParamsForSelectedEffect;
+        }
+
+        function renderParamsForSelectedEffect() {
+            const effect = (latestCaps?.effects || []).find(e => e.effect_type === capEffectType.value) || null;
+            capParams.innerHTML = '';
+            if (!effect) return;
+            (effect.parameters || []).forEach(p => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'form-group';
+                const label = document.createElement('label');
+                const suffix = p.unit ? ` (${p.unit})` : (p.format ? ` (${p.format})` : '');
+                const rangeHint = (p.min != null || p.max != null) ? ` [${p.min ?? ''}..${p.max ?? ''}]` : '';
+                label.textContent = `${p.name}${suffix}${rangeHint}`;
+                wrapper.appendChild(label);
+                let input;
+                if (p.type === 'int' || p.type === 'float') {
+                    input = document.createElement('input');
+                    input.type = 'range';
+                    input.min = p.min ?? 0;
+                    input.max = p.max ?? (p.type === 'int' ? 255 : 1.0);
+                    input.step = p.type === 'int' ? 1 : (p.step ?? 0.01);
+                    input.value = p.default ?? input.min;
+                } else if (p.type === 'string' && (p.format === '#RRGGBB' || p.format === 'color')) {
+                    input = document.createElement('input');
+                    input.type = 'color';
+                    input.value = p.default || '#ffffff';
+                } else if (p.enum) {
+                    input = document.createElement('select');
+                    (p.enum || []).forEach(val => {
+                        const o = document.createElement('option');
+                        o.value = val; o.textContent = val; input.appendChild(o);
+                    });
+                } else {
+                    input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = p.default || '';
+                }
+                input.name = p.name;
+                wrapper.appendChild(input);
+                capParams.appendChild(wrapper);
+            });
+        }
+
+        sendCapEffectBtn.addEventListener('click', () => {
+            const deviceId = deviceSelect.value;
+            if (!deviceId) { statusDiv.textContent = 'Select a device first.'; return; }
+            const effect_type = capEffectType.value || 'vibration';
+            const params = {};
+            const inputs = capParams.querySelectorAll('input, select');
+            inputs.forEach(el => { params[el.name] = el.value; });
+            // Map common parameters if present
+            const intensity = parseInt(params.intensity ?? 50);
+            const duration = parseInt(params.duration ?? 1000);
+            // Avoid duplicate core params in the parameters bag
+            delete params.intensity;
+            delete params.duration;
+            const msg = {
+                type: 'send_effect',
+                device_id: deviceId,
+                effect: { effect_type, intensity, duration, parameters: params }
+            };
+            ws.send(JSON.stringify(msg));
+            statusDiv.textContent = 'Effect sent using capabilities.';
         });
     </script>
 </body>

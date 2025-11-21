@@ -316,21 +316,26 @@ Open `examples/web/phone_tester.html` on your smartphone
 ## 🎯 Phase 4 - Advanced Features
 
 ### Delay Compensation
+
 - [ ] Calculate latency chain (parsing → network → device)
 - [ ] Adjust timing in TimeLineDeviceCommand
 - [ ] Measure actual device response times (use Phase 3.5 data!)
 
 ### Device Capabilities
-- [ ] Generate capability descriptions (JSON/XML)
-- [ ] Expose via /capabilities endpoint
+
+- [x] Generate capability descriptions (JSON)
+- [x] Expose via /api/capabilities/{device_id} endpoint
+- [x] Minimal UI at /ui/capabilities to view and debug
 - [ ] Support capability negotiation
 
 ### Reset & Lifecycle
+
 - [ ] Add reset_device() to all drivers
 - [ ] Call on startup and shutdown
 - [ ] Graceful error handling and recovery
 
 ### Location Support
+
 - [ ] Implement MPEG-V LocationCS scheme
 - [ ] Support spatial audio-like positioning
 - [ ] Multi-device coordination for location-based effects
@@ -416,7 +421,7 @@ python -m src.main --server websocket --port 8080
 | HTTP REST API | ✅ | ✅ | Done (FastAPI, API key, docs) |
 | Security (Auth/TLS) | ✅ | ✅ | Done (all protocols) |
 | Delay Compensation | ✅ | ❌ | Not started |
-| Device Capabilities | ✅ | ❌ | Not started |
+| Device Capabilities | ✅ | ✅ | Done |
 | Location Support | ✅ | 🟡 | Basic support in dispatcher |
 | Unit Tests | 🟡 | ✅ | 40 tests, 100% passing |
 
@@ -454,10 +459,10 @@ python -m src.main --server websocket --port 8080
 
 ---
 
-**Last Updated**: November 17, 2025  
-**Status**: Phase 3 COMPLETE! Universal driver integration achieved - 90% overall progress! 🎉  
-**Current Phase**: Phase 3 - Device Connectivity (**100% COMPLETE** ✅✅✅)  
-**Next Up**: Phase 4 - Advanced Features (Delay Compensation, Capabilities)
+**Last Updated**: November 21, 2025  
+**Status**: Phase 3 COMPLETE! Universal driver integration achieved - 90%+ overall progress! 🎉  
+**Current Phase**: Phase 4 - Advanced Features (in progress)  
+**Next Up**: Delay Compensation, Capability Negotiation
 
 > The repository is production-ready with **5 protocol servers** + **4 device drivers** + **universal integration**:
 > 

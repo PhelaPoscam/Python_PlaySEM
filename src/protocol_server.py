@@ -64,6 +64,9 @@ class MQTTServer:
         self.internal_client = None
         self._ready_event = asyncio.Event()
         self._stop_event = asyncio.Event()  # New stop event
+        self._last_msg_sig = None
+        self._last_msg_time = 0.0
+        self._subscribed = threading.Event()
 
         logger.info(
             f"Embedded MQTT Broker initialized - "
@@ -125,13 +128,39 @@ class MQTTServer:
         logger.info(
             f"amqtt Broker started and listening on {self.host}:{self.port}"
         )
-        self._ready_event.set()
 
         # Create an internal client to subscribe to topics and dispatch messages
         self.internal_client = mqtt.Client()
         self.internal_client.on_message = self._on_internal_message
+
+        # Subscribe upon successful connection to avoid duplicate or missed subs
+        def _on_connect(client, userdata, flags, rc):
+            try:
+                client.subscribe(self.subscribe_topic, qos=0)
+                logger.debug(
+                    f"Internal MQTT client subscribed to {self.subscribe_topic} (qos=0)"
+                )
+                # Signal readiness after successful subscribe
+                if self.loop is not None:
+                    try:
+                        self.loop.call_soon_threadsafe(self._ready_event.set)
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.error(f"Internal MQTT subscribe error: {e}")
+
+        self.internal_client.on_connect = _on_connect
+
+        def _on_subscribe(client, userdata, mid, granted_qos):
+            try:
+                self._subscribed.set()
+                if self.loop is not None:
+                    self.loop.call_soon_threadsafe(self._ready_event.set)
+            except Exception as e:
+                logger.error(f"Internal MQTT on_subscribe error: {e}")
+
+        self.internal_client.on_subscribe = _on_subscribe
         self.internal_client.connect(self.host, self.port, 60)
-        self.internal_client.subscribe(self.subscribe_topic, QOS_0)
         self.internal_client.loop_start()
 
     def _on_internal_message(self, client, userdata, msg):
@@ -145,6 +174,19 @@ class MQTTServer:
             logger.debug(
                 f"Broker received message on topic '{topic}': {payload_str}"
             )
+
+            # Deduplicate quick successive identical messages observed on some setups
+            import time
+
+            sig = (topic, payload_str)
+            now = time.monotonic()
+            if self._last_msg_sig == sig and (now - self._last_msg_time) < 1.0:
+                logger.debug(
+                    "Duplicate MQTT message ignored (within 1s window)"
+                )
+                return
+            self._last_msg_sig = sig
+            self._last_msg_time = now
 
             effect = self._parse_effect(payload_str)
             if effect:
@@ -1514,6 +1556,7 @@ class HTTPServer:
     def _register_routes(self):
         """Register API routes."""
         from fastapi import Body
+        from fastapi.responses import HTMLResponse
 
         @self._app.post(
             "/api/effects",
@@ -1605,6 +1648,79 @@ class HTTPServer:
                 },
             ]
             return self._DevicesResponse(devices=devices, count=len(devices))
+
+        @self._app.get(
+            "/ui/capabilities",
+            response_class=HTMLResponse,
+            summary="Capabilities UI",
+            description="Simple UI to query device capabilities",
+        )
+        async def get_capabilities_ui():
+            html = (
+                "<!doctype html>\n"
+                '<html><head><meta charset="utf-8">'
+                "<title>Device Capabilities</title>"
+                "<style>"
+                "body{font-family:sans-serif;padding:16px;max-width:960px;margin:auto}"
+                "label,select,input,button{font-size:14px;margin:4px 6px 12px 0}"
+                ".row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}"
+                "pre{background:#f5f5f5;padding:12px;overflow:auto;"
+                "border:1px solid #ddd;border-radius:6px}"
+                "small{color:#666}"
+                "</style></head><body>"
+                "<h2>Device Capabilities</h2>"
+                "<div class='row'>"
+                '<label for="deviceSelect">Device:</label>'
+                '<select id="deviceSelect"><option value="">Loading…</option></select>'
+                '<input id="did" placeholder="or enter device id" '
+                'style="min-width:200px">'
+                '<button id="btn">Fetch</button>'
+                "</div>"
+                "<small>Tip: pick from devices or type an id "
+                "(e.g., mock_light_1)</small>"
+                '<pre id="out">(result appears here)</pre>'
+                "<script>"
+                "const select=document.getElementById('deviceSelect');"
+                "const input=document.getElementById('did');"
+                "const btn=document.getElementById('btn');"
+                "const out=document.getElementById('out');"
+                "async function loadDevices(){"
+                "  try{"
+                "    const r=await fetch('/api/devices');"
+                "    const j=await r.json();"
+                "    select.innerHTML='';"
+                "    const empty=document.createElement('option');"
+                "    empty.value=''; empty.text='— select —';"
+                "    select.appendChild(empty);"
+                "    (j.devices||[]).forEach(d=>{"
+                "      const opt=document.createElement('option');"
+                "      opt.value=d.device_id;"
+                "      opt.text=`${d.device_id} (${d.device_type})`;"
+                "      select.appendChild(opt);"
+                "    });"
+                "  }catch(e){ select.innerHTML='<option>Error</option>'; }"
+                "}"
+                "select.onchange=()=>{ if(select.value) input.value=select.value; }"
+                "btn.onclick=async()=>{"
+                "  const id=(select.value||input.value||'').trim();"
+                "  if(!id){"
+                "    out.textContent='Please select or enter a device id.';"
+                "    return;"
+                "  }"
+                "  out.textContent='Loading…';"
+                "  try{"
+                "    const res=await fetch('/api/capabilities/' +"
+                "      encodeURIComponent(id));"
+                "    const txt=await res.text();"
+                "    try{ out.textContent=JSON.stringify(JSON.parse(txt),null,2); }"
+                "    catch{ out.textContent=txt; }"
+                "  }catch(e){ out.textContent=String(e); }"
+                "}"
+                "loadDevices();"
+                "</script>"
+                "</body></html>"
+            )
+            return HTMLResponse(content=html, status_code=200)
 
         @self._app.get(
             "/api/capabilities/{device_id}",

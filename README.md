@@ -129,6 +129,141 @@ The `examples/` directory is structured to provide a clear separation of concern
 -   **`docs/`**: Documentation specific to the examples.
 -   **`data/`**: Sample data, such as the `sample_timeline.xml` for the timeline player.
 
+## Device Capabilities
+
+Devices advertise what effects and parameters they support so clients can adapt at runtime.
+
+- Endpoint: `GET /api/capabilities/{device_id}` returns a JSON description.
+- UI: Open `/ui/capabilities` to pick a device and view its capabilities.
+
+Example response (abridged):
+
+```json
+{
+    "device_id": "mock_light_1",
+    "effects": [
+        {
+            "effect_type": "light",
+            "parameters": [
+                {"name": "intensity", "type": "int", "min": 0, "max": 255, "default": 128},
+                {"name": "duration", "type": "int", "min": 1, "max": 60000, "default": 1000},
+                {"name": "color", "type": "string", "format": "#RRGGBB", "default": "#FFFFFF"}
+            ]
+        }
+    ]
+}
+```
+
+Quick test:
+
+```bash
+curl http://localhost:8080/api/capabilities/mock_light_1 | jq .
+```
+
+## Mobile Device Client
+
+Turn your smartphone into a sensory device that appears in the control panel!
+
+**Quick Start:**
+
+1. Find your PC's IP address (Windows):
+   ```powershell
+   ipconfig
+   ```
+
+2. Add firewall rule (run PowerShell as Administrator):
+   ```powershell
+   netsh advfirewall firewall add rule name="PythonPlaySEM" dir=in action=allow protocol=TCP localport=8090
+   ```
+
+3. Start the server:
+   ```powershell
+   python examples/server/main.py
+   ```
+
+4. On your phone's browser, navigate to:
+   ```
+   http://YOUR_PC_IP:8090/mobile_device
+   ```
+
+5. Tap "Connect" - your phone appears in the device list!
+
+**Features:**
+- 📱 Visual feedback for light effects (full-screen color display)
+- 📳 Physical vibration for vibration effects
+- 🔄 Real-time WebSocket communication
+- 📊 Activity log and connection status
+- 🔋 Wake lock to prevent screen sleep
+- ✅ No app installation needed - just a web browser
+
+See `docs/mobile_device_setup.md` for detailed setup and troubleshooting.
+
+## Testing
+
+Run the test suite:
+
+```bash
+pytest
+```
+
+Run with coverage:
+
+```bash
+pytest --cov=src --cov-report=html
+```
+
+All 76 tests should pass, validating:
+- Device drivers (Serial, Bluetooth, MQTT, Mock)
+- Protocol servers (HTTP, WebSocket, MQTT, CoAP, UPnP)
+- Effect dispatching and routing
+- Timeline synchronization
+- Device capabilities
+- Web client registration
+
+## Configuration
+
+Configuration files are in the `config/` directory:
+
+- `devices.yaml`: Device addresses and connection settings
+- `effects.yaml`: Effect-to-device routing rules
+
+Example device configuration:
+
+```yaml
+devices:
+  light_strip:
+    driver: serial
+    port: COM5
+    baud_rate: 115200
+  
+  phone_vibrator:
+    driver: bluetooth
+    address: "AA:BB:CC:DD:EE:FF"
+```
+
+## Architecture
+
+The framework is built on several key principles:
+
+1. **Protocol Agnostic**: Effects can be triggered from any protocol
+2. **Device Agnostic**: Any device can be added via a driver
+3. **Timeline Support**: Complex sequences with precise timing
+4. **Real-time Capable**: Low-latency WebSocket for live effects
+5. **Web-First**: Modern web UI for control and monitoring
+
+For detailed architecture documentation, see `docs/CONTROL_PANEL_ARCHITECTURE.md`.
+
 ## Contributing
 
-Contributions are welcome! Please see the `docs/CONVENTIONS.md` for coding standards and refer to the `docs/ROADMAP.md` for planned features and future development goals.
+Contributions are welcome! Please see:
+- `docs/CONVENTIONS.md` for coding standards
+- `docs/ROADMAP.md` for planned features
+- `docs/DEVICE_TESTING_CHECKLIST.md` for testing guidelines
+
+## License
+
+This project is licensed under the MIT License.
+
+## Acknowledgments
+
+Based on the original [PlaySEM framework](https://github.com/estevaobissoli) by Estevão Bissoli.

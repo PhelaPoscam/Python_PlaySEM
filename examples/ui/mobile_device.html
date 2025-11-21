@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobile Sensory Device</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #header {
+            background: #16213e;
+            padding: 15px;
+            text-align: center;
+            border-bottom: 2px solid #0f3460;
+        }
+        #header h1 {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+        #status {
+            font-size: 13px;
+            color: #ff6b6b;
+            font-weight: 500;
+        }
+        #status.connected {
+            color: #51cf66;
+        }
+        #display {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        #effectName {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        #effectName.show {
+            opacity: 1;
+        }
+        #controls {
+            background: #16213e;
+            padding: 20px;
+            border-top: 2px solid #0f3460;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 5px;
+            color: #aaa;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            background: #0f3460;
+            border: 1px solid #1a4d7a;
+            border-radius: 8px;
+            color: #fff;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #connectBtn {
+            background: #51cf66;
+            color: #1a1a2e;
+        }
+        #connectBtn:active {
+            transform: scale(0.98);
+        }
+        #connectBtn.connected {
+            background: #ff6b6b;
+        }
+        #log {
+            font-size: 11px;
+            color: #888;
+            margin-top: 10px;
+            max-height: 60px;
+            overflow-y: auto;
+            background: #0f1419;
+            padding: 8px;
+            border-radius: 6px;
+        }
+        .log-entry {
+            margin-bottom: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>📱 Mobile Sensory Device</h1>
+        <div id="status">Disconnected</div>
+    </div>
+
+    <div id="display">
+        <div id="effectName"></div>
+    </div>
+
+    <div id="controls">
+        <div class="control-group">
+            <label for="deviceName">Device Name</label>
+            <input type="text" id="deviceName" placeholder="My Phone" value="">
+        </div>
+        <div class="control-group">
+            <label for="serverUrl">Server WebSocket URL</label>
+            <input type="text" id="serverUrl" placeholder="ws://192.168.1.100:8080/ws" value="">
+        </div>
+        <button id="connectBtn">Connect</button>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let deviceId = null;
+        let isConnected = false;
+
+        const statusEl = document.getElementById('status');
+        const connectBtn = document.getElementById('connectBtn');
+        const displayEl = document.getElementById('display');
+        const effectNameEl = document.getElementById('effectName');
+        const logEl = document.getElementById('log');
+        const deviceNameInput = document.getElementById('deviceName');
+        const serverUrlInput = document.getElementById('serverUrl');
+
+        // Auto-generate device ID based on device info
+        const ua = navigator.userAgent;
+        const deviceType = /mobile/i.test(ua) ? 'mobile' : 'desktop';
+        const deviceModel = ua.match(/(iPhone|iPad|Android|Windows Phone)/)?.[1] || 'Unknown';
+        deviceId = `web_${deviceType}_${Date.now().toString(36)}`;
+
+        // Pre-fill device name
+        deviceNameInput.value = `${deviceModel} ${deviceType}`;
+
+        // Auto-detect server URL from current host
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const hostname = window.location.hostname || '192.168.1.100';
+        const port = window.location.port || '8090';
+        const defaultWsUrl = `${protocol}//${hostname}:${port}/ws`;
+        serverUrlInput.value = defaultWsUrl;
+
+        function log(msg) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = `${new Date().toLocaleTimeString()}: ${msg}`;
+            logEl.insertBefore(entry, logEl.firstChild);
+            // Keep only last 10 entries
+            while (logEl.children.length > 10) {
+                logEl.removeChild(logEl.lastChild);
+            }
+        }
+
+        function updateStatus(connected) {
+            isConnected = connected;
+            statusEl.textContent = connected ? `Connected as ${deviceId}` : 'Disconnected';
+            statusEl.className = connected ? 'connected' : '';
+            connectBtn.textContent = connected ? 'Disconnect' : 'Connect';
+            connectBtn.className = connected ? 'connected' : '';
+        }
+
+        function showEffect(effectType, intensity, duration, parameters) {
+            effectNameEl.textContent = effectType.toUpperCase();
+            effectNameEl.classList.add('show');
+
+            // Visual feedback based on effect type
+            if (effectType === 'light' || effectType.includes('light')) {
+                const color = parameters?.color || '#ffffff';
+                displayEl.style.backgroundColor = color;
+                displayEl.style.opacity = (intensity / 255).toFixed(2);
+            } else if (effectType === 'vibration' || effectType.includes('vibr')) {
+                displayEl.style.backgroundColor = '#ff6b6b';
+                displayEl.style.opacity = (intensity / 255 * 0.8 + 0.2).toFixed(2);
+                // Trigger vibration if supported
+                if ('vibrate' in navigator) {
+                    navigator.vibrate(duration || 200);
+                }
+            } else if (effectType.includes('wind')) {
+                displayEl.style.backgroundColor = '#74c0fc';
+                displayEl.style.opacity = (intensity / 255 * 0.7 + 0.3).toFixed(2);
+            } else {
+                displayEl.style.backgroundColor = '#adb5bd';
+                displayEl.style.opacity = (intensity / 255 * 0.6 + 0.4).toFixed(2);
+            }
+
+            // Clear after duration
+            setTimeout(() => {
+                displayEl.style.backgroundColor = '#1a1a2e';
+                displayEl.style.opacity = '1';
+                effectNameEl.classList.remove('show');
+            }, duration || 1000);
+        }
+
+        function connect() {
+            const serverUrl = serverUrlInput.value.trim();
+            if (!serverUrl) {
+                log('Error: Server URL is required');
+                return;
+            }
+
+            try {
+                ws = new WebSocket(serverUrl);
+
+                ws.onopen = () => {
+                    log('WebSocket connected');
+                    // Register as a device
+                    ws.send(JSON.stringify({
+                        type: 'register_device',
+                        device_id: deviceId,
+                        device_name: deviceNameInput.value || 'Mobile Device',
+                        device_type: 'web_client',
+                        capabilities: ['light', 'vibration']
+                    }));
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(`Received: ${data.type}`);
+
+                        if (data.type === 'device_registered') {
+                            updateStatus(true);
+                            log(`Registered as ${data.device_id}`);
+                        } else if (data.type === 'effect') {
+                            // Execute effect
+                            showEffect(
+                                data.effect_type,
+                                data.intensity || 100,
+                                data.duration || 1000,
+                                data.parameters || {}
+                            );
+                            log(`Effect: ${data.effect_type} (${data.intensity}/${data.duration}ms)`);
+                            
+                            // Send acknowledgment
+                            ws.send(JSON.stringify({
+                                type: 'effect_ack',
+                                device_id: deviceId,
+                                effect_type: data.effect_type,
+                                timestamp: Date.now()
+                            }));
+                        }
+                    } catch (e) {
+                        log(`Parse error: ${e.message}`);
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    log(`WebSocket error`);
+                    updateStatus(false);
+                };
+
+                ws.onclose = () => {
+                    log('WebSocket closed');
+                    updateStatus(false);
+                    ws = null;
+                };
+
+            } catch (e) {
+                log(`Connection error: ${e.message}`);
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            updateStatus(false);
+        }
+
+        connectBtn.onclick = () => {
+            if (isConnected) {
+                disconnect();
+            } else {
+                connect();
+            }
+        };
+
+        // Prevent screen sleep on mobile
+        let wakeLock = null;
+        if ('wakeLock' in navigator) {
+            navigator.wakeLock.request('screen').then(lock => {
+                wakeLock = lock;
+                log('Screen wake lock active');
+            }).catch(() => {});
+        }
+
+        log('Ready to connect');
+    </script>
+</body>
+</html>
