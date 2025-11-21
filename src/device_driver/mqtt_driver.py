@@ -224,6 +224,53 @@ class MQTTDriver(BaseDriver):
             "connected": self._is_connected,
         }
 
+    def get_capabilities(self, device_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get device capabilities for MQTT-connected devices.
+
+        Returns generic capabilities. MQTT devices should publish their
+        capabilities to a specific topic for accurate information.
+        """
+        from ..device_capabilities import (
+            DeviceCapabilities,
+            EffectCapability,
+            EffectType,
+            create_standard_intensity_param,
+            create_standard_duration_param,
+        )
+
+        # Create capabilities for MQTT devices
+        caps = DeviceCapabilities(
+            device_id=device_id,
+            device_type="MQTTDevice",
+            manufacturer="Unknown",
+            model=f"MQTT@{self.broker}:{self.port}",
+            driver_type="mqtt",
+            metadata={
+                "broker": self.broker,
+                "port": self.port,
+            },
+        )
+
+        # MQTT devices typically support multiple effect types
+        for effect_type in [
+            EffectType.LIGHT,
+            EffectType.WIND,
+            EffectType.VIBRATION,
+            EffectType.SCENT,
+        ]:
+            effect = EffectCapability(
+                effect_type=effect_type,
+                description=f"MQTT-controlled {effect_type.value} device",
+                parameters=[
+                    create_standard_intensity_param(),
+                    create_standard_duration_param(),
+                ],
+            )
+            caps.effects.append(effect)
+
+        return caps.to_dict()
+
     def _on_connect(self, client, userdata, flags, rc):
         """Callback when connected to broker."""
         if rc == 0:

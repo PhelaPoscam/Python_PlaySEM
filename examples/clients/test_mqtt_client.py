@@ -15,12 +15,13 @@ import time
 import json
 from pathlib import Path
 import paho.mqtt.client as mqtt
+from paho.mqtt.client import CallbackAPIVersion
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
-def on_connect(client, userdata, flags, rc):
+def on_connect(client, userdata, flags, rc, properties):
     """Callback when connected to broker."""
     if rc == 0:
         print("✅ Connected to MQTT broker!")
@@ -56,7 +57,7 @@ def send_test_effects(client):
                 "duration": 1000,
                 "intensity": 100,
             },
-            "description": "💡 Bright light effect",
+            "description": "Bright light effect",
         },
         {
             "topic": "effects/wind",
@@ -66,7 +67,7 @@ def send_test_effects(client):
                 "duration": 2000,
                 "intensity": 75,
             },
-            "description": "💨 Strong wind effect",
+            "description": "Strong wind effect",
         },
         {
             "topic": "effects/vibration",
@@ -76,7 +77,7 @@ def send_test_effects(client):
                 "duration": 500,
                 "intensity": 80,
             },
-            "description": "📳 Vibration effect",
+            "description": "Vibration effect",
         },
         {
             "topic": "effects/scent",
@@ -87,7 +88,7 @@ def send_test_effects(client):
                 "intensity": 60,
                 "parameters": {"type": "lavender"},
             },
-            "description": "🌸 Lavender scent effect",
+            "description": "Lavender scent effect",
         },
     ]
 
@@ -112,12 +113,12 @@ def main():
     print("MQTT Effect Sender - Test Client")
     print("=" * 60)
     print("\nMake sure the MQTT server is running:")
-    print("  python examples/mqtt_server_demo.py")
+    print("  python examples/server/main.py")
     print("\nConnecting to broker at localhost:1883...\n")
 
     try:
         # Create client
-        client = mqtt.Client(client_id="effect_sender")
+        client = mqtt.Client(client_id="effect_sender", callback_api_version=CallbackAPIVersion.VERSION2)
         client.on_connect = on_connect
         client.on_message = on_message
 
@@ -146,7 +147,7 @@ def main():
         )
 
     except ConnectionRefusedError:
-        print("\n❌ ERROR: Could not connect to MQTT broker!")
+        print("\nERROR: Could not connect to MQTT broker!")
         print("\nPlease ensure:")
         print("1. Mosquitto (or another MQTT broker) is running")
         print("2. The broker is listening on localhost:1883")

@@ -49,6 +49,236 @@ class MockConnectivityDriver(BaseDriver):
     def get_driver_type(self) -> str:
         return "mock"
 
+    def get_capabilities(self, device_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get mock device capabilities based on device_id pattern.
+
+        Returns capabilities for light, wind, vibration, or scent devices
+        based on the device_id prefix.
+        """
+        from ..device_capabilities import (
+            DeviceCapabilities,
+            EffectCapability,
+            EffectType,
+            ParameterCapability,
+            ParameterType,
+            create_standard_intensity_param,
+            create_standard_duration_param,
+        )
+
+        # Determine device type from device_id
+        device_id_lower = device_id.lower()
+
+        if "light" in device_id_lower or "led" in device_id_lower:
+            # Light device capabilities
+            caps = DeviceCapabilities(
+                device_id=device_id,
+                device_type="MockLightDevice",
+                manufacturer="PlaySEM",
+                model="Mock Light v1.0",
+                driver_type="mock",
+            )
+
+            light_effect = EffectCapability(
+                effect_type=EffectType.LIGHT,
+                description="RGB LED light control",
+                parameters=[
+                    ParameterCapability(
+                        name="brightness",
+                        type=ParameterType.INTEGER,
+                        min_value=0,
+                        max_value=255,
+                        default=128,
+                        unit="0-255",
+                        description="Light brightness level",
+                    ),
+                    ParameterCapability(
+                        name="r",
+                        type=ParameterType.INTEGER,
+                        min_value=0,
+                        max_value=255,
+                        default=255,
+                        description="Red color component",
+                    ),
+                    ParameterCapability(
+                        name="g",
+                        type=ParameterType.INTEGER,
+                        min_value=0,
+                        max_value=255,
+                        default=255,
+                        description="Green color component",
+                    ),
+                    ParameterCapability(
+                        name="b",
+                        type=ParameterType.INTEGER,
+                        min_value=0,
+                        max_value=255,
+                        default=255,
+                        description="Blue color component",
+                    ),
+                    create_standard_intensity_param(
+                        min_val=0, max_val=100, default=50
+                    ),
+                    create_standard_duration_param(),
+                ],
+                examples=[
+                    {
+                        "description": "Set white light at full brightness",
+                        "command": {
+                            "brightness": 255,
+                            "r": 255,
+                            "g": 255,
+                            "b": 255,
+                        },
+                    },
+                    {
+                        "description": "Set red light at 50% intensity",
+                        "command": {"r": 255, "g": 0, "b": 0, "intensity": 50},
+                    },
+                ],
+            )
+            caps.effects.append(light_effect)
+
+        elif "wind" in device_id_lower or "fan" in device_id_lower:
+            # Wind device capabilities
+            caps = DeviceCapabilities(
+                device_id=device_id,
+                device_type="MockWindDevice",
+                manufacturer="PlaySEM",
+                model="Mock Fan v1.0",
+                driver_type="mock",
+            )
+
+            wind_effect = EffectCapability(
+                effect_type=EffectType.WIND,
+                description="Fan/wind generation control",
+                parameters=[
+                    ParameterCapability(
+                        name="speed",
+                        type=ParameterType.INTEGER,
+                        min_value=0,
+                        max_value=100,
+                        default=50,
+                        unit="percent",
+                        description="Fan speed percentage",
+                    ),
+                    ParameterCapability(
+                        name="direction",
+                        type=ParameterType.ENUM,
+                        enum_values=["forward", "reverse"],
+                        default="forward",
+                        description="Wind direction",
+                    ),
+                    create_standard_intensity_param(),
+                    create_standard_duration_param(),
+                ],
+                examples=[
+                    {
+                        "description": "Set fan to 75% speed forward",
+                        "command": {"speed": 75, "direction": "forward"},
+                    }
+                ],
+            )
+            caps.effects.append(wind_effect)
+
+        elif "vibr" in device_id_lower or "haptic" in device_id_lower:
+            # Vibration device capabilities
+            caps = DeviceCapabilities(
+                device_id=device_id,
+                device_type="MockVibrationDevice",
+                manufacturer="PlaySEM",
+                model="Mock Vibration v1.0",
+                driver_type="mock",
+            )
+
+            vibration_effect = EffectCapability(
+                effect_type=EffectType.VIBRATION,
+                description="Vibration/haptic feedback control",
+                parameters=[
+                    create_standard_intensity_param(),
+                    create_standard_duration_param(default=500),
+                    ParameterCapability(
+                        name="pattern",
+                        type=ParameterType.ENUM,
+                        enum_values=[
+                            "constant",
+                            "pulse",
+                            "wave",
+                            "alert",
+                        ],
+                        default="constant",
+                        description="Vibration pattern",
+                    ),
+                ],
+                examples=[
+                    {
+                        "description": "Short alert vibration",
+                        "command": {
+                            "intensity": 80,
+                            "duration": 200,
+                            "pattern": "alert",
+                        },
+                    }
+                ],
+            )
+            caps.effects.append(vibration_effect)
+
+        elif "scent" in device_id_lower or "smell" in device_id_lower:
+            # Scent device capabilities
+            caps = DeviceCapabilities(
+                device_id=device_id,
+                device_type="MockScentDevice",
+                manufacturer="PlaySEM",
+                model="Mock Scent v1.0",
+                driver_type="mock",
+            )
+
+            scent_effect = EffectCapability(
+                effect_type=EffectType.SCENT,
+                description="Scent/smell diffuser control",
+                parameters=[
+                    ParameterCapability(
+                        name="scent",
+                        type=ParameterType.ENUM,
+                        enum_values=[
+                            "rose",
+                            "ocean",
+                            "coffee",
+                            "pine",
+                            "vanilla",
+                            "citrus",
+                        ],
+                        required=True,
+                        description="Type of scent to diffuse",
+                    ),
+                    create_standard_intensity_param(),
+                    create_standard_duration_param(default=3000),
+                ],
+                examples=[
+                    {
+                        "description": "Release ocean scent",
+                        "command": {
+                            "scent": "ocean",
+                            "intensity": 60,
+                            "duration": 5000,
+                        },
+                    }
+                ],
+            )
+            caps.effects.append(scent_effect)
+
+        else:
+            # Generic/unknown device
+            caps = DeviceCapabilities(
+                device_id=device_id,
+                device_type="MockDevice",
+                manufacturer="PlaySEM",
+                model="Mock Generic v1.0",
+                driver_type="mock",
+            )
+
+        return caps.to_dict()
+
 
 class MockDeviceBase:
     """Base class for mock sensory effect devices."""
@@ -87,7 +317,7 @@ class MockDeviceBase:
     def reset(self):
         """Reset device to default state."""
         logger.info(f"[{self.device_id}] Reset to default state")
-        self.state = {}
+        self.state: Dict[str, Any] = {}
 
     def get_state(self) -> Dict[str, Any]:
         """Get current device state."""

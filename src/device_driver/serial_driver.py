@@ -585,3 +585,51 @@ class SerialDriver(BaseDriver):
             "timeout": self.timeout,
             "connected": self.is_connected(),
         }
+
+    def get_capabilities(self, device_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get device capabilities for serial-connected devices.
+
+        Returns generic sensory effect capabilities. For device-specific
+        capabilities, the device should respond to a capability query command.
+        """
+        from ..device_capabilities import (
+            DeviceCapabilities,
+            EffectCapability,
+            EffectType,
+            create_standard_intensity_param,
+            create_standard_duration_param,
+        )
+
+        # Create generic capabilities for serial devices
+        # In a real implementation, you might query the device
+        caps = DeviceCapabilities(
+            device_id=device_id,
+            device_type="SerialDevice",
+            manufacturer="Unknown",
+            model=f"Serial@{self.port}",
+            driver_type="serial",
+            metadata={
+                "port": self.port,
+                "baudrate": self.baudrate,
+            },
+        )
+
+        # Add common effect types that serial devices typically support
+        # These are generic - real devices should provide specific capabilities
+        for effect_type in [
+            EffectType.LIGHT,
+            EffectType.WIND,
+            EffectType.VIBRATION,
+        ]:
+            effect = EffectCapability(
+                effect_type=effect_type,
+                description=f"Generic {effect_type.value} effect support",
+                parameters=[
+                    create_standard_intensity_param(),
+                    create_standard_duration_param(),
+                ],
+            )
+            caps.effects.append(effect)
+
+        return caps.to_dict()

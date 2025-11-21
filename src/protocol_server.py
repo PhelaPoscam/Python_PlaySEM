@@ -154,7 +154,10 @@ class MQTTServer:
                 )
                 if self.on_effect_broadcast:
                     # Run async callback in the broker's event loop
-                    asyncio.run_coroutine_threadsafe(self.on_effect_broadcast(effect, "mqtt_broadcast"), self.loop)
+                    asyncio.run_coroutine_threadsafe(
+                        self.on_effect_broadcast(effect, "mqtt_broadcast"),
+                        self.loop,
+                    )
             else:
                 logger.warning(
                     f"Failed to parse effect from MQTT payload: {payload_str}"
@@ -1602,6 +1605,43 @@ class HTTPServer:
                 },
             ]
             return self._DevicesResponse(devices=devices, count=len(devices))
+
+        @self._app.get(
+            "/api/capabilities/{device_id}",
+            summary="Get device capabilities",
+            description="Get detailed capabilities for a specific device",
+            dependencies=[self._security_dependency] if self.api_key else [],
+        )
+        async def get_device_capabilities(device_id: str):
+            """Get capabilities for a specific device."""
+            try:
+                # Get capabilities from device driver
+                device_manager = self.dispatcher.device_manager
+                if device_manager and device_manager.driver:
+                    caps = device_manager.driver.get_capabilities(device_id)
+                    if caps:
+                        return caps
+                    else:
+                        raise self._HTTPException(
+                            status_code=self._status.HTTP_404_NOT_FOUND,
+                            detail=(
+                                f"Capabilities not available for "
+                                f"device: {device_id}"
+                            ),
+                        )
+                else:
+                    raise self._HTTPException(
+                        status_code=self._status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail="No device manager or driver available",
+                    )
+            except self._HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting capabilities: {e}")
+                raise self._HTTPException(
+                    status_code=self._status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=str(e),
+                )
 
     async def start(self):
         """

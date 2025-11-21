@@ -129,6 +129,30 @@ class BaseDriver(ABC):
             "connected": self.is_connected(),
         }
 
+    def get_capabilities(self, device_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get device capabilities description.
+
+        Returns a dictionary describing what effects and parameters
+        the device supports. This enables clients to discover device
+        features and validate commands before sending.
+
+        Args:
+            device_id: Unique identifier of the device
+
+        Returns:
+            dict: Device capabilities in JSON-serializable format,
+                  or None if capabilities are not available
+
+        Example:
+            >>> caps = driver.get_capabilities("light_001")
+            >>> print(caps["effects"])
+            [{'effect_type': 'light', 'parameters': [...]}]
+        """
+        # Default implementation returns None
+        # Subclasses should override to provide actual capabilities
+        return None
+
 
 class AsyncBaseDriver(ABC):
     """
@@ -178,3 +202,15 @@ class AsyncBaseDriver(ABC):
             "type": self.get_driver_type(),
             "async": True,
         }
+
+    def get_capabilities(self, device_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get device capabilities description (synchronous).
+
+        Args:
+            device_id: Unique identifier of the device
+
+        Returns:
+            dict: Device capabilities or None if not available
+        """
+        return None

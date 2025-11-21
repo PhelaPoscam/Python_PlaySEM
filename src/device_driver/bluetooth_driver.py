@@ -615,6 +615,70 @@ class BluetoothDriver(AsyncBaseDriver):
         """Async context manager exit."""
         await self.disconnect()
 
+    def get_capabilities(self, device_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get device capabilities for BLE-connected devices.
+
+        Returns generic haptic/vibration capabilities. For device-specific
+        capabilities, query the device via BLE characteristics.
+        """
+        from ..device_capabilities import (
+            DeviceCapabilities,
+            EffectCapability,
+            EffectType,
+            ParameterCapability,
+            ParameterType,
+            create_standard_intensity_param,
+            create_standard_duration_param,
+        )
+
+        # Create capabilities for BLE devices
+        caps = DeviceCapabilities(
+            device_id=device_id,
+            device_type="BluetoothDevice",
+            manufacturer="Unknown",
+            model=f"BLE@{self.device_name or self.address}",
+            driver_type="bluetooth",
+            metadata={
+                "address": self.address,
+                "name": self.device_name,
+                "services": (
+                    list(self._services.keys()) if self._services else []
+                ),
+            },
+        )
+
+        # BLE devices typically support haptic/vibration effects
+        haptic_effect = EffectCapability(
+            effect_type=EffectType.HAPTIC,
+            description="Bluetooth haptic feedback",
+            parameters=[
+                create_standard_intensity_param(),
+                create_standard_duration_param(),
+                ParameterCapability(
+                    name="pattern",
+                    type=ParameterType.ENUM,
+                    enum_values=["pulse", "wave", "constant"],
+                    default="constant",
+                    description="Haptic pattern type",
+                ),
+            ],
+        )
+        caps.effects.append(haptic_effect)
+
+        # Many BLE devices also support vibration
+        vibration_effect = EffectCapability(
+            effect_type=EffectType.VIBRATION,
+            description="Vibration motor control",
+            parameters=[
+                create_standard_intensity_param(),
+                create_standard_duration_param(),
+            ],
+        )
+        caps.effects.append(vibration_effect)
+
+        return caps.to_dict()
+
     def __repr__(self) -> str:
         """String representation."""
         status = "connected" if self._is_connected else "disconnected"
