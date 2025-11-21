@@ -30,7 +30,11 @@ import httpx
 from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from src.device_driver import BluetoothDriver, MQTTDriver, SerialDriver  # noqa: E402
+from src.device_driver import (
+    BluetoothDriver,
+    MQTTDriver,
+    SerialDriver,
+)  # noqa: E402
 from src.device_driver.mock_driver import (  # noqa: E402
     MockLightDevice,
     MockVibrationDevice,
@@ -38,7 +42,10 @@ from src.device_driver.mock_driver import (  # noqa: E402
 )
 from src.device_manager import DeviceManager  # noqa: E402
 from src.effect_dispatcher import EffectDispatcher  # noqa: E402
-from src.effect_metadata import EffectMetadataParser, create_effect  # noqa: E402
+from src.effect_metadata import (
+    EffectMetadataParser,
+    create_effect,
+)  # noqa: E402
 from src.protocol_server import (  # noqa: E402
     CoAPServer,
     HTTPServer,
@@ -102,6 +109,76 @@ class ControlPanelServer:
         )
 
         self._setup_routes()
+        self._setup_shutdown()
+
+    def _setup_shutdown(self):
+        @self.app.on_event("shutdown")
+        async def shutdown_event():
+            print("\n[SHUTDOWN] Stopping all protocol servers...")
+
+            # Create a list of stop tasks
+            stop_tasks = []
+
+            # Stop MQTT server (sync in thread, but stop is blocking)
+            if self.mqtt_server and self.mqtt_server.is_running():
+                print("[SHUTDOWN] Stopping MQTT server...")
+                try:
+                    # Run sync stop in a thread with timeout to avoid hanging
+                    await asyncio.wait_for(
+                        asyncio.to_thread(self.mqtt_server.stop), timeout=2.0
+                    )
+                    print("[OK] MQTT server stopped.")
+                except asyncio.TimeoutError:
+                    print(
+                        "[WARNING] MQTT server stop timed out, forcing shutdown..."
+                    )
+                except Exception as e:
+                    print(f"[WARNING] MQTT server stop error: {e}")
+
+            # Stop CoAP server (async)
+            if self.coap_server and self.coap_server.is_running():
+                print("[SHUTDOWN] Stopping CoAP server...")
+                stop_tasks.append(self.coap_server.stop())
+
+            # Stop HTTP server (async)
+            if self.http_api_server:
+                print("[SHUTDOWN] Stopping HTTP API server...")
+                stop_tasks.append(self.http_api_server.stop())
+
+            # Stop UPnP server (async)
+            if self.upnp_server and self.upnp_server.is_running():
+                print("[SHUTDOWN] Stopping UPnP server...")
+                stop_tasks.append(self.upnp_server.stop())
+
+            # Stop WebSocket protocol server (async)
+            if (
+                self.websocket_protocol_server
+                and self.websocket_protocol_server.is_running()
+            ):
+                print("[SHUTDOWN] Stopping WebSocket protocol server...")
+                stop_tasks.append(self.websocket_protocol_server.stop())
+
+            # Run all async stop tasks concurrently with timeout
+            if stop_tasks:
+                try:
+                    await asyncio.wait_for(
+                        asyncio.gather(*stop_tasks, return_exceptions=True),
+                        timeout=3.0,
+                    )
+                    print("[OK] All async servers stopped.")
+                except asyncio.TimeoutError:
+                    print("[WARNING] Some servers timed out during shutdown")
+                except Exception as e:
+                    print(f"[WARNING] Error during server shutdown: {e}")
+
+            # Stop timeline player
+            try:
+                self.timeline_player.stop()
+                print("[OK] Timeline player stopped.")
+            except Exception as e:
+                print(f"[WARNING] Timeline stop error: {e}")
+
+            print("[OK] Shutdown complete.")
 
     def _setup_routes(self):
         """Set up FastAPI routes."""
@@ -110,6 +187,7 @@ class ControlPanelServer:
         async def root():
             """Redirect to the super controller."""
             from fastapi.responses import RedirectResponse
+
             return RedirectResponse(url="/super_controller")
 
         @self.app.get("/controller")
@@ -129,7 +207,9 @@ class ControlPanelServer:
         @self.app.get("/super_controller")
         async def get_super_controller():
             """Serve the super_controller HTML."""
-            path = Path(__file__).parent.parent / "ui" / "super_controller.html"
+            path = (
+                Path(__file__).parent.parent / "ui" / "super_controller.html"
+            )
             with open(path, "r", encoding="utf-8") as f:
                 return HTMLResponse(content=f.read())
 
@@ -436,14 +516,15 @@ class ControlPanelServer:
                 try:
                     message = json.loads(data)
                     if "protocol" in message and "effect" in message:
-                        await self.handle_super_controller_message(websocket, message)
+                        await self.handle_super_controller_message(
+                            websocket, message
+                        )
                     else:
                         await self.handle_message(websocket, message)
                 except json.JSONDecodeError:
                     await self.handle_message(websocket, {"type": data})
                 except Exception:
                     await self.handle_message(websocket, {"type": data})
-
 
         except WebSocketDisconnect:
             print(
@@ -454,13 +535,17 @@ class ControlPanelServer:
         finally:
             self.clients.discard(websocket)
 
-    async def handle_super_controller_message(self, websocket: WebSocket, message: dict):
+    async def handle_super_controller_message(
+        self, websocket: WebSocket, message: dict
+    ):
         """Handle incoming WebSocket message from the super controller."""
         protocol = message.get("protocol")
         effect_data = message.get("effect")
         # The super controller sends 'modality', but create_effect expects 'effect_type'
-        effect_data['effect_type'] = effect_data.get('modality')
-        print(f"[RECV] Received super controller message for protocol {protocol}")
+        effect_data["effect_type"] = effect_data.get("modality")
+        print(
+            f"[RECV] Received super controller message for protocol {protocol}"
+        )
 
         await self.send_effect_protocol(websocket, protocol, effect_data)
 
@@ -496,7 +581,9 @@ class ControlPanelServer:
             effect_data = message.get("effect")
             await self.send_effect_protocol(websocket, protocol, effect_data)
 
-        elif msg_type == "effect": # New handler for simple, broadcast-only effects
+        elif (
+            msg_type == "effect"
+        ):  # New handler for simple, broadcast-only effects
             print("[DEBUG] Handling simple 'effect' message.")
             effect = create_effect(
                 effect_type=message.get("effect_type", "vibration"),
@@ -737,7 +824,9 @@ class ControlPanelServer:
                     mock_device = MockLightDevice(address)  # Default
                 device_class_name = mock_device.__class__.__name__
                 clean_name = (
-                    device_class_name.replace("Mock", "").replace("Device", "").strip()
+                    device_class_name.replace("Mock", "")
+                    .replace("Device", "")
+                    .strip()
                 )
                 name = f"Mock {clean_name} ({address})"
 
@@ -869,14 +958,30 @@ class ControlPanelServer:
                 mock_device = device.driver
                 if effect.effect_type == "light":
                     brightness = int(effect.intensity * 2.55)
-                    mock_device.send_command("set_brightness", {"brightness": brightness})
+                    mock_device.send_command(
+                        "set_brightness", {"brightness": brightness}
+                    )
                 elif effect.effect_type == "wind":
-                    mock_device.send_command("set_speed", {"speed": effect.intensity})
+                    mock_device.send_command(
+                        "set_speed", {"speed": effect.intensity}
+                    )
                 elif effect.effect_type == "vibration":
-                    mock_device.send_command("set_intensity", {"intensity": effect.intensity, "duration": effect.duration})
+                    mock_device.send_command(
+                        "set_intensity",
+                        {
+                            "intensity": effect.intensity,
+                            "duration": effect.duration,
+                        },
+                    )
                 else:
-                    mock_device.send_command(effect.effect_type, {"intensity": effect.intensity, "duration": effect.duration})
-                
+                    mock_device.send_command(
+                        effect.effect_type,
+                        {
+                            "intensity": effect.intensity,
+                            "duration": effect.duration,
+                        },
+                    )
+
                 print(
                     f"[OK] Mock device '{mock_device.device_id}' received "
                     f"{effect.effect_type.upper()} command: intensity={effect.intensity}, "
@@ -898,10 +1003,10 @@ class ControlPanelServer:
                     "success": True,
                     "latency": latency,
                     "device_id": device_id,
-                    "effect_type": effect.effect_type, # Include for client-side logic
+                    "effect_type": effect.effect_type,  # Include for client-side logic
                 }
             )
-            
+
             # Broadcast the effect to all clients (for receivers)
             await self._broadcast_effect(effect, device_id, "websocket")
 
@@ -917,7 +1022,9 @@ class ControlPanelServer:
                 }
             )
 
-    async def send_effect_protocol(self, websocket: WebSocket, protocol: str, effect_data: dict):
+    async def send_effect_protocol(
+        self, websocket: WebSocket, protocol: str, effect_data: dict
+    ):
         """Send effect over a specific protocol."""
         try:
             effect = create_effect(
@@ -933,15 +1040,19 @@ class ControlPanelServer:
             elif protocol == "mqtt":
                 if not self.mqtt_server or not self.mqtt_server.is_running():
                     await self.start_protocol_server(websocket, "mqtt")
-                
+
                 if self.mqtt_server and self.mqtt_server.internal_client:
-                    payload = json.dumps({
-                        "effect_type": effect.effect_type,
-                        "intensity": effect.intensity,
-                        "duration": effect.duration,
-                    })
+                    payload = json.dumps(
+                        {
+                            "effect_type": effect.effect_type,
+                            "intensity": effect.intensity,
+                            "duration": effect.duration,
+                        }
+                    )
                     # The topic needs to be correct, let's check the MQTTServer implementation
-                    self.mqtt_server.internal_client.publish("effects/sem", payload)
+                    self.mqtt_server.internal_client.publish(
+                        "effects/sem", payload
+                    )
                     print(f"[OK] Effect sent via MQTT")
                 else:
                     raise Exception("MQTT server not available")
@@ -949,7 +1060,7 @@ class ControlPanelServer:
             elif protocol == "http":
                 if not self.http_api_server:
                     await self.start_protocol_server(websocket, "http")
-                
+
                 async with httpx.AsyncClient() as client:
                     response = await client.post(
                         f"http://localhost:8081/api/effects",
@@ -957,7 +1068,7 @@ class ControlPanelServer:
                             "effect_type": effect.effect_type,
                             "intensity": effect.intensity,
                             "duration": effect.duration,
-                        }
+                        },
                     )
                     response.raise_for_status()
                 print(f"[OK] Effect sent via HTTP")
@@ -968,7 +1079,9 @@ class ControlPanelServer:
 
                 # This is a bit more complex, as it requires a CoAP client.
                 # For now, let's just log it.
-                print(f"[INFO] CoAP protocol selected, but client not implemented yet.")
+                print(
+                    f"[INFO] CoAP protocol selected, but client not implemented yet."
+                )
                 await websocket.send_json(
                     {
                         "type": "info",
@@ -978,7 +1091,9 @@ class ControlPanelServer:
 
             elif protocol == "upnp":
                 # This is also complex and requires a UPnP client.
-                print(f"[INFO] UPnP protocol selected, but client not implemented yet.")
+                print(
+                    f"[INFO] UPnP protocol selected, but client not implemented yet."
+                )
                 await websocket.send_json(
                     {
                         "type": "info",
@@ -1012,9 +1127,13 @@ class ControlPanelServer:
                 }
             )
 
-    async def _broadcast_effect(self, effect, device_id: str, protocol: str = "websocket"):
+    async def _broadcast_effect(
+        self, effect, device_id: str, protocol: str = "websocket"
+    ):
         """Broadcast that an effect was executed to all clients."""
-        print(f"[DEBUG] Broadcasting effect '{effect.effect_type}' to {len(self.clients)} clients.")
+        print(
+            f"[DEBUG] Broadcasting effect '{effect.effect_type}' to {len(self.clients)} clients."
+        )
         message = {
             "type": "effect_broadcast",
             "effect_type": effect.effect_type,
@@ -1412,7 +1531,9 @@ class ControlPanelServer:
             print(f"   CoAP: coap://{host}:5683")
             print(f"   HTTP API: http://{host}:{port}/api")
             print("   UPnP: SSDP discovery on 239.255.255.250:1900")
-            print("\n[!]  Note: MQTT, CoAP, and UPnP servers run in background")
+            print(
+                "\n[!]  Note: MQTT, CoAP, and UPnP servers run in background"
+            )
             print("   Use respective client libraries to connect")
 
         print("\n[i] Open your browser and navigate to:")
@@ -1420,7 +1541,9 @@ class ControlPanelServer:
         print("\n[i] Features:")
         print("   [OK] Real-time device discovery (Bluetooth, Serial, MQTT)")
         print("   [OK] Live device connection management")
-        print("   [OK] Multi-protocol support (WebSocket, HTTP, MQTT, CoAP, UPnP)")
+        print(
+            "   [OK] Multi-protocol support (WebSocket, HTTP, MQTT, CoAP, UPnP)"
+        )
         print("   [OK] Effect testing with presets")
         print("   [OK] System monitoring and statistics")
         print("\n[SETTINGS]  Press Ctrl+C to stop")
@@ -1432,6 +1555,7 @@ class ControlPanelServer:
 def main():
     """Main entry point."""
     import argparse
+    import signal
 
     parser = argparse.ArgumentParser(
         description="PythonPlaySEM Control Panel Server"
@@ -1451,6 +1575,16 @@ def main():
 
     server = ControlPanelServer()
 
+    # Set up signal handlers for graceful shutdown
+    def signal_handler(sig, frame):
+        print("\n\n[!]  Received shutdown signal, stopping servers...")
+        # The uvicorn shutdown will trigger our cleanup
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGINT, signal_handler)
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, signal_handler)
+
     try:
         server.run(
             host=args.host,
@@ -1458,7 +1592,8 @@ def main():
             enable_all_protocols=args.all_protocols,
         )
     except KeyboardInterrupt:
-        print("\n\n[!]  Shutting down control panel server...")
+        print("[!]  Shutting down control panel server...")
+        print("[!]  Please wait for graceful shutdown...")
     except Exception as e:
         print(f"\n[x] Fatal error: {e}")
         import traceback
