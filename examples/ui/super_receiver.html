@@ -668,6 +668,7 @@
                 <span class="health-indicator good" id="healthIndicator"></span>
                 <span id="healthStatus">System Healthy</span>
             </div>
+            <button id="disconnectBtn" onclick="disconnectDevice()" style="padding: 5px 10px; background: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer;">Disconnect</button>
         </div>
         
         <div class="main-content">
@@ -754,8 +755,23 @@
             type: 'generic',
             capabilities: ['light', 'vibration', 'wind', 'heat'],
             protocols: ['websocket', 'http', 'mqtt', 'coap', 'upnp'],
-            connectionMode: 'direct'
+            connectionMode: 'direct',
+            deviceId: null
         };
+
+        function disconnectDevice() {
+            if (ws && ws.readyState === WebSocket.OPEN && deviceConfig.deviceId) {
+                ws.send(JSON.stringify({
+                    type: 'disconnect_device',
+                    device_id: deviceConfig.deviceId
+                }));
+                console.log(`[DISCONNECT] Sent disconnect for device ${deviceConfig.deviceId}`);
+                
+                // Update UI to disconnected state
+                updateConnectionStatus(false);
+                document.getElementById('disconnectBtn').style.display = 'none'; // Hide the button
+            }
+        }
         
         // Connection mode change handler
         document.getElementById('connectionMode').addEventListener('change', (e) => {
@@ -873,6 +889,7 @@
             
             // Register device via HTTP (for controller to see it)
             const deviceId = `${deviceConfig.type}_${Date.now()}`;
+            deviceConfig.deviceId = deviceId;
             const deviceInfo = {
                 device_id: deviceId,
                 device_name: deviceConfig.name,
@@ -881,14 +898,6 @@
                 protocols: [protocol],
                 connection_mode: 'isolated'
             };
-            
-            fetch('/api/devices/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(deviceInfo)
-            }).then(() => {
-                console.log('[ISOLATED] Device registered:', deviceInfo);
-            }).catch(e => console.error('Registration failed:', e));
             
             // Start protocol-specific listener
             if (protocol === 'websocket') {
@@ -933,6 +942,7 @@
                 
                 // Register as a discoverable device with configured settings
                 const deviceId = `${deviceConfig.type}_${Date.now()}`;
+                deviceConfig.deviceId = deviceId;
                 const deviceInfo = {
                     type: 'register_device',
                     device_id: deviceId,
@@ -945,13 +955,6 @@
                 console.log('[REGISTER] Device config:', deviceInfo);
                 
                 ws.send(JSON.stringify(deviceInfo));
-                
-                // Also register via HTTP REST API
-                fetch('/api/devices/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(deviceInfo)
-                }).catch(e => console.log('HTTP registration:', e));
             };
             
             ws.onmessage = (event) => {

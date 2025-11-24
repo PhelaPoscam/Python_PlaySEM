@@ -176,6 +176,11 @@ class ControlPanelServer:
             except Exception as e:
                 print(f"[WARNING] Error during server shutdown: {e}")
 
+        # Close all WebSocket clients
+        for client in self.clients:
+            await client.close()
+        self.clients.clear()
+
         # Stop timeline player
         try:
             self.timeline_player.stop()
