@@ -756,10 +756,6 @@ class ControlPanelServer:
         protocols = message.get("protocols", ["websocket"])
         connection_mode = message.get("connection_mode", "direct")
 
-        # Ensure websocket is always in protocols list (device connects via WS)
-        if "websocket" not in protocols:
-            protocols = ["websocket"] + protocols
-
         print(
             f"[REGISTER] Web device: {device_id} ({device_name}) "
             f"with capabilities: {capabilities} "
