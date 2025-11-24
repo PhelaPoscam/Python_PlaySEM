@@ -1349,31 +1349,16 @@ class ControlPanelServer:
                     f"intensity={effect.intensity}, duration={effect.duration}"
                 )
             elif device_id in self.web_clients:
-                # Web-based devices - check connection mode and protocol
-                # Already collected above
-                print(f"[ROUTE] Web client detected. mode={connection_mode}")
-                print(f"[ROUTE] protocols={protocols}")
+                connection_mode = getattr(device, "connection_mode", "direct")
+                if connection_mode == "isolated":
+                    protocols = getattr(device, "protocols", [])
+                    target_protocol = next((p for p in protocols if p != "websocket"), None)
+                    if target_protocol:
+                        print(f"[ISOLATED] Routing '{effect.effect_type}' to {device.name} via {target_protocol.upper()}")
+                        await self.send_effect_protocol(websocket, target_protocol, effect_data)
+                        return  # CRITICAL: Stop processing to prevent fallback to websocket
 
-                if connection_mode == "isolated" and protocols:
-                    # ISOLATED MODE: Send via the device's registered protocol
-                    # Find first non-websocket protocol (websocket is always included)
-                    target_protocol = next(
-                        (p for p in protocols if p != "websocket"), "websocket"
-                    )
-
-                    if target_protocol != "websocket":
-                        print(
-                            f"[ISOLATED] Sending to {device.name} via "
-                            f"{target_protocol.upper()} protocol"
-                        )
-
-                        # Route to the appropriate protocol
-                        await self.send_effect_protocol(
-                            websocket, target_protocol, effect_data
-                        )
-                        return  # <-- CRITICAL FIX: Stop further execution
-
-                # DIRECT MODE or ISOLATED with websocket only: Send via WebSocket
+                # Fallback to direct WebSocket send for DIRECT mode or ISOLATED mode with no other protocol
                 web_client = self.web_clients[device_id]
                 try:
                     await web_client.send_json(
@@ -1388,7 +1373,7 @@ class ControlPanelServer:
                     )
                     print(
                         f"[OK] Web device '{device.name}' received "
-                        f"{effect.effect_type.upper()} effect: "
+                        f"{effect.effect_type.upper()} effect via WebSocket: "
                         f"intensity={effect.intensity}, duration={effect.duration}"
                     )
                 except Exception as send_err:
