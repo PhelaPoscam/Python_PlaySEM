@@ -5,189 +5,690 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Super Controller</title>
     <style>
-        body { font-family: sans-serif; }
-        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; }
-        input, select { width: 100%; padding: 8px; box-sizing: border-box; }
-        button { padding: 10px 15px; cursor: pointer; }
-        #status { margin-top: 15px; padding: 10px; background-color: #f0f0f0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 30px;
+        }
+        
+        .panel {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .panel h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .form-group { 
+            margin-bottom: 15px; 
+        }
+        
+        label { 
+            display: block; 
+            margin-bottom: 5px; 
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input, select { 
+            width: 100%; 
+            padding: 10px; 
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button { 
+            padding: 12px 24px; 
+            cursor: pointer;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status-bar {
+            background: white;
+            padding: 15px 30px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e74c3c;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.connected {
+            background: #2ecc71;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .effect-history {
+            max-height: 300px;
+            overflow-y: auto;
+            background: white;
+            border-radius: 6px;
+            padding: 10px;
+        }
+        
+        .effect-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+            font-size: 13px;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .effect-item .time {
+            color: #999;
+            font-size: 11px;
+        }
+        
+        .effect-item .details {
+            margin-top: 5px;
+            color: #666;
+        }
+        
+        .device-list {
+            display: grid;
+            gap: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .device-card {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border: 2px solid #ddd;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .device-card:hover {
+            border-color: #667eea;
+            transform: scale(1.02);
+        }
+        
+        .device-card.selected {
+            border-color: #667eea;
+            background: #f0f3ff;
+        }
+        
+        .device-card .name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .device-card .id {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .device-card .type {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-top: 5px;
+        }
+        
+        .visual-feedback {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1000;
+            transition: transform 0.3s ease-out, opacity 0.3s;
+            opacity: 0;
+        }
+        
+        .visual-feedback.active {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0.7;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .stat-card .label {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+        }
+        
+        input[type="range"]::-webkit-slider-track {
+            background: #e0e0e0;
+            height: 8px;
+            border-radius: 4px;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        
+        input[type="range"]::-moz-range-track {
+            background: #e0e0e0;
+            height: 8px;
+            border-radius: 4px;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .range-value {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
+    <div class="visual-feedback" id="visualFeedback"></div>
+    
     <div class="container">
-        <h1>Super Controller</h1>
-        <div class="form-group">
-            <label for="protocol">Protocol</label>
-            <select id="protocol">
-                <option value="websocket">WebSocket</option>
-                <option value="http">HTTP</option>
-                <option value="mqtt">MQTT</option>
-                <option value="coap">CoAP</option>
-                <option value="upnp">UPnP</option>
-            </select>
+        <div class="header">
+            <h1>🎮 Super Controller</h1>
+            <p>Advanced Sensory Effect Control Panel</p>
         </div>
-        <div class="form-group">
-            <label for="modality">Modality</label>
-            <select id="modality">
-                <option value="vibration">Vibration</option>
-                <option value="light">Light</option>
-            </select>
+        
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="status-dot" id="connectionDot"></div>
+                <span id="connectionStatus">Connecting...</span>
+            </div>
+            <div class="status-indicator">
+                <span id="deviceCount">0 devices</span>
+            </div>
         </div>
-        <div class="form-group">
-            <label for="intensity">Intensity (0-100)</label>
-            <input type="number" id="intensity" min="0" max="100" value="50">
-        </div>
-        <div class="form-group">
-            <label for="duration">Duration (ms)</label>
-            <input type="number" id="duration" value="500">
-        </div>
-        <button id="sendEffect">Send Effect</button>
-        <div id="status">Waiting for connection...</div>
-
-        <hr>
-        <h2>Device Capabilities</h2>
-        <div class="form-group">
-            <label for="deviceSelect">Device</label>
-            <select id="deviceSelect"></select>
-        </div>
-        <div class="form-group">
-            <button id="fetchCaps">Fetch Capabilities</button>
-        </div>
-        <div class="form-group">
-            <label>Effect</label>
-            <select id="capEffectType"></select>
-        </div>
-        <div class="form-group" id="capParams"></div>
-        <div class="form-group">
-            <button id="sendCapEffect">Send Effect From Capabilities</button>
+        
+        <div class="content" style="grid-template-columns: 1fr;">
+            <!-- Unified Control Panel -->
+            <div class="panel">
+                <h2>🎯 Device & Effect Control</h2>
+                <div class="form-group">
+                    <label>Connected Devices</label>
+                    <button style="float: right; padding: 4px 12px; font-size: 0.85em;" id="scanSerial">🔍 Scan Serial</button>
+                    <div class="device-list" id="deviceList">
+                        <div style="text-align: center; color: #999; padding: 20px;">No devices connected</div>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top:10px;">
+                    <label for="modality">Effect Type</label>
+                    <select id="modality">
+                        <option value="light">💡 Light</option>
+                        <option value="vibration">📳 Vibration</option>
+                        <option value="wind">💨 Wind</option>
+                        <option value="scent">🌸 Scent</option>
+                        <option value="heat">🔥 Heat</option>
+                        <option value="cold">❄️ Cold</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="intensity">Intensity <span class="range-value" id="intensityValue">50</span></label>
+                    <input type="range" id="intensity" min="0" max="100" value="50">
+                </div>
+                <div class="form-group">
+                    <label for="duration">Duration (ms) <span class="range-value" id="durationValue">500</span></label>
+                    <input type="range" id="duration" min="100" max="5000" step="100" value="500">
+                </div>
+                <div class="form-group">
+                    <label for="protocol">Protocol</label>
+                    <select id="protocol">
+                        <option value="websocket">🔌 WebSocket</option>
+                        <option value="http">🌐 HTTP</option>
+                        <option value="mqtt">📡 MQTT</option>
+                        <option value="coap">📶 CoAP</option>
+                        <option value="upnp">🔍 UPnP</option>
+                    </select>
+                </div>
+                <div class="form-group" id="deviceEffectWrapper" style="display:none;">
+                    <label for="capEffectType">Device Capability Effect</label>
+                    <select id="capEffectType">
+                        <option value="">— Select Device First —</option>
+                    </select>
+                </div>
+                <div id="capParams" style="margin-top:10px;"></div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px;">
+                    <button id="sendEffect">🚀 Broadcast / Protocol Send</button>
+                    <button id="sendCapEffect" disabled>📤 Send to Selected</button>
+                </div>
+                <div class="stats" style="margin-top:20px;">
+                    <div class="stat-card"><div class="value" id="totalSent">0</div><div class="label">Sent</div></div>
+                    <div class="stat-card"><div class="value" id="successRate">100%</div><div class="label">Success</div></div>
+                    <div class="stat-card"><div class="value" id="avgLatency">0ms</div><div class="label">Latency</div></div>
+                </div>
+            </div>
+            <div class="panel" style="margin-top:20px;">
+                <h2>📊 Effect History</h2>
+                <div class="effect-history" id="effectHistory">
+                    <div style="text-align: center; color: #999; padding: 20px;">No effects sent yet</div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        const ws = new WebSocket(`ws://${window.location.host}/ws`);
-        const statusDiv = document.getElementById('status');
+        // State management
+        let connectedDevices = [];
+        let selectedDeviceId = null;
+        let latestCaps = null;
+        let effectHistory = [];
+        let stats = { sent: 0, success: 0, totalLatency: 0 };
+        
+        // DOM elements
+        const connectionDot = document.getElementById('connectionDot');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const deviceCount = document.getElementById('deviceCount');
+        const deviceList = document.getElementById('deviceList');
+        const effectHistoryDiv = document.getElementById('effectHistory');
+        const visualFeedback = document.getElementById('visualFeedback');
         const sendButton = document.getElementById('sendEffect');
-
-        // Capabilities UI elements
-        const deviceSelect = document.getElementById('deviceSelect');
-        const fetchCapsBtn = document.getElementById('fetchCaps');
         const capEffectType = document.getElementById('capEffectType');
         const capParams = document.getElementById('capParams');
         const sendCapEffectBtn = document.getElementById('sendCapEffect');
-        let latestCaps = null;
-
+        
+        // Stats elements
+        const totalSent = document.getElementById('totalSent');
+        const successRate = document.getElementById('successRate');
+        const avgLatency = document.getElementById('avgLatency');
+        
+        // Range value displays
+        const intensityInput = document.getElementById('intensity');
+        const durationInput = document.getElementById('duration');
+        const intensityValue = document.getElementById('intensityValue');
+        const durationValue = document.getElementById('durationValue');
+        
+        // WebSocket connection
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        
+        // Update range value displays
+        intensityInput.addEventListener('input', () => {
+            intensityValue.textContent = intensityInput.value;
+        });
+        
+        durationInput.addEventListener('input', () => {
+            durationValue.textContent = durationInput.value;
+        });
+        
+        // WebSocket handlers
         ws.onopen = () => {
-            statusDiv.textContent = 'Connected to server.';
+            updateConnectionStatus(true);
+            ws.send(JSON.stringify({ type: 'get_devices' }));
         };
-
+        
         ws.onmessage = (event) => {
             try {
                 const msg = JSON.parse(event.data);
+                
                 if (msg.type === 'device_list') {
-                    refreshDeviceOptions(msg.devices || []);
-                    statusDiv.textContent = `Devices: ${msg.devices.length}`;
+                    connectedDevices = msg.devices || [];
+                    updateDeviceList();
                     return;
                 }
-            } catch(_) {}
-            statusDiv.textContent = `Message from server: ${event.data}`;
-        };
-
-        ws.onclose = () => {
-            statusDiv.textContent = 'Disconnected from server.';
-        };
-
-        sendButton.addEventListener('click', () => {
-            const protocol = document.getElementById('protocol').value;
-            const modality = document.getElementById('modality').value;
-            const intensity = document.getElementById('intensity').value;
-            const duration = document.getElementById('duration').value;
-
-            const effect = {
-                protocol: protocol,
-                effect: {
-                    modality: modality,
-                    intensity: parseInt(intensity),
-                    duration: parseInt(duration)
+                
+                if (msg.type === 'effect_ack') {
+                    stats.success++;
+                    updateStats();
+                    addToHistory('Effect acknowledged', 'success', msg);
+                    return;
                 }
-            };
-
-            ws.send(JSON.stringify(effect));
-            statusDiv.textContent = 'Sent effect to server.';
+                
+                if (msg.type === 'effect_protocol_result') {
+                    if (msg.success) {
+                        stats.success++;
+                        addToHistory(`✅ Effect sent via ${msg.protocol?.toUpperCase()}`, 'success');
+                    } else {
+                        addToHistory(`❌ ${msg.protocol?.toUpperCase()} Error: ${msg.error}`, 'error');
+                        alert(`Protocol Error!\n\n${msg.protocol?.toUpperCase()}: ${msg.error}\n\nThis may be due to:\n- Protocol server not started\n- Python 3.14 httpx compatibility issue\n- Missing dependencies`);
+                    }
+                    updateStats();
+                    return;
+                }
+                
+                if (msg.type === 'error') {
+                    addToHistory(`❌ Error: ${msg.message}`, 'error');
+                    return;
+                }
+                
+                if (msg.type === 'device_discovered') {
+                    const dev = msg.device || {};
+                    const deviceInfo = `${dev.name} (${dev.address}) - ${dev.type}`;
+                    addToHistory(`🔍 Found: ${deviceInfo}`, 'info');
+                    return;
+                }
+                
+                if (msg.type === 'effect_result') {
+                    if (msg.success) {
+                        stats.success++;
+                        addToHistory(`✅ Effect sent to device (${msg.latency}ms)`, 'success');
+                    } else {
+                        addToHistory(`❌ Device Error: ${msg.error}`, 'error');
+                    }
+                    updateStats();
+                    return;
+                }
+                
+                addToHistory('Server message', 'info', msg);
+                
+            } catch(e) {
+                console.error('Error parsing message:', e);
+            }
+        };
+        
+        ws.onclose = () => {
+            updateConnectionStatus(false);
+            setTimeout(() => {
+                console.log('Reconnecting...');
+                window.location.reload();
+            }, 5000);
+        };
+        
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            updateConnectionStatus(false);
+        };
+        
+        // Serial device scanning
+        document.getElementById('scanSerial').addEventListener('click', () => {
+            addToHistory('Scanning for serial devices...', 'info');
+            ws.send(JSON.stringify({
+                type: 'scan_devices',
+                driver_type: 'serial'
+            }));
         });
-
-        function refreshDeviceOptions(devices) {
-            deviceSelect.innerHTML = '';
-            devices.forEach(d => {
-                const opt = document.createElement('option');
-                opt.value = d.id;
-                opt.textContent = `${d.name} (${d.id})`;
-                deviceSelect.appendChild(opt);
+        
+        // Connection status
+        function updateConnectionStatus(connected) {
+            if (connected) {
+                connectionDot.classList.add('connected');
+                connectionStatus.textContent = 'Connected';
+            } else {
+                connectionDot.classList.remove('connected');
+                connectionStatus.textContent = 'Disconnected';
+            }
+        }
+        
+        // Device list management
+        function updateDeviceList() {
+            deviceCount.textContent = `${connectedDevices.length} device${connectedDevices.length !== 1 ? 's' : ''}`;
+            
+            if (connectedDevices.length === 0) {
+                deviceList.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">No devices connected</div>';
+                sendCapEffectBtn.disabled = true;
+                return;
+            }
+            
+            deviceList.innerHTML = '';
+            connectedDevices.forEach(device => {
+                const card = document.createElement('div');
+                card.className = 'device-card';
+                if (device.id === selectedDeviceId) {
+                    card.classList.add('selected');
+                }
+                
+                // Show protocols if available
+                const protocols = device.protocols || [];
+                const protocolBadges = protocols.length > 0 
+                    ? `<div style="margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap;">
+                        ${protocols.map(p => `<span style="background: rgba(102, 126, 234, 0.3); padding: 2px 8px; border-radius: 10px; font-size: 0.75em; text-transform: uppercase;">${p}</span>`).join('')}
+                       </div>`
+                    : '';
+                
+                // Show capabilities if available
+                const capabilities = device.capabilities || [];
+                const capBadges = capabilities.length > 0
+                    ? `<div style="margin-top: 4px; font-size: 0.8em; color: #999;">
+                        ${capabilities.map(c => getEffectIcon(c)).join(' ')}
+                       </div>`
+                    : '';
+                
+                // Show connection mode
+                const connectionMode = device.connection_mode || 'direct';
+                const modeIcon = connectionMode === 'isolated' ? '🔒' : '🔀';
+                const modeBadge = `<div style="margin-top: 4px; font-size: 0.7em; color: ${connectionMode === 'isolated' ? '#ff9800' : '#4caf50'};">
+                    ${modeIcon} ${connectionMode.toUpperCase()}
+                </div>`;
+                
+                card.innerHTML = `
+                    <div class="name">${device.name || device.id}</div>
+                    <div class="id">${device.id}</div>
+                    <span class="type">${device.type || 'unknown'}</span>
+                    ${modeBadge}
+                    ${protocolBadges}
+                    ${capBadges}
+                `;
+                
+                card.onclick = () => selectDevice(device.id);
+                deviceList.appendChild(card);
             });
         }
-
-        // Ask for devices on load
-        ws.onopen = () => {
-            statusDiv.textContent = 'Connected to server.';
-            ws.send(JSON.stringify({ type: 'get_devices' }));
-        };
-
-        async function fetchCapabilitiesForSelected(){
-            const id = deviceSelect.value;
-            if (!id) { statusDiv.textContent = 'Select a device first.'; return; }
-            statusDiv.textContent = 'Fetching capabilities...';
+        
+        // Device selection
+        async function selectDevice(deviceId) {
+            selectedDeviceId = deviceId;
+            updateDeviceList();
+            
+            // Fetch capabilities
             try {
-                const res = await fetch(`/api/capabilities/${encodeURIComponent(id)}`);
+                const res = await fetch(`/api/capabilities/${encodeURIComponent(deviceId)}`);
                 const caps = await res.json();
                 latestCaps = caps;
                 populateCapabilityUI(caps);
-                statusDiv.textContent = 'Capabilities loaded.';
+                sendCapEffectBtn.disabled = false;
+                addToHistory(`Device selected: ${deviceId}`, 'info');
             } catch (e) {
-                statusDiv.textContent = 'Failed to fetch capabilities.';
+                console.error('Failed to fetch capabilities:', e);
+                addToHistory(`Failed to fetch capabilities for ${deviceId}`, 'error');
             }
         }
-
-        fetchCapsBtn.addEventListener('click', async () => {
-            fetchCapabilitiesForSelected();
-        });
-        deviceSelect.addEventListener('change', () => {
-            // Auto-fetch on selection change for faster workflow
-            fetchCapabilitiesForSelected();
-        });
-
+        
+        // Capability UI
         function populateCapabilityUI(caps) {
             const effects = (caps && caps.effects) || [];
             capEffectType.innerHTML = '';
+            
+            if (effects.length === 0) {
+                capEffectType.innerHTML = '<option value="">No effects available</option>';
+                return;
+            }
+            
             effects.forEach(e => {
                 const opt = document.createElement('option');
                 opt.value = e.effect_type;
-                opt.textContent = e.effect_type;
+                opt.textContent = `${getEffectIcon(e.effect_type)} ${e.effect_type}`;
                 capEffectType.appendChild(opt);
             });
+            
             renderParamsForSelectedEffect();
             capEffectType.onchange = renderParamsForSelectedEffect;
         }
-
+        
         function renderParamsForSelectedEffect() {
             const effect = (latestCaps?.effects || []).find(e => e.effect_type === capEffectType.value) || null;
             capParams.innerHTML = '';
+            
             if (!effect) return;
+            
             (effect.parameters || []).forEach(p => {
+                // Skip intensity and duration as they're handled separately
+                if (p.name === 'intensity' || p.name === 'duration') return;
+                
                 const wrapper = document.createElement('div');
                 wrapper.className = 'form-group';
                 const label = document.createElement('label');
                 const suffix = p.unit ? ` (${p.unit})` : (p.format ? ` (${p.format})` : '');
                 const rangeHint = (p.min != null || p.max != null) ? ` [${p.min ?? ''}..${p.max ?? ''}]` : '';
                 label.textContent = `${p.name}${suffix}${rangeHint}`;
-                wrapper.appendChild(label);
+                
                 let input;
+                let valueDisplay;
+                
                 if (p.type === 'int' || p.type === 'float') {
+                    valueDisplay = document.createElement('span');
+                    valueDisplay.className = 'range-value';
+                    valueDisplay.textContent = p.default ?? p.min ?? 0;
+                    label.appendChild(valueDisplay);
+                    
                     input = document.createElement('input');
                     input.type = 'range';
                     input.min = p.min ?? 0;
                     input.max = p.max ?? (p.type === 'int' ? 255 : 1.0);
                     input.step = p.type === 'int' ? 1 : (p.step ?? 0.01);
                     input.value = p.default ?? input.min;
+                    
+                    input.addEventListener('input', () => {
+                        valueDisplay.textContent = input.value;
+                    });
                 } else if (p.type === 'string' && (p.format === '#RRGGBB' || p.format === 'color')) {
                     input = document.createElement('input');
                     input.type = 'color';
@@ -196,40 +697,180 @@
                     input = document.createElement('select');
                     (p.enum || []).forEach(val => {
                         const o = document.createElement('option');
-                        o.value = val; o.textContent = val; input.appendChild(o);
+                        o.value = val;
+                        o.textContent = val;
+                        input.appendChild(o);
                     });
                 } else {
                     input = document.createElement('input');
                     input.type = 'text';
                     input.value = p.default || '';
                 }
+                
                 input.name = p.name;
+                wrapper.appendChild(label);
                 wrapper.appendChild(input);
                 capParams.appendChild(wrapper);
             });
         }
-
+        
+        // Quick send effect
+        sendButton.addEventListener('click', () => {
+            const startTime = Date.now();
+            const protocol = document.getElementById('protocol').value;
+            const modality = document.getElementById('modality').value;
+            const intensity = parseInt(intensityInput.value);
+            const duration = parseInt(durationInput.value);
+            
+            const msg = {
+                type: 'send_effect_protocol',
+                protocol: protocol,
+                effect: {
+                    effect_type: modality,
+                    intensity: intensity,
+                    duration: duration
+                }
+            };
+            
+            ws.send(JSON.stringify(msg));
+            
+            // Update stats
+            stats.sent++;
+            stats.totalLatency += Date.now() - startTime;
+            updateStats();
+            
+            // Visual feedback
+            showVisualFeedback(modality, intensity);
+            
+            // Add to history
+            addToHistory(`Sent ${modality} effect`, 'sent', {
+                intensity, duration, protocol
+            });
+        });
+        
+        // Send effect from capabilities
         sendCapEffectBtn.addEventListener('click', () => {
-            const deviceId = deviceSelect.value;
-            if (!deviceId) { statusDiv.textContent = 'Select a device first.'; return; }
+            if (!selectedDeviceId) {
+                addToHistory('No device selected', 'error');
+                return;
+            }
+            
+            const startTime = Date.now();
             const effect_type = capEffectType.value || 'vibration';
             const params = {};
             const inputs = capParams.querySelectorAll('input, select');
             inputs.forEach(el => { params[el.name] = el.value; });
-            // Map common parameters if present
+            
             const intensity = parseInt(params.intensity ?? 50);
             const duration = parseInt(params.duration ?? 1000);
-            // Avoid duplicate core params in the parameters bag
             delete params.intensity;
             delete params.duration;
+            
             const msg = {
                 type: 'send_effect',
-                device_id: deviceId,
+                device_id: selectedDeviceId,
                 effect: { effect_type, intensity, duration, parameters: params }
             };
+            
             ws.send(JSON.stringify(msg));
-            statusDiv.textContent = 'Effect sent using capabilities.';
+            
+            // Update stats
+            stats.sent++;
+            stats.totalLatency += Date.now() - startTime;
+            updateStats();
+            
+            // Visual feedback
+            showVisualFeedback(effect_type, intensity);
+            
+            // Add to history
+            addToHistory(`Sent ${effect_type} to ${selectedDeviceId}`, 'sent', {
+                intensity, duration, params
+            });
         });
+        
+        // Visual feedback
+        function showVisualFeedback(effectType, intensity) {
+            const colors = {
+                light: '#FFC107',
+                vibration: '#FF5722',
+                wind: '#03A9F4',
+                scent: '#9C27B0'
+            };
+            
+            visualFeedback.style.background = colors[effectType] || '#667eea';
+            visualFeedback.style.opacity = intensity / 100;
+            visualFeedback.classList.add('active');
+            
+            setTimeout(() => {
+                visualFeedback.classList.remove('active');
+            }, 300);
+        }
+        
+        // Effect history
+        function addToHistory(message, type = 'info', details = null) {
+            const time = new Date().toLocaleTimeString();
+            
+            // Clear "no effects" message
+            if (effectHistory.length === 0) {
+                effectHistoryDiv.innerHTML = '';
+            }
+            
+            const item = document.createElement('div');
+            item.className = 'effect-item';
+            
+            const borderColors = {
+                sent: '#667eea',
+                success: '#2ecc71',
+                error: '#e74c3c',
+                info: '#999'
+            };
+            item.style.borderLeftColor = borderColors[type] || '#999';
+            
+            let detailsHtml = '';
+            if (details) {
+                detailsHtml = `<div class="details">${JSON.stringify(details, null, 2)}</div>`;
+            }
+            
+            item.innerHTML = `
+                <div><strong>${message}</strong></div>
+                <div class="time">${time}</div>
+                ${detailsHtml}
+            `;
+            
+            effectHistoryDiv.insertBefore(item, effectHistoryDiv.firstChild);
+            effectHistory.push({ time, message, type, details });
+            
+            // Keep only last 50 items
+            if (effectHistory.length > 50) {
+                effectHistoryDiv.removeChild(effectHistoryDiv.lastChild);
+                effectHistory.shift();
+            }
+        }
+        
+        // Update stats
+        function updateStats() {
+            totalSent.textContent = stats.sent;
+            const rate = stats.sent > 0 ? Math.round((stats.success / stats.sent) * 100) : 100;
+            successRate.textContent = `${rate}%`;
+            const avgLat = stats.sent > 0 ? Math.round(stats.totalLatency / stats.sent) : 0;
+            avgLatency.textContent = `${avgLat}ms`;
+        }
+        
+        // Helper functions
+        function getEffectIcon(effectType) {
+            const icons = {
+                light: '💡',
+                vibration: '📳',
+                wind: '💨',
+                scent: '🌸',
+                heat: '🔥',
+                cold: '❄️'
+            };
+            return icons[effectType] || '⚡';
+        }
+        
+        // Initialize
+        console.log('Super Controller initialized');
     </script>
 </body>
 </html>

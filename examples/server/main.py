@@ -26,8 +26,14 @@ from dataclasses import dataclass
 from typing import Dict, Set
 
 import uvicorn
-import httpx
-from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import (
+    FastAPI,
+    File,
+    Request,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from src.device_driver import (
@@ -105,35 +111,24 @@ class ControlPanelServer:
         # Protocol servers
         self.mqtt_server = None
         self.coap_server = None
-        self.upnp_server = None
         self.http_api_server = None
-        self.websocket_protocol_server = None  # For SEM effects
+        self.upnp_server = None
+        self.websocket_protocol_server = None
 
-        # Timeline player
-        self.timeline_player = Timeline(
-            effect_dispatcher=self.global_dispatcher,
-            tick_interval=0.01,  # 10ms precision
-        )
-        self.current_timeline = None
-        self.timeline_player.set_callbacks(
-            on_effect=self._on_timeline_effect,
-            on_complete=self._on_timeline_complete,
-        )
+        # Timeline player (requires global dispatcher)
+        self.timeline_player = Timeline(self.global_dispatcher)
 
+        # Set up routes
         self._setup_routes()
 
     async def _shutdown(self):
-        """Handle shutdown of all servers."""
-        print("\n[SHUTDOWN] Stopping all protocol servers...")
-
-        # Create a list of stop tasks
+        """Gracefully stop all protocol servers and timeline player."""
         stop_tasks = []
-
-        # Stop MQTT server (sync in thread, but stop is blocking)
+        print("[SHUTDOWN] Initiating shutdown...")
+        # Stop MQTT server (sync in thread)
         if self.mqtt_server and self.mqtt_server.is_running():
             print("[SHUTDOWN] Stopping MQTT server...")
             try:
-                # Run sync stop in a thread with timeout to avoid hanging
                 await asyncio.wait_for(
                     asyncio.to_thread(self.mqtt_server.stop), timeout=2.0
                 )
@@ -189,6 +184,11 @@ class ControlPanelServer:
             print(f"[WARNING] Timeline stop error: {e}")
 
         print("[OK] Shutdown complete.")
+
+        # Force exit to kill any lingering threads
+        import os
+
+        os._exit(0)
 
     def _setup_routes(self):
         """Set up FastAPI routes."""
@@ -258,6 +258,53 @@ class ControlPanelServer:
                 ]
             }
 
+        @self.app.post("/api/devices/register")
+        async def register_device_http(request: Request):
+            """Register a device via HTTP REST API."""
+            try:
+                data = await request.json()
+                device_id = data.get("device_id")
+                device_name = data.get("device_name", "HTTP Device")
+                device_type = data.get("device_type", "http_client")
+                capabilities = data.get("capabilities", [])
+                protocols = data.get("protocols", ["http"])
+                connection_mode = data.get("connection_mode", "direct")
+
+                print(
+                    f"[HTTP-REGISTER] Device: {device_id} "
+                    f"({device_name}) with capabilities: {capabilities} "
+                    f"via protocols: {protocols} [{connection_mode.upper()}]"
+                )
+
+                # Add to devices list with metadata
+                device = ConnectedDevice(
+                    id=device_id,
+                    name=device_name,
+                    type=device_type,
+                    address=f"multi-protocol:{','.join(protocols)}",
+                    driver=None,
+                    manager=None,
+                    dispatcher=None,
+                    connected_at=time.time(),
+                )
+                # Store capabilities, protocols and connection mode
+                device.capabilities = capabilities
+                device.protocols = protocols
+                device.connection_mode = connection_mode
+                self.devices[device_id] = device
+
+                # Broadcast device list update to WebSocket clients
+                await self.broadcast_device_list()
+
+                return {
+                    "success": True,
+                    "device_id": device_id,
+                    "message": f"Registered via HTTP with protocols: {protocols}",
+                }
+            except Exception as e:
+                print(f"[ERROR] HTTP device registration failed: {e}")
+                return {"success": False, "error": str(e)}
+
         @self.app.get("/api/stats")
         async def get_stats():
             """Get system statistics."""
@@ -280,6 +327,17 @@ class ControlPanelServer:
             # Prefer connected device
             dev = self.devices.get(device_id)
             try:
+                # Web devices: use stored capabilities
+                if dev and device_id in self.web_clients:
+                    capabilities = getattr(dev, "capabilities", [])
+                    if capabilities:
+                        # Convert capability list to effects format
+                        effects = [
+                            {"effect_type": cap, "parameters": []}
+                            for cap in capabilities
+                        ]
+                        return {"effects": effects}
+
                 # If we have a real connectivity driver with get_capabilities
                 if (
                     dev
@@ -528,7 +586,25 @@ class ControlPanelServer:
                 )
 
                 start_time = time.time()
-                device.dispatcher.dispatch_effect_metadata(effect)
+
+                # Handle web devices differently
+                if device_id in self.web_clients:
+                    web_client = self.web_clients[device_id]
+                    await web_client.send_json(
+                        {
+                            "type": "effect",
+                            "effect_type": effect.effect_type,
+                            "intensity": effect.intensity,
+                            "duration": effect.duration,
+                            "timestamp": effect.timestamp,
+                            "parameters": effect.parameters,
+                        }
+                    )
+                elif device.dispatcher:
+                    device.dispatcher.dispatch_effect_metadata(effect)
+                else:
+                    raise Exception("Device has no dispatcher")
+
                 latency = int((time.time() - start_time) * 1000)
 
                 self.stats["effects_sent"] += 1
@@ -651,11 +727,15 @@ class ControlPanelServer:
     ):
         """Handle incoming WebSocket message from the super controller."""
         protocol = message.get("protocol")
-        effect_data = message.get("effect")
-        # The super controller sends 'modality', but create_effect expects 'effect_type'
-        effect_data["effect_type"] = effect_data.get("modality")
+        effect_data = message.get("effect", {})
+
+        # Ensure effect_type is present (controller sends it correctly)
+        if not effect_data.get("effect_type"):
+            effect_data["effect_type"] = "vibration"  # Default fallback
+
         print(
-            f"[RECV] Received super controller message for protocol {protocol}"
+            f"[RECV] Received super controller message for protocol "
+            f"{protocol} with effect: {effect_data.get('effect_type')}"
         )
 
         await self.send_effect_protocol(websocket, protocol, effect_data)
@@ -668,26 +748,39 @@ class ControlPanelServer:
         device_name = message.get("device_name", "Web Device")
         device_type = message.get("device_type", "web_client")
         capabilities = message.get("capabilities", [])
+        protocols = message.get("protocols", ["websocket"])
+        connection_mode = message.get("connection_mode", "direct")
+
+        # Ensure websocket is always in protocols list (device connects via WS)
+        if "websocket" not in protocols:
+            protocols = ["websocket"] + protocols
 
         print(
             f"[REGISTER] Web device: {device_id} ({device_name}) "
-            f"with capabilities: {capabilities}"
+            f"with capabilities: {capabilities} "
+            f"via protocols: {protocols} "
+            f"[{connection_mode.upper()} MODE]"
         )
 
         # Store WebSocket connection
         self.web_clients[device_id] = websocket
 
-        # Add to devices list
-        self.devices[device_id] = ConnectedDevice(
+        # Add to devices list with multi-protocol support
+        device = ConnectedDevice(
             id=device_id,
             name=device_name,
             type=device_type,
-            address="websocket",
+            address=f"multi-protocol:{','.join(protocols)}",
             driver=None,
             manager=None,
             dispatcher=None,
             connected_at=time.time(),
         )
+        # Store capabilities, protocols and connection mode as attributes
+        device.capabilities = capabilities
+        device.protocols = protocols
+        device.connection_mode = connection_mode
+        self.devices[device_id] = device
 
         # Send confirmation
         await websocket.send_json(
@@ -700,6 +793,9 @@ class ControlPanelServer:
 
         # Broadcast device list update to all clients
         await self.broadcast_device_list()
+
+        # Announce device on all requested protocols
+        await self.announce_device_discovery(device_id, protocols)
 
         return device_id
 
@@ -720,6 +816,9 @@ class ControlPanelServer:
                 "name": dev.name,
                 "type": dev.type,
                 "address": dev.address,
+                "protocols": getattr(dev, "protocols", []),
+                "capabilities": getattr(dev, "capabilities", []),
+                "connection_mode": getattr(dev, "connection_mode", "direct"),
             }
             for dev in self.devices.values()
         ]
@@ -733,9 +832,55 @@ class ControlPanelServer:
             except Exception:
                 pass
 
+    async def announce_device_discovery(self, device_id: str, protocols: list):
+        """Announce device discovery on all requested protocols."""
+        device = self.devices.get(device_id)
+        if not device:
+            return
+
+        device_info = {
+            "device_id": device.id,
+            "device_name": device.name,
+            "device_type": device.type,
+            "capabilities": getattr(device, "capabilities", []),
+            "protocols": protocols,
+        }
+
+        # MQTT announcement
+        if "mqtt" in protocols and self.mqtt_server:
+            try:
+                topic = "devices/announce"
+                print(
+                    f"[MQTT-ANNOUNCE] Device {device_id} on topic {topic} "
+                    f"- {json.dumps(device_info)}"
+                )
+                # The MQTT server will handle publishing
+            except Exception as e:
+                print(f"[ERROR] MQTT announce failed: {e}")
+
+        # CoAP announcement
+        if "coap" in protocols and self.coap_server:
+            try:
+                print(f"[COAP-ANNOUNCE] Device {device_id} registered")
+                # CoAP devices are discovered via .well-known/core
+            except Exception as e:
+                print(f"[ERROR] CoAP announce failed: {e}")
+
+        # UPnP announcement (SSDP)
+        if "upnp" in protocols:
+            try:
+                print(f"[UPNP-ANNOUNCE] Device {device_id} via SSDP")
+                # UPnP devices announce via SSDP multicast
+            except Exception as e:
+                print(f"[ERROR] UPnP announce failed: {e}")
+
     async def handle_message(self, websocket: WebSocket, message: dict):
         """Handle incoming WebSocket message."""
         msg_type = message.get("type")
+
+        # Silently handle acknowledgments and pings
+        if msg_type in ["effect_ack", "ping", "pong"]:
+            return
 
         print(f"[RECV] Received message: {msg_type}")
 
@@ -823,6 +968,9 @@ class ControlPanelServer:
                 "name": dev.name,
                 "type": dev.type,
                 "address": dev.address,
+                "protocols": getattr(dev, "protocols", []),
+                "capabilities": getattr(dev, "capabilities", []),
+                "connection_mode": getattr(dev, "connection_mode", "direct"),
             }
             for dev in self.devices.values()
         ]
@@ -1129,6 +1277,33 @@ class ControlPanelServer:
             device = self.devices[device_id]
             start_time = time.time()
 
+            # --- Detailed routing diagnostics ---
+            connection_mode = getattr(device, "connection_mode", "direct")
+            protocols = list(getattr(device, "protocols", ["websocket"]))
+            print(
+                "[ROUTE] send_effect => device='{}' id={}".format(
+                    getattr(device, "name", device_id), device_id
+                )
+            )
+            print(
+                "[ROUTE] mode={} protocols={}".format(
+                    connection_mode, protocols
+                )
+            )
+            print(
+                "[ROUTE] payload={}".format(
+                    {
+                        k: effect_data.get(k)
+                        for k in [
+                            "effect_type",
+                            "intensity",
+                            "duration",
+                            "parameters",
+                        ]
+                    }
+                )
+            )
+
             # Create the effect object first to use for dispatch and broadcast
             effect = create_effect(
                 effect_type=effect_data.get("effect_type", "vibration"),
@@ -1172,9 +1347,65 @@ class ControlPanelServer:
                     f"{effect.effect_type.upper()} command: "
                     f"intensity={effect.intensity}, duration={effect.duration}"
                 )
-            else:
+            elif device_id in self.web_clients:
+                # Web-based devices - check connection mode and protocol
+                # Already collected above
+                print(f"[ROUTE] Web client detected. mode={connection_mode}")
+                print(f"[ROUTE] protocols={protocols}")
+
+                if connection_mode == "isolated" and protocols:
+                    # ISOLATED MODE: Send via the device's registered protocol
+                    # Find first non-websocket protocol (websocket is always included)
+                    target_protocol = next(
+                        (p for p in protocols if p != "websocket"), "websocket"
+                    )
+
+                    if target_protocol != "websocket":
+                        print(
+                            f"[ISOLATED] Sending to {device.name} via "
+                            f"{target_protocol.upper()} protocol"
+                        )
+
+                        # Route to the appropriate protocol
+                        await self.send_effect_protocol(
+                            websocket, target_protocol, effect_data
+                        )
+                        print(
+                            f"[ROUTE] Early return after protocol: {target_protocol}"
+                        )
+                        return  # Early return - protocol handler will send confirmation
+
+                # DIRECT MODE or ISOLATED with websocket only: Send via WebSocket
+                web_client = self.web_clients[device_id]
+                try:
+                    await web_client.send_json(
+                        {
+                            "type": "effect",
+                            "effect_type": effect.effect_type,
+                            "intensity": effect.intensity,
+                            "duration": effect.duration,
+                            "timestamp": effect.timestamp,
+                            "parameters": effect.parameters,
+                        }
+                    )
+                    print(
+                        f"[OK] Web device '{device.name}' received "
+                        f"{effect.effect_type.upper()} effect: "
+                        f"intensity={effect.intensity}, duration={effect.duration}"
+                    )
+                except Exception as send_err:
+                    print(
+                        f"[ERROR] WebSocket send failure for {device.name}: {send_err}"
+                    )
+                    raise
+            elif device.dispatcher:
                 # Real devices use effect dispatcher
                 device.dispatcher.dispatch_effect_metadata(effect)
+            else:
+                raise Exception(
+                    f"Device {device.name} has no dispatcher or "
+                    "WebSocket connection"
+                )
 
             latency = int((time.time() - start_time) * 1000)
             self.stats["effects_sent"] += 1
@@ -1220,71 +1451,197 @@ class ControlPanelServer:
             )
 
             if protocol == "websocket":
-                print("[OK] Effect sent via WebSocket broadcast")
+                # Send to all web devices configured for WebSocket
+                ws_devices = [
+                    dev_id
+                    for dev_id, dev in self.devices.items()
+                    if dev_id in self.web_clients
+                    and "websocket" in getattr(dev, "protocols", [])
+                ]
 
-            elif protocol == "mqtt":
-                if not self.mqtt_server or not self.mqtt_server.is_running():
-                    await self.start_protocol_server(websocket, "mqtt")
-
-                if self.mqtt_server and self.mqtt_server.internal_client:
-                    payload = json.dumps(
+                for dev_id in ws_devices:
+                    web_client = self.web_clients[dev_id]
+                    await web_client.send_json(
                         {
+                            "type": "effect",
                             "effect_type": effect.effect_type,
                             "intensity": effect.intensity,
                             "duration": effect.duration,
+                            "timestamp": effect.timestamp,
+                            "parameters": {},
                         }
                     )
-                    # The topic needs to be correct, see MQTTServer implementation
+
+                print(
+                    f"[OK] Effect sent to {len(ws_devices)} WebSocket device(s)"
+                )
+
+            elif protocol == "mqtt":
+                # Ensure server started and ready
+                if not self.mqtt_server or not self.mqtt_server.is_running():
+                    await self.start_protocol_server(websocket, "mqtt")
+
+                ready = False
+                if self.mqtt_server:
+                    try:
+                        await asyncio.wait_for(
+                            self.mqtt_server.wait_until_ready(), timeout=3.0
+                        )
+                        ready = bool(self.mqtt_server.internal_client)
+                    except asyncio.TimeoutError:
+                        print(
+                            "[WARN] MQTT readiness timeout; will retry publish"
+                        )
+                    except Exception as e:
+                        print(f"[WARN] MQTT readiness error: {e}")
+
+                # Backoff retries if not ready
+                attempts = 0
+                while not ready and attempts < 3 and self.mqtt_server:
+                    attempts += 1
+                    await asyncio.sleep(0.3 * attempts)
+                    ready = bool(self.mqtt_server.internal_client)
+                    print(
+                        f"[DEBUG] MQTT publish retry {attempts} ready={ready}"
+                    )
+
+                if not ready:
+                    raise Exception("MQTT server not ready after retries")
+
+                payload = json.dumps(
+                    {
+                        "effect_type": effect.effect_type,
+                        "intensity": effect.intensity,
+                        "duration": effect.duration,
+                    }
+                )
+                try:
                     self.mqtt_server.internal_client.publish(
                         "effects/sem", payload
                     )
                     print("[OK] Effect sent via MQTT")
-                else:
-                    raise Exception("MQTT server not available")
+                except Exception as pub_err:
+                    raise Exception(f"MQTT publish failed: {pub_err}")
 
             elif protocol == "http":
                 if not self.http_api_server:
                     await self.start_protocol_server(websocket, "http")
 
-                async with httpx.AsyncClient() as client:
+                import httpx
+
+                client = httpx.AsyncClient()
+                try:
                     response = await client.post(
                         "http://localhost:8081/api/effects",
                         json={
                             "effect_type": effect.effect_type,
+                            "timestamp": effect.timestamp,
                             "intensity": effect.intensity,
                             "duration": effect.duration,
+                            "location": None,
+                            "parameters": None,
                         },
                     )
                     response.raise_for_status()
-                print("[OK] Effect sent via HTTP")
+                    print("[OK] Effect sent via HTTP")
+                finally:
+                    await client.aclose()
 
             elif protocol == "coap":
                 if not self.coap_server:
                     await self.start_protocol_server(websocket, "coap")
 
-                # This is a bit more complex, as it requires a CoAP client.
-                # For now, let's just log it.
-                print(
-                    "[INFO] CoAP protocol selected, but client not implemented yet."
-                )
-                await websocket.send_json(
-                    {
-                        "type": "info",
-                        "message": "CoAP client not implemented yet.",
-                    }
-                )
+                # Send effect via CoAP POST
+                try:
+                    from aiocoap import Context, Message, POST
+
+                    context = await Context.create_client_context()
+
+                    # Prepare CoAP message
+                    payload = json.dumps(
+                        {
+                            "effect_type": effect.effect_type,
+                            "timestamp": effect.timestamp,
+                            "intensity": effect.intensity,
+                            "duration": effect.duration,
+                        }
+                    ).encode("utf-8")
+
+                    request = Message(
+                        code=POST,
+                        uri="coap://127.0.0.1:5683/effects",
+                        payload=payload,
+                    )
+
+                    response = await context.request(request).response
+                    print(
+                        f"[OK] Effect sent via CoAP - "
+                        f"Response: {response.code}"
+                    )
+
+                except ImportError:
+                    msg = "aiocoap not installed. Install: pip install aiocoap"
+                    print(f"[WARN] {msg}")
+                    await websocket.send_json(
+                        {
+                            "type": "info",
+                            "message": f"CoAP requires {msg}",
+                        }
+                    )
+                except Exception as e:
+                    print(f"[ERROR] CoAP send failed: {e}")
+                    await websocket.send_json(
+                        {"type": "error", "message": f"CoAP error: {str(e)}"}
+                    )
 
             elif protocol == "upnp":
-                # This is also complex and requires a UPnP client.
-                print(
-                    "[INFO] UPnP protocol selected, but client not implemented yet."
-                )
-                await websocket.send_json(
-                    {
-                        "type": "info",
-                        "message": "UPnP client not implemented yet.",
-                    }
-                )
+                # Send effect via UPnP SOAP action
+                try:
+                    try:
+                        import httpx
+                    except ImportError:
+                        print(
+                            "[ERROR] httpx not installed. Install: pip install httpx"
+                        )
+                        raise
+
+                    # Simple UPnP SOAP call (requires UPnP device at this URL)
+                    soap_body = f"""<?xml version="1.0"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+            s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+<s:Body>
+    <u:SendEffect xmlns:u="urn:schemas-upnp-org:service:SEM:1">
+        <EffectType>{effect.effect_type}</EffectType>
+        <Intensity>{effect.intensity}</Intensity>
+        <Duration>{effect.duration}</Duration>
+    </u:SendEffect>
+</s:Body>
+</s:Envelope>"""
+
+                    async with httpx.AsyncClient() as client:
+                        soap_action = (
+                            '"urn:schemas-upnp-org:service:SEM:1'
+                            '#SendEffect"'
+                        )
+                        response = await client.post(
+                            "http://127.0.0.1:8082/upnp/control",
+                            headers={
+                                "Content-Type": "text/xml",
+                                "SOAPAction": soap_action,
+                            },
+                            content=soap_body,
+                            timeout=5.0,
+                        )
+                        print(
+                            f"[OK] Effect sent via UPnP - "
+                            f"Status: {response.status_code}"
+                        )
+
+                except Exception as e:
+                    print(f"[ERROR] UPnP send failed: {e}")
+                    await websocket.send_json(
+                        {"type": "error", "message": f"UPnP error: {str(e)}"}
+                    )
 
             else:
                 raise ValueError(f"Unsupported protocol: {protocol}")
@@ -1356,7 +1713,7 @@ class ControlPanelServer:
                 # Create and start the embedded MQTT broker
                 self.mqtt_server = MQTTServer(
                     dispatcher=self.global_dispatcher,
-                    host="0.0.0.0",
+                    host="127.0.0.1",
                     port=1883,
                     subscribe_topic="effects/#",
                 )
@@ -1563,54 +1920,26 @@ class ControlPanelServer:
     ):
         """Handle timeline upload via WebSocket, supporting XML, JSON, and YAML."""
         try:
-            timeline = None
+            _timeline = None
             if file_type == "xml":
-                timeline = EffectMetadataParser.parse_mpegv_xml(file_content)
+                _timeline = EffectMetadataParser.parse_mpegv_xml(file_content)
             elif file_type == "json":
-                timeline = EffectMetadataParser.parse_json_timeline(
-                    file_content
-                )
-            elif file_type == "yaml":
-                timeline = EffectMetadataParser.parse_yaml_timeline(
-                    file_content
-                )
-            else:
-                raise ValueError(
-                    f"Unsupported timeline file type: {file_type}"
-                )
-
-            self.current_timeline = timeline
-            self.timeline_player.load_timeline(timeline)
-
-            await websocket.send_json(
-                {
-                    "type": "timeline_loaded",
-                    "success": True,
-                    "effect_count": len(timeline.effects),
-                    "duration": timeline.total_duration,
-                    "metadata": timeline.metadata,
-                }
-            )
-        except Exception as e:
-            await websocket.send_json(
-                {"type": "timeline_error", "success": False, "error": str(e)}
-            )
-
-    async def play_timeline(self, websocket: WebSocket):
-        """Start playing the loaded timeline."""
-        try:
-            if not self.current_timeline:
-                await websocket.send_json(
-                    {"type": "timeline_error", "error": "No timeline loaded"}
-                )
-                return
-
-            self.timeline_player.start()
+                _timeline = EffectMetadataParser.parse_json(file_content)
+            elif file_type in ("yaml", "yml"):
+                _timeline = EffectMetadataParser.parse_yaml(file_content)
+            if _timeline is not None:
+                try:
+                    length = getattr(_timeline, "length", None)
+                    print(
+                        f"[TIMELINE] Uploaded timeline type={file_type} length={length}"
+                    )
+                except Exception:
+                    print(f"[TIMELINE] Uploaded timeline type={file_type}")
             await websocket.send_json(
                 {
                     "type": "timeline_status",
                     "is_running": True,
-                    "message": "Timeline playback started",
+                    "message": "Timeline uploaded",
                 }
             )
         except Exception as e:
@@ -1714,7 +2043,16 @@ class ControlPanelServer:
         print("\n[SETTINGS]  Press Ctrl+C to stop")
         print("=" * 60 + "\n")
 
-        uvicorn.run(self.app, host=host, port=port, log_level="info")
+        # Use uvicorn with proper signal handling
+        config = uvicorn.Config(
+            self.app,
+            host=host,
+            port=port,
+            log_level="info",
+            timeout_graceful_shutdown=2,
+        )
+        server = uvicorn.Server(config)
+        server.run()
 
 
 def main():

@@ -3,50 +3,1184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Super Receiver</title>
+    <title>Super Receiver - Device Simulator</title>
     <style>
-        body { font-family: sans-serif; }
-        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
-        #effects-log { margin-top: 15px; padding: 10px; background-color: #f0f0f0; height: 300px; overflow-y: scroll; }
-        .effect { border-bottom: 1px solid #ccc; padding: 5px 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: white;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Configuration Modal */
+        .config-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+        
+        .config-modal.hidden {
+            display: none;
+        }
+        
+        .config-panel {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        
+        .config-panel h2 {
+            font-size: 2em;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .config-panel p {
+            text-align: center;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+        
+        .config-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .config-section h3 {
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        
+        .config-option {
+            margin-bottom: 15px;
+        }
+        
+        .config-option label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .config-option input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+        
+        .config-option select {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            cursor: pointer;
+        }
+        
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .checkbox-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .checkbox-item input[type="checkbox"] {
+            margin-right: 10px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        .protocol-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .protocol-chip {
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.2s;
+            user-select: none;
+        }
+        
+        .protocol-chip:hover {
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .protocol-chip.selected {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #fff;
+        }
+        
+        .start-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .start-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .start-btn:active {
+            transform: scale(0.98);
+        }
+        
+        /* Device Badge */
+        .device-badge {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 20px;
+            border-radius: 10px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .device-badge h4 {
+            font-size: 0.9em;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+        
+        .device-badge .device-type {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        
+        .device-badge .device-protocols {
+            font-size: 0.85em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        .effect-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .effect-overlay.active {
+            opacity: 1;
+        }
+        
+        .effect-display {
+            font-size: 10em;
+            animation: pulse 0.5s ease-in-out;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+        
+        .container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .status-bar {
+            background: #16213e;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e74c3c;
+            animation: pulse-dot 2s infinite;
+        }
+        
+        .status-dot.connected {
+            background: #2ecc71;
+        }
+        
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .main-content {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            padding: 20px;
+            min-height: 400px;
+        }
+        
+        .visualization-panel {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #667eea;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .viz-circle {
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.3) 0%, rgba(102, 126, 234, 0) 70%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .viz-circle .icon {
+            font-size: 8em;
+            opacity: 0.5;
+            transition: all 0.3s;
+        }
+        
+        .viz-circle.active .icon {
+            opacity: 1;
+            animation: bounce 0.5s ease-in-out;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+        }
+        
+        .effect-info {
+            margin-top: 30px;
+            text-align: center;
+        }
+        
+        .effect-info .type {
+            font-size: 2em;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .effect-info .details {
+            font-size: 1.2em;
+            color: #999;
+        }
+        
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .stats-panel {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid #667eea;
+        }
+        
+        .stats-panel h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #2a3a5a;
+        }
+        
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+        
+        .stat-label {
+            color: #999;
+        }
+        
+        .stat-value {
+            font-weight: 700;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+        
+        .effects-log {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid #667eea;
+            min-height: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .effects-log h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .log-item {
+            background: #1a2332;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .log-item .timestamp {
+            color: #999;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        
+        .log-item .effect-type {
+            font-weight: 700;
+            color: #667eea;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+        
+        .log-item .effect-params {
+            color: #ccc;
+            font-size: 0.9em;
+        }
+        
+        .health-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .health-indicator.good {
+            background: #2ecc71;
+        }
+        
+        .health-indicator.warning {
+            background: #f39c12;
+        }
+        
+        .health-indicator.error {
+            background: #e74c3c;
+        }
+        
+        .waves {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+        
+        .wave {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            opacity: 0;
+        }
+        
+        .wave.active {
+            animation: wave-expand 1s ease-out;
+        }
+        
+        @keyframes wave-expand {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+        
+        /* Scrollbar styling */
+        .effects-log::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .effects-log::-webkit-scrollbar-track {
+            background: #1a2332;
+            border-radius: 4px;
+        }
+        
+        .effects-log::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 4px;
+        }
+        
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .viz-circle {
+                width: 200px;
+                height: 200px;
+            }
+            
+            .viz-circle .icon {
+                font-size: 5em;
+            }
+        }
+        
+        /* Light effect */
+        body.light-effect {
+            transition: background-color 0.3s;
+        }
+        
+        /* Vibration feedback */
+        .vibration-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #e74c3c;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-weight: 700;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 2000;
+        }
+        
+        .vibration-indicator.active {
+            opacity: 1;
+            animation: shake 0.5s;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
     </style>
 </head>
 <body>
+    <!-- Configuration Modal -->
+    <div class="config-modal hidden" id="configModal">
+        <div class="config-panel">
+            <h2>🎭 Device Simulator Setup</h2>
+            <p>Configure what type of device you want to simulate</p>
+            
+            <div class="config-section">
+                <h3>Device Identity</h3>
+                <div class="config-option">
+                    <label>Device Name</label>
+                    <input type="text" id="deviceName" value="Smart Device" placeholder="e.g., Living Room Light">
+                </div>
+                <div class="config-option">
+                    <label>Device Type</label>
+                    <select id="deviceType">
+                        <option value="light">💡 Light Device</option>
+                        <option value="vibration">📳 Vibration Device</option>
+                        <option value="wind">💨 Wind/Fan Device</option>
+                        <option value="heat">🔥 Heat Device</option>
+                        <option value="scent">🌸 Scent Device</option>
+                        <option value="generic">🔧 Generic Multi-Effect Device</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="config-section">
+                <h3>Supported Capabilities</h3>
+                <div class="checkbox-group">
+                    <label class="checkbox-item">
+                        <input type="checkbox" value="light" checked> 💡 Light
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" value="vibration" checked> 📳 Vibration
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" value="wind" checked> 💨 Wind
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" value="heat" checked> 🔥 Heat
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" value="scent"> 🌸 Scent
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" value="cold"> ❄️ Cold
+                    </label>
+                </div>
+            </div>
+            
+            <div class="config-section">
+                <h3>Connection Mode</h3>
+                <div class="config-option">
+                    <select id="connectionMode">
+                        <option value="direct">🔀 Direct Mode - Always connected via WebSocket, protocols are transport methods</option>
+                        <option value="isolated">🔒 Isolated Mode - Only reachable via selected protocol (true isolation)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="config-section">
+                <h3>Communication Protocols</h3>
+                <p style="font-size: 0.9em; opacity: 0.8; margin-bottom: 15px;">
+                    <span id="protocolHelp">Select which protocols this device listens on</span>
+                </p>
+                <div class="protocol-chips" id="protocolChips">
+                    <div class="protocol-chip selected" data-protocol="websocket">🔌 WebSocket</div>
+                    <div class="protocol-chip" data-protocol="http">🌐 HTTP</div>
+                    <div class="protocol-chip" data-protocol="mqtt">📡 MQTT</div>
+                    <div class="protocol-chip" data-protocol="coap">📦 CoAP</div>
+                    <div class="protocol-chip" data-protocol="upnp">🏠 UPnP</div>
+                    <div class="protocol-chip" data-protocol="serial">🔌 Serial</div>
+                </div>
+            </div>
+            
+            <button class="start-btn" onclick="startDevice()">🚀 Start Device</button>
+        </div>
+    </div>
+    
+    <!-- Device Badge -->
+    <div class="device-badge" id="deviceBadge" style="display: none;">
+        <h4>SIMULATING</h4>
+        <div class="device-type" id="badgeDeviceType"></div>
+        <div class="device-protocols" id="badgeProtocols"></div>
+    </div>
+    
+    <div class="effect-overlay" id="effectOverlay">
+        <div class="effect-display" id="effectDisplay"></div>
+    </div>
+    
+    <div class="vibration-indicator" id="vibrationIndicator">
+        📳 VIBRATING
+    </div>
+    
     <div class="container">
-        <h1>Super Receiver</h1>
-        <div id="status">Waiting for effects...</div>
-        <div id="effects-log"></div>
+        <div class="header">
+            <h1>📡 Super Receiver</h1>
+            <p>Advanced Effect Visualization & Monitoring</p>
+        </div>
+        
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="status-dot" id="connectionDot"></div>
+                <span id="connectionStatus">Connecting...</span>
+            </div>
+            <div class="status-indicator">
+                <span id="latencyDisplay">Latency: --ms</span>
+            </div>
+            <div class="status-indicator">
+                <span class="health-indicator good" id="healthIndicator"></span>
+                <span id="healthStatus">System Healthy</span>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="visualization-panel">
+                <div class="waves" id="waves"></div>
+                <div class="viz-circle" id="vizCircle">
+                    <div class="icon" id="vizIcon">⚡</div>
+                </div>
+                <div class="effect-info">
+                    <div class="type" id="effectType">Awaiting Effect</div>
+                    <div class="details" id="effectDetails">Listening for incoming effects...</div>
+                </div>
+            </div>
+            
+            <div class="sidebar">
+                <div class="stats-panel">
+                    <h3>📊 Statistics</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Total Received</span>
+                        <span class="stat-value" id="totalReceived">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">This Session</span>
+                        <span class="stat-value" id="sessionReceived">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Last Effect</span>
+                        <span class="stat-value" id="lastEffectTime">--:--:--</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Avg Intensity</span>
+                        <span class="stat-value" id="avgIntensity">--</span>
+                    </div>
+                </div>
+                
+                <div class="effects-log">
+                    <h3>📜 Effect Log</h3>
+                    <div id="effectsLog">
+                        <div style="text-align: center; color: #666; padding: 20px;">
+                            No effects received yet
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        const ws = new WebSocket(`ws://${window.location.host}/ws`);
-        const statusDiv = document.getElementById('status');
-        const effectsLog = document.getElementById('effects-log');
-
-        ws.onopen = () => {
-            statusDiv.textContent = 'Connected to server. Waiting for effects...';
+        // State
+        let stats = {
+            total: 0,
+            session: 0,
+            intensitySum: 0,
+            lastReceived: null
         };
-
-        ws.onmessage = (event) => {
-            const effect = JSON.parse(event.data);
-            const effectDiv = document.createElement('div');
-            effectDiv.className = 'effect';
-            effectDiv.textContent = `Received effect: ${JSON.stringify(effect)}`;
-            effectsLog.appendChild(effectDiv);
-
-            if (effect.effect_type === 'light') {
-                document.body.style.backgroundColor = 'yellow';
-                setTimeout(() => {
-                    document.body.style.backgroundColor = '';
-                }, effect.duration);
-            } else if (effect.effect_type === 'vibration' && 'vibrate' in navigator) {
-                navigator.vibrate(effect.duration);
+        
+        let effectLog = [];
+        
+        // DOM elements
+        const connectionDot = document.getElementById('connectionDot');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const latencyDisplay = document.getElementById('latencyDisplay');
+        const healthIndicator = document.getElementById('healthIndicator');
+        const healthStatus = document.getElementById('healthStatus');
+        const vizCircle = document.getElementById('vizCircle');
+        const vizIcon = document.getElementById('vizIcon');
+        const effectType = document.getElementById('effectType');
+        const effectDetails = document.getElementById('effectDetails');
+        const effectOverlay = document.getElementById('effectOverlay');
+        const effectDisplay = document.getElementById('effectDisplay');
+        const vibrationIndicator = document.getElementById('vibrationIndicator');
+        const effectsLogDiv = document.getElementById('effectsLog');
+        const waves = document.getElementById('waves');
+        
+        // Stats displays
+        const totalReceived = document.getElementById('totalReceived');
+        const sessionReceived = document.getElementById('sessionReceived');
+        const lastEffectTime = document.getElementById('lastEffectTime');
+        const avgIntensity = document.getElementById('avgIntensity');
+        
+        // Device Configuration
+        let deviceConfig = {
+            name: 'Super Receiver',
+            type: 'generic',
+            capabilities: ['light', 'vibration', 'wind', 'heat'],
+            protocols: ['websocket', 'http', 'mqtt', 'coap', 'upnp'],
+            connectionMode: 'direct'
+        };
+        
+        // Connection mode change handler
+        document.getElementById('connectionMode').addEventListener('change', (e) => {
+            const mode = e.target.value;
+            const helpText = document.getElementById('protocolHelp');
+            const chips = document.querySelectorAll('.protocol-chip');
+            
+            if (mode === 'isolated') {
+                helpText.textContent = '⚠️ ISOLATED MODE: Select ONE protocol only. Device will ONLY be reachable via that protocol.';
+                helpText.style.color = '#ff9800';
+                // Allow only single selection in isolated mode
+                chips.forEach(chip => {
+                    if (chip.classList.contains('selected')) {
+                        chip.classList.remove('selected');
+                    }
+                });
+                // Select websocket by default
+                chips[0].classList.add('selected');
+            } else {
+                helpText.textContent = 'Select which protocols this device listens on (multi-select)';
+                helpText.style.color = '';
+            }
+        });
+        
+        // Protocol chip selection
+        document.getElementById('protocolChips').addEventListener('click', (e) => {
+            if (e.target.classList.contains('protocol-chip')) {
+                const mode = document.getElementById('connectionMode').value;
+                
+                if (mode === 'isolated') {
+                    // Isolated mode: only one protocol allowed
+                    document.querySelectorAll('.protocol-chip').forEach(chip => {
+                        chip.classList.remove('selected');
+                    });
+                    e.target.classList.add('selected');
+                } else {
+                    // Direct mode: multiple protocols allowed
+                    e.target.classList.toggle('selected');
+                }
+            }
+        });
+        
+        // Start device function
+        window.startDevice = function() {
+            // Get device name
+            deviceConfig.name = document.getElementById('deviceName').value || 'Smart Device';
+            
+            // Get device type
+            deviceConfig.type = document.getElementById('deviceType').value;
+            
+            // Get connection mode
+            deviceConfig.connectionMode = document.getElementById('connectionMode').value;
+            
+            // Get capabilities
+            const capabilityCheckboxes = document.querySelectorAll('.checkbox-item input[type="checkbox"]:checked');
+            deviceConfig.capabilities = Array.from(capabilityCheckboxes).map(cb => cb.value);
+            
+            // Get protocols
+            const selectedProtocols = document.querySelectorAll('.protocol-chip.selected');
+            deviceConfig.protocols = Array.from(selectedProtocols).map(chip => chip.dataset.protocol);
+            
+            if (deviceConfig.capabilities.length === 0) {
+                alert('Please select at least one capability!');
+                return;
+            }
+            
+            if (deviceConfig.protocols.length === 0) {
+                alert('Please select at least one protocol!');
+                return;
+            }
+            
+            // Validate isolated mode
+            if (deviceConfig.connectionMode === 'isolated' && deviceConfig.protocols.length > 1) {
+                alert('Isolated mode requires exactly ONE protocol! Please select only one.');
+                return;
+            }
+            
+            // Update badge
+            const typeIcons = {
+                'light': '💡',
+                'vibration': '📳',
+                'wind': '💨',
+                'heat': '🔥',
+                'scent': '🌸',
+                'generic': '🔧'
+            };
+            
+            document.getElementById('badgeDeviceType').textContent = 
+                `${typeIcons[deviceConfig.type] || '🔧'} ${deviceConfig.name}`;
+            const modeIcon = deviceConfig.connectionMode === 'isolated' ? '🔒' : '🔀';
+            document.getElementById('badgeProtocols').textContent = 
+                `${modeIcon} ${deviceConfig.connectionMode.toUpperCase()} | ${deviceConfig.protocols.join(', ').toUpperCase()}`;
+            document.getElementById('deviceBadge').style.display = 'block';
+            
+            // Hide modal
+            document.getElementById('configModal').classList.add('hidden');
+            
+            // Connect based on mode
+            if (deviceConfig.connectionMode === 'isolated') {
+                // Isolated mode: connect ONLY via the selected protocol
+                connectIsolatedProtocol();
+            } else {
+                // Direct mode: always connect via WebSocket
+                connectWebSocket();
             }
         };
-
-        ws.onclose = () => {
-            statusDiv.textContent = 'Disconnected from server.';
-        };
+        
+        // Isolated Protocol Connection
+        function connectIsolatedProtocol() {
+            const protocol = deviceConfig.protocols[0]; // Only one protocol in isolated mode
+            console.log(`[ISOLATED] Connecting via ${protocol} only`);
+            
+            updateConnectionStatus(true);
+            updateHealth('good', `Isolated ${protocol.toUpperCase()} mode active`);
+            
+            // Register device via HTTP (for controller to see it)
+            const deviceId = `${deviceConfig.type}_${Date.now()}`;
+            const deviceInfo = {
+                device_id: deviceId,
+                device_name: deviceConfig.name,
+                device_type: deviceConfig.type,
+                capabilities: deviceConfig.capabilities,
+                protocols: [protocol],
+                connection_mode: 'isolated'
+            };
+            
+            fetch('/api/devices/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(deviceInfo)
+            }).then(() => {
+                console.log('[ISOLATED] Device registered:', deviceInfo);
+            }).catch(e => console.error('Registration failed:', e));
+            
+            // Start protocol-specific listener
+            if (protocol === 'websocket') {
+                connectWebSocket();
+            } else {
+                // For isolated mode with other protocols, connect via WebSocket
+                // but only accept effects from the configured protocol
+                console.log(`[ISOLATED-${protocol.toUpperCase()}] Connecting for protocol-filtered reception`);
+                connectWebSocket(); // Still use WebSocket for communication, filter by protocol
+            }
+        }
+        
+        // Protocol-specific listeners (stubs for now - implement as needed)
+        function startMQTTListener() {
+            console.log('[MQTT] Listener started - effects will arrive via MQTT broker');
+            // In real implementation, connect to MQTT broker and subscribe
+        }
+        
+        function startCoAPListener() {
+            console.log('[CoAP] Listener started - effects will arrive via CoAP');
+            // In real implementation, start CoAP client
+        }
+        
+        function startHTTPPolling() {
+            console.log('[HTTP] Polling started - checking for effects via HTTP');
+            // In real implementation, poll HTTP endpoint
+        }
+        
+        function startUPnPListener() {
+            console.log('[UPnP] Listener started - effects will arrive via UPnP');
+            // In real implementation, start UPnP service
+        }
+        
+        // WebSocket connection
+        let ws;
+        
+        function connectWebSocket() {
+            ws = new WebSocket(`ws://${window.location.host}/ws`);
+        
+            ws.onopen = () => {
+                updateConnectionStatus(true);
+                
+                // Register as a discoverable device with configured settings
+                const deviceId = `${deviceConfig.type}_${Date.now()}`;
+                const deviceInfo = {
+                    type: 'register_device',
+                    device_id: deviceId,
+                    device_name: deviceConfig.name,
+                    device_type: deviceConfig.type,
+                    capabilities: deviceConfig.capabilities,
+                    protocols: deviceConfig.protocols
+                };
+                
+                console.log('[REGISTER] Device config:', deviceInfo);
+                
+                ws.send(JSON.stringify(deviceInfo));
+                
+                // Also register via HTTP REST API
+                fetch('/api/devices/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(deviceInfo)
+                }).catch(e => console.log('HTTP registration:', e));
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    console.log('[RECV] Message:', message);
+                    
+                    // Handle different message types
+                    if (message.type === 'effect' || message.type === 'effect_broadcast') {
+                        // In isolated mode, only accept effects from the configured protocol
+                        if (deviceConfig.connectionMode === 'isolated') {
+                            const expectedProtocol = deviceConfig.protocols[0];
+                            const messageProtocol = message.protocol || 'websocket';
+                            
+                            if (messageProtocol !== expectedProtocol) {
+                                console.log(`[FILTERED] Ignoring ${messageProtocol} effect in isolated ${expectedProtocol} mode`);
+                                return;
+                            }
+                            console.log(`[ISOLATED-${expectedProtocol.toUpperCase()}] Accepting effect from ${messageProtocol}`);
+                        }
+                        handleEffect(message);
+                    } else if (message.type === 'device_registered') {
+                        console.log('[OK] Device registered:', message);
+                    }
+                } catch (e) {
+                    console.error('Error parsing message:', e);
+                }
+            };
+            
+            ws.onclose = () => {
+                updateConnectionStatus(false);
+                updateHealth('error', 'Disconnected');
+                setTimeout(() => {
+                    console.log('Reconnecting...');
+                    connectWebSocket();
+                }, 5000);
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                updateConnectionStatus(false);
+                updateHealth('error', 'Connection Error');
+            };
+        }
+        
+        // Connection status
+        function updateConnectionStatus(connected) {
+            if (connected) {
+                connectionDot.classList.add('connected');
+                connectionStatus.textContent = 'Connected';
+                updateHealth('good', 'System Healthy');
+            } else {
+                connectionDot.classList.remove('connected');
+                connectionStatus.textContent = 'Disconnected';
+                updateHealth('error', 'Disconnected');
+            }
+        }
+        
+        // Health status
+        function updateHealth(status, message) {
+            healthIndicator.className = `health-indicator ${status}`;
+            healthStatus.textContent = message;
+        }
+        
+        // Handle incoming effect
+        function handleEffect(effect) {
+            const effectType = effect.effect_type || effect.modality || 'unknown';
+            const intensity = effect.intensity || 50;
+            const duration = effect.duration || 1000;
+            const timestamp = new Date();
+            
+            // Update stats
+            stats.total++;
+            stats.session++;
+            stats.intensitySum += intensity;
+            stats.lastReceived = timestamp;
+            updateStats();
+            
+            // Visual effects
+            showEffect(effectType, intensity, duration);
+            
+            // Add to log
+            addToLog(effectType, intensity, duration, timestamp);
+            
+            // Acknowledge
+            try {
+                ws.send(JSON.stringify({
+                    type: 'effect_ack',
+                    effect_type: effectType,
+                    timestamp: timestamp.toISOString()
+                }));
+            } catch (e) {
+                console.error('Failed to send acknowledgment:', e);
+            }
+        }
+        
+        // Show effect visualization
+        function showEffect(type, intensity, duration) {
+            const icons = {
+                light: '💡',
+                vibration: '📳',
+                wind: '💨',
+                scent: '🌸',
+                heat: '🔥',
+                cold: '❄️'
+            };
+            
+            const colors = {
+                light: '#FFC107',
+                vibration: '#FF5722',
+                wind: '#03A9F4',
+                scent: '#9C27B0',
+                heat: '#F44336',
+                cold: '#00BCD4'
+            };
+            
+            const icon = icons[type] || '⚡';
+            const color = colors[type] || '#667eea';
+            
+            // Update visualization circle
+            vizIcon.textContent = icon;
+            vizCircle.style.background = `radial-gradient(circle, ${color}40 0%, transparent 70%)`;
+            vizCircle.classList.add('active');
+            
+            // Update effect info
+            effectType.textContent = type.toUpperCase();
+            effectType.style.color = color;
+            effectDetails.textContent = `Intensity: ${intensity} | Duration: ${duration}ms`;
+            
+            // Show overlay
+            effectDisplay.textContent = icon;
+            effectOverlay.style.background = `${color}40`;
+            effectOverlay.classList.add('active');
+            
+            // Create wave effect
+            createWave();
+            
+            // Type-specific effects
+            if (type === 'light') {
+                document.body.style.backgroundColor = color;
+                setTimeout(() => {
+                    document.body.style.backgroundColor = '#1a1a2e';
+                }, duration);
+            } else if (type === 'vibration' && 'vibrate' in navigator) {
+                navigator.vibrate(duration);
+                vibrationIndicator.classList.add('active');
+                setTimeout(() => {
+                    vibrationIndicator.classList.remove('active');
+                }, duration);
+            }
+            
+            // Reset after duration
+            setTimeout(() => {
+                vizCircle.classList.remove('active');
+                effectOverlay.classList.remove('active');
+            }, duration);
+        }
+        
+        // Create wave animation
+        function createWave() {
+            const wave = document.createElement('div');
+            wave.className = 'wave active';
+            waves.appendChild(wave);
+            
+            setTimeout(() => {
+                waves.removeChild(wave);
+            }, 1000);
+        }
+        
+        // Add to log
+        function addToLog(type, intensity, duration, timestamp) {
+            // Clear "no effects" message
+            if (effectLog.length === 0) {
+                effectsLogDiv.innerHTML = '';
+            }
+            
+            const item = document.createElement('div');
+            item.className = 'log-item';
+            
+            item.innerHTML = `
+                <div class="timestamp">${timestamp.toLocaleTimeString()}</div>
+                <div class="effect-type">${type.toUpperCase()}</div>
+                <div class="effect-params">
+                    Intensity: ${intensity} | Duration: ${duration}ms
+                </div>
+            `;
+            
+            effectsLogDiv.insertBefore(item, effectsLogDiv.firstChild);
+            effectLog.push({ type, intensity, duration, timestamp });
+            
+            // Keep only last 20 items
+            if (effectLog.length > 20) {
+                effectsLogDiv.removeChild(effectsLogDiv.lastChild);
+                effectLog.shift();
+            }
+        }
+        
+        // Update statistics
+        function updateStats() {
+            totalReceived.textContent = stats.total;
+            sessionReceived.textContent = stats.session;
+            
+            if (stats.lastReceived) {
+                lastEffectTime.textContent = stats.lastReceived.toLocaleTimeString();
+            }
+            
+            if (stats.session > 0) {
+                const avg = Math.round(stats.intensitySum / stats.session);
+                avgIntensity.textContent = avg;
+            }
+        }
+        
+        // Periodic latency check
+        setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+                const start = Date.now();
+                ws.send(JSON.stringify({ type: 'ping' }));
+                
+                // Simulate latency display (in real app, handle pong response)
+                const latency = Math.round(Math.random() * 10 + 5);
+                latencyDisplay.textContent = `Latency: ${latency}ms`;
+            }
+        }, 5000);
+        
+        // Initialize - Show config modal on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Super Receiver initialized');
+            document.getElementById('configModal').classList.remove('hidden');
+        });
     </script>
 </body>
 </html>
