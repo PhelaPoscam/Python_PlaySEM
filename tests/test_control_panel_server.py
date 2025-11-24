@@ -1,10 +1,3 @@
-"""
-Integration tests for Control Panel Server.
-
-Tests device registration, WebSocket communication, protocol broadcasting,
-shutdown behavior, and device list visibility.
-"""
-
 import asyncio
 import json
 import pytest
@@ -30,9 +23,7 @@ def server():
 @pytest.fixture
 def client(server):
     """Create a test client."""
-    from starlette.testclient import TestClient as StarletteTestClient
-
-    return StarletteTestClient(server.app)
+    return TestClient(server.app)
 
 
 class TestDeviceRegistration:
@@ -49,11 +40,12 @@ class TestDeviceRegistration:
             "connection_mode": "isolated",
         }
 
-        response = client.post("/api/devices/register", json=device_data)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "registered"
-        assert data["device_id"] == "test_light_001"
+        with patch('examples.server.main.ControlPanelServer.broadcast_device_list', new_callable=AsyncMock):
+            response = client.post("/api/devices/register", json=device_data)
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["device_id"] == "test_light_001"
 
     def test_device_list_includes_metadata(self, server):
         """Test that device list includes protocols, capabilities, and connection_mode."""
@@ -134,7 +126,7 @@ class TestWebSocketCommunication:
 
         # Simulate registration message
         registration_msg = {
-            "type": "register",
+            "type": "register_device",
             "device_id": "ws_device_001",
             "device_name": "WebSocket Device",
             "device_type": "Actuator",
@@ -230,18 +222,19 @@ class TestProtocolSupport:
 
     def test_http_device_registration_endpoint_exists(self, client):
         """Test that HTTP device registration endpoint exists."""
-        response = client.post(
-            "/api/devices/register",
-            json={
-                "device_id": "http_test",
-                "device_name": "HTTP Test Device",
-                "device_type": "Sensor",
-                "capabilities": ["temperature"],
-                "protocols": ["http"],
-                "connection_mode": "direct",
-            },
-        )
-        assert response.status_code == 200
+        with patch('examples.server.main.ControlPanelServer.broadcast_device_list', new_callable=AsyncMock):
+            response = client.post(
+                "/api/devices/register",
+                json={
+                    "device_id": "http_test",
+                    "device_name": "HTTP Test Device",
+                    "device_type": "Sensor",
+                    "capabilities": ["temperature"],
+                    "protocols": ["http"],
+                    "connection_mode": "direct",
+                },
+            )
+            assert response.status_code == 200
 
     def test_device_with_multiple_protocols(self, client):
         """Test device registration with multiple protocols."""
@@ -253,13 +246,13 @@ class TestProtocolSupport:
             "protocols": ["http", "mqtt", "coap", "upnp"],
             "connection_mode": "direct",
         }
+        with patch('examples.server.main.ControlPanelServer.broadcast_device_list', new_callable=AsyncMock):
+            response = client.post("/api/devices/register", json=device_data)
+            assert response.status_code == 200
 
-        response = client.post("/api/devices/register", json=device_data)
-        assert response.status_code == 200
-
-        # Verify device was registered
-        data = response.json()
-        assert data["device_id"] == "multi_proto_001"
+            # Verify device was registered
+            data = response.json()
+            assert data["device_id"] == "multi_proto_001"
 
 
 class TestConnectionModes:
@@ -275,9 +268,9 @@ class TestConnectionModes:
             "protocols": ["websocket", "mqtt"],
             "connection_mode": "direct",
         }
-
-        response = client.post("/api/devices/register", json=device_data)
-        assert response.status_code == 200
+        with patch('examples.server.main.ControlPanelServer.broadcast_device_list', new_callable=AsyncMock):
+            response = client.post("/api/devices/register", json=device_data)
+            assert response.status_code == 200
 
     def test_isolated_mode_device(self, client):
         """Test device registration in isolated mode."""
@@ -289,9 +282,9 @@ class TestConnectionModes:
             "protocols": ["mqtt"],
             "connection_mode": "isolated",
         }
-
-        response = client.post("/api/devices/register", json=device_data)
-        assert response.status_code == 200
+        with patch('examples.server.main.ControlPanelServer.broadcast_device_list', new_callable=AsyncMock):
+            response = client.post("/api/devices/register", json=device_data)
+            assert response.status_code == 200
 
 
 class TestEffectBroadcasting:
@@ -365,18 +358,19 @@ class TestEndToEndFlow:
     def test_http_to_websocket_flow(self, client, server):
         """Test HTTP registration followed by WebSocket listing."""
         # 1. Register via HTTP
-        response = client.post(
-            "/api/devices/register",
-            json={
-                "device_id": "http_ws_test",
-                "device_name": "HTTP WS Test",
-                "device_type": "Actuator",
-                "capabilities": ["motor"],
-                "protocols": ["http"],
-                "connection_mode": "direct",
-            },
-        )
-        assert response.status_code == 200
+        with patch('examples.server.main.ControlPanelServer.broadcast_device_list', new_callable=AsyncMock):
+            response = client.post(
+                "/api/devices/register",
+                json={
+                    "device_id": "http_ws_test",
+                    "device_name": "HTTP WS Test",
+                    "device_type": "Actuator",
+                    "capabilities": ["motor"],
+                    "protocols": ["http"],
+                    "connection_mode": "direct",
+                },
+            )
+            assert response.status_code == 200
 
         # 2. Verify device exists
         assert "http_ws_test" in server.devices
