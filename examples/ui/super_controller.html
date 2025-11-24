@@ -754,6 +754,17 @@
                 addToHistory('No device selected', 'error');
                 return;
             }
+
+            const selectedDevice = connectedDevices.find(d => d.id === selectedDeviceId);
+            if (!selectedDevice) {
+                addToHistory('Could not find selected device details.', 'error');
+                return;
+            }
+
+            // Determine the protocol. Use the device's first protocol, or fallback to websocket.
+            const protocol = (selectedDevice.protocols && selectedDevice.protocols.length > 0)
+                             ? selectedDevice.protocols[0]
+                             : 'websocket';
             
             const startTime = Date.now();
             const effect_type = capEffectType.value || 'vibration';
@@ -769,6 +780,7 @@
             const msg = {
                 type: 'send_effect',
                 device_id: selectedDeviceId,
+                protocol: protocol,
                 effect: { effect_type, intensity, duration, parameters: params }
             };
             
@@ -783,8 +795,8 @@
             showVisualFeedback(effect_type, intensity);
             
             // Add to history
-            addToHistory(`Sent ${effect_type} to ${selectedDeviceId}`, 'sent', {
-                intensity, duration, params
+            addToHistory(`Sent ${effect_type} to ${selectedDeviceId} via ${protocol}`, 'sent', {
+                intensity, duration, params, protocol
             });
         });
         

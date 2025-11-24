@@ -904,7 +904,8 @@ class ControlPanelServer:
         elif msg_type == "send_effect":
             device_id = message.get("device_id")
             effect_data = message.get("effect")
-            await self.send_effect(websocket, device_id, effect_data)
+            protocol = message.get("protocol")  # Get protocol from message
+            await self.send_effect(websocket, device_id, effect_data, protocol)
 
         elif msg_type == "send_effect_protocol":
             protocol = message.get("protocol")
@@ -1266,11 +1267,17 @@ class ControlPanelServer:
         websocket: WebSocket,
         device_id: str,
         effect_data: dict,
+        protocol: str = None,
     ):
         """Send effect to a device."""
         if device_id not in self.devices:
             await websocket.send_json(
-                {"type": "error", "message": "Device not found"}
+                {
+                    "type": "effect_result",
+                    "success": False,
+                    "error": "Device not found",
+                    "device_id": device_id,
+                }
             )
             return
 
@@ -1280,16 +1287,14 @@ class ControlPanelServer:
 
             # --- Detailed routing diagnostics ---
             connection_mode = getattr(device, "connection_mode", "direct")
-            protocols = list(getattr(device, "protocols", ["websocket"]))
+            protocols = list(getattr(device, "protocols", []))
             print(
                 "[ROUTE] send_effect => device='{}' id={}".format(
                     getattr(device, "name", device_id), device_id
                 )
             )
             print(
-                "[ROUTE] mode={} protocols={}".format(
-                    connection_mode, protocols
-                )
+                f"[ROUTE] mode={connection_mode} protocols={protocols}"
             )
             print(
                 "[ROUTE] payload={}".format(
@@ -1314,6 +1319,14 @@ class ControlPanelServer:
                 parameters=effect_data.get("parameters", {}),
             )
 
+            if device_id in self.web_clients and connection_mode == "isolated":
+                target_protocol = next((p for p in protocols if p != "websocket"), None)
+                if target_protocol:
+                    print(f"[ISOLATED] Routing '{effect.effect_type}' to {device.name} via {target_protocol.upper()}")
+                    await self.send_effect_protocol(websocket, target_protocol, effect_data)
+                    return
+
+            # Fallback for DIRECT mode web clients, mock devices, and real hardware
             if device.type == "mock":
                 # Mock devices handle effects directly
                 mock_device = device.driver
@@ -1349,16 +1362,7 @@ class ControlPanelServer:
                     f"intensity={effect.intensity}, duration={effect.duration}"
                 )
             elif device_id in self.web_clients:
-                connection_mode = getattr(device, "connection_mode", "direct")
-                if connection_mode == "isolated":
-                    protocols = getattr(device, "protocols", [])
-                    target_protocol = next((p for p in protocols if p != "websocket"), None)
-                    if target_protocol:
-                        print(f"[ISOLATED] Routing '{effect.effect_type}' to {device.name} via {target_protocol.upper()}")
-                        await self.send_effect_protocol(websocket, target_protocol, effect_data)
-                        return  # CRITICAL: Stop processing to prevent fallback to websocket
-
-                # Fallback to direct WebSocket send for DIRECT mode or ISOLATED mode with no other protocol
+                # DIRECT mode web clients are controlled via WebSocket
                 web_client = self.web_clients[device_id]
                 try:
                     await web_client.send_json(
@@ -1578,22 +1582,17 @@ class ControlPanelServer:
                     )
 
             elif protocol == "upnp":
+                if not self.upnp_server or not self.upnp_server.is_running():
+                    await self.start_protocol_server(websocket, "upnp")
                 # Send effect via UPnP SOAP action
                 try:
-                    try:
-                        import httpx
-                    except ImportError:
-                        print(
-                            "[ERROR] httpx not installed. Install: pip install httpx"
-                        )
-                        raise
-
-                    # Simple UPnP SOAP call (requires UPnP device at this URL)
+                    import aiohttp
+                    
                     soap_body = f"""<?xml version="1.0"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
             s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 <s:Body>
-    <u:SendEffect xmlns:u="urn:schemas-upnp-org:service:SEM:1">
+    <u:SendEffect xmlns:u="urn:schemas-upnp-org:service:PlaySEM:1">
         <EffectType>{effect.effect_type}</EffectType>
         <Intensity>{effect.intensity}</Intensity>
         <Duration>{effect.duration}</Duration>
@@ -1601,30 +1600,34 @@ class ControlPanelServer:
 </s:Body>
 </s:Envelope>"""
 
-                    async with httpx.AsyncClient() as client:
+                    async with aiohttp.ClientSession() as session:
                         soap_action = (
                             '"urn:schemas-upnp-org:service:SEM:1'
                             '#SendEffect"'
                         )
-                        response = await client.post(
-                            "http://127.0.0.1:8082/upnp/control",
-                            headers={
-                                "Content-Type": "text/xml",
-                                "SOAPAction": soap_action,
-                            },
-                            content=soap_body,
+                        headers = {
+                            "Content-Type": "text/xml; charset=utf-8",
+                            "SOAPAction": soap_action,
+                        }
+                        async with session.post(
+                            f"http://{self.upnp_server.http_host}:{self.upnp_server.http_port}/control",
+                            headers=headers,
+                            data=soap_body,
                             timeout=5.0,
-                        )
-                        print(
-                            f"[OK] Effect sent via UPnP - "
-                            f"Status: {response.status_code}"
-                        )
+                        ) as response:
+                            response.raise_for_status()
+                            print(
+                                f"[OK] Effect sent via UPnP - "
+                                f"Status: {response.status}"
+                            )
 
+                except ImportError:
+                    msg = "aiohttp not installed. Please install: pip install aiohttp"
+                    print(f"[ERROR] {msg}")
+                    raise Exception(msg)
                 except Exception as e:
                     print(f"[ERROR] UPnP send failed: {e}")
-                    await websocket.send_json(
-                        {"type": "error", "message": f"UPnP error: {str(e)}"}
-                    )
+                    raise e
 
             else:
                 raise ValueError(f"Unsupported protocol: {protocol}")
@@ -1769,7 +1772,7 @@ class ControlPanelServer:
                 )
                 # UPnP server has async start - run in background
                 asyncio.create_task(self.upnp_server.start())
-                await asyncio.sleep(0.5)  # Give it time to start
+                await self.upnp_server.wait_until_ready()
 
             elif protocol == "websocket":
                 if (

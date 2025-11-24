@@ -859,6 +859,36 @@ class UPnPServer:
     the required device and service description XML files over HTTP.
     """
 
+    class _SSDPProtocol(asyncio.DatagramProtocol):
+        def __init__(self, server: "UPnPServer"):
+            self.server = server
+            self.transport = None
+
+        def connection_made(self, transport):
+            self.transport = transport
+            self.server._transport = transport
+            # Add socket to multicast group
+            sock = self.transport.get_extra_info("socket")
+            group = socket.inet_aton(self.server.SSDP_ADDR)
+            mreq = struct.pack("4sL", group, socket.INADDR_ANY)
+            try:
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+            except OSError as e:
+                # This can happen on some systems if the address is already in use
+                logger.warning(f"Could not join multicast group: {e}")
+
+
+        def datagram_received(self, data, addr):
+            asyncio.create_task(self.server._handle_datagram(data, addr))
+
+        def error_received(self, exc):
+            logger.error(f"SSDP error: {exc}")
+
+        def connection_lost(self, exc):
+            logger.info("SSDP connection closed")
+            if self.server:
+                self.server._transport = None
+
     # UPnP/SSDP constants
     SSDP_ADDR = "239.255.255.250"
     SSDP_PORT = 1900
@@ -918,12 +948,17 @@ class UPnPServer:
         self._http_runner = None
         self._http_site = None
         self._lock = threading.Lock()
+        self._ready_event = asyncio.Event()
 
         logger.info(
             f"UPnP Server initialized - "
             f"device: {friendly_name}, uuid: {self.uuid}, "
             f"location: {self.location_url}"
         )
+
+    async def wait_until_ready(self):
+        """Wait until the UPnP server's HTTP component is ready."""
+        await self._ready_event.wait()
 
     def _get_local_ip(self):
         """Attempt to get the local IP address of the machine."""
@@ -1050,7 +1085,17 @@ class UPnPServer:
         try:
             loop = asyncio.get_running_loop()
 
-            # 1. Start the HTTP server for XML files
+            # 1. Start the SSDP datagram endpoint
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if hasattr(socket, "SO_REUSEPORT"):
+                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            sock.bind(("", self.SSDP_PORT))
+            self._transport, _ = await loop.create_datagram_endpoint(
+                lambda: self._SSDPProtocol(self), sock=sock
+            )
+
+            # 2. Start the HTTP server for XML files
             app = web.Application()
             app.router.add_get("/description.xml", self._handle_description)
             app.router.add_get("/scpd.xml", self._handle_scpd)
@@ -1062,41 +1107,6 @@ class UPnPServer:
                 self._http_runner, self.http_host, self.http_port
             )
             await self._http_site.start()
-            logger.info(
-                f"UPnP HTTP server started at http://{self.http_host}:{self.http_port}"
-            )
-
-            # 2. Start the SSDP multicast listener
-            class SSDPProtocol(asyncio.DatagramProtocol):
-                def __init__(self, server):
-                    self.server = server
-
-                def connection_made(self, transport):
-                    self.transport = transport
-                    self.server._transport = transport
-
-                def datagram_received(self, data, addr):
-                    asyncio.create_task(
-                        self.server._handle_datagram(data, addr)
-                    )
-
-                def error_received(self, exc):
-                    logger.error(f"SSDP protocol error: {exc}")
-
-            sock = socket.socket(
-                socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP
-            )
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.bind(("", self.SSDP_PORT))
-            mreq = socket.inet_aton(self.SSDP_ADDR) + socket.inet_aton(
-                self.http_host
-            )
-            sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-
-            transport, protocol = await loop.create_datagram_endpoint(
-                lambda: SSDPProtocol(self), sock=sock
-            )
-
             self._advertisement_task = asyncio.create_task(
                 self._advertise_periodically()
             )
@@ -1108,6 +1118,7 @@ class UPnPServer:
                 f"UPnP SSDP discovery started on {self.SSDP_ADDR}:{self.SSDP_PORT}"
             )
             await self._send_notify_alive()
+            self._ready_event.set()
 
         except Exception as e:
             logger.error(f"Failed to start UPnP Server: {e}")

@@ -662,9 +662,6 @@
                 <span id="connectionStatus">Connecting...</span>
             </div>
             <div class="status-indicator">
-                <span id="latencyDisplay">Latency: --ms</span>
-            </div>
-            <div class="status-indicator">
                 <span class="health-indicator good" id="healthIndicator"></span>
                 <span id="healthStatus">System Healthy</span>
             </div>
@@ -730,7 +727,6 @@
         // DOM elements
         const connectionDot = document.getElementById('connectionDot');
         const connectionStatus = document.getElementById('connectionStatus');
-        const latencyDisplay = document.getElementById('latencyDisplay');
         const healthIndicator = document.getElementById('healthIndicator');
         const healthStatus = document.getElementById('healthStatus');
         const vizCircle = document.getElementById('vizCircle');
@@ -949,7 +945,8 @@
                     device_name: deviceConfig.name,
                     device_type: deviceConfig.type,
                     capabilities: deviceConfig.capabilities,
-                    protocols: deviceConfig.protocols
+                    protocols: deviceConfig.protocols,
+                    connection_mode: deviceConfig.connectionMode
                 };
                 
                 console.log('[REGISTER] Device config:', deviceInfo);
@@ -1166,18 +1163,6 @@
                 avgIntensity.textContent = avg;
             }
         }
-        
-        // Periodic latency check
-        setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) {
-                const start = Date.now();
-                ws.send(JSON.stringify({ type: 'ping' }));
-                
-                // Simulate latency display (in real app, handle pong response)
-                const latency = Math.round(Math.random() * 10 + 5);
-                latencyDisplay.textContent = `Latency: ${latency}ms`;
-            }
-        }, 5000);
         
         // Initialize - Show config modal on page load
         document.addEventListener('DOMContentLoaded', () => {
