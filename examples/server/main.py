@@ -1371,10 +1371,7 @@ class ControlPanelServer:
                         await self.send_effect_protocol(
                             websocket, target_protocol, effect_data
                         )
-                        print(
-                            f"[ROUTE] Early return after protocol: {target_protocol}"
-                        )
-                        return  # Early return - protocol handler will send confirmation
+                        return  # <-- CRITICAL FIX: Stop further execution
 
                 # DIRECT MODE or ISOLATED with websocket only: Send via WebSocket
                 web_client = self.web_clients[device_id]
