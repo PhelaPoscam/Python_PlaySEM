@@ -1475,6 +1475,10 @@ class ControlPanelServer:
                             self.mqtt_server.wait_until_ready(), timeout=3.0
                         )
                         ready = bool(self.mqtt_server.internal_client)
+                        if ready:
+                            print(
+                                "[DEBUG] MQTT internal client is ready for publishing."
+                            )
                     except asyncio.TimeoutError:
                         print(
                             "[WARN] MQTT readiness timeout; will retry publish"
@@ -1502,11 +1506,17 @@ class ControlPanelServer:
                         "duration": effect.duration,
                     }
                 )
+                topic = "effects/sem"
+                print(
+                    f"[DEBUG] Attempting to publish MQTT message to topic: "
+                    f"'{topic}' with payload: {payload}"
+                )
                 try:
-                    self.mqtt_server.internal_client.publish(
-                        "effects/sem", payload
+                    self.mqtt_server.internal_client.publish(topic, payload)
+                    print(
+                        f"[OK] Successfully published MQTT message to topic: "
+                        f"'{topic}'"
                     )
-                    print("[OK] Effect sent via MQTT")
                 except Exception as pub_err:
                     raise Exception(f"MQTT publish failed: {pub_err}")
 
@@ -1553,17 +1563,22 @@ class ControlPanelServer:
                             "duration": effect.duration,
                         }
                     ).encode("utf-8")
+                    coap_uri = "coap://127.0.0.1:5683/effects"
+
+                    print(f"[DEBUG] Sending CoAP POST request to: {coap_uri}")
+                    print(f"[DEBUG] CoAP Payload: {payload.decode('utf-8')}")
 
                     request = Message(
                         code=POST,
-                        uri="coap://127.0.0.1:5683/effects",
+                        uri=coap_uri,
                         payload=payload,
                     )
 
                     response = await context.request(request).response
                     print(
                         f"[OK] Effect sent via CoAP - "
-                        f"Response: {response.code}"
+                        f"Response: {response.code} ({response.code.name})"
+                        f" Payload: {response.payload.decode('utf-8') if response.payload else '(empty)'}"
                     )
 
                 except ImportError:

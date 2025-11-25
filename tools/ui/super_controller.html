@@ -399,7 +399,16 @@
                 </div>
                 <div id="capParams" style="margin-top:10px;"></div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px;">
-                    <button id="sendEffect">🚀 Broadcast / Protocol Send</button>
+                    <button id="sendEffect">🚀 Send to All via Protocol</button>
+                    <span id="sendEffectTarget" style="font-size: 0.85em; color: #777; align-self: center; margin-left: 10px;"></span>
+                </div>
+                
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+
+                <div class="form-group">
+                    <p style="font-size: 0.9em; color: #555; margin-bottom: 5px;">
+                        Protocol for Selected Device: <strong id="selectedDeviceProtocol">N/A</strong>
+                    </p>
                     <button id="sendCapEffect" disabled>📤 Send to Selected</button>
                 </div>
                 <div class="stats" style="margin-top:20px;">
@@ -436,6 +445,8 @@
         const capEffectType = document.getElementById('capEffectType');
         const capParams = document.getElementById('capParams');
         const sendCapEffectBtn = document.getElementById('sendCapEffect');
+        const selectedDeviceProtocolSpan = document.getElementById('selectedDeviceProtocol');
+        const sendEffectTargetSpan = document.getElementById('sendEffectTarget');
         
         // Stats elements
         const totalSent = document.getElementById('totalSent');
@@ -459,11 +470,41 @@
         durationInput.addEventListener('input', () => {
             durationValue.textContent = durationInput.value;
         });
+
+        // Update send effect target text
+        const protocolSelect = document.getElementById('protocol');
+        function updateSendEffectTarget() {
+            const selectedProtocol = protocolSelect.value;
+            let targetText = "";
+            switch (selectedProtocol) {
+                case "websocket":
+                    targetText = "Targets all connected web clients.";
+                    break;
+                case "http":
+                    targetText = "Targets HTTP server (port 8081).";
+                    break;
+                case "mqtt":
+                    targetText = "Targets MQTT broker (topic effects/sem).";
+                    break;
+                case "coap":
+                    targetText = "Targets CoAP server (port 5683).";
+                    break;
+                case "upnp":
+                    targetText = "Targets UPnP server.";
+                    break;
+                default:
+                    targetText = "";
+            }
+            sendEffectTargetSpan.textContent = targetText;
+        }
+
+        protocolSelect.addEventListener('change', updateSendEffectTarget);
         
         // WebSocket handlers
         ws.onopen = () => {
             updateConnectionStatus(true);
             ws.send(JSON.stringify({ type: 'get_devices' }));
+            updateSendEffectTarget(); // Initial update
         };
         
         ws.onmessage = (event) => {
@@ -486,7 +527,13 @@
                 if (msg.type === 'effect_protocol_result') {
                     if (msg.success) {
                         stats.success++;
-                        addToHistory(`✅ Effect sent via ${msg.protocol?.toUpperCase()}`, 'success');
+                        const effectDetails = {
+                            type: msg.effect_type,
+                            protocol: msg.protocol,
+                            intensity: msg.intensity,
+                            duration: msg.duration
+                        };
+                        addToHistory(`✅ Effect sent via ${msg.protocol?.toUpperCase()}`, 'success', effectDetails);
                     } else {
                         addToHistory(`❌ ${msg.protocol?.toUpperCase()} Error: ${msg.error}`, 'error');
                         alert(`Protocol Error!\n\n${msg.protocol?.toUpperCase()}: ${msg.error}\n\nThis may be due to:\n- Protocol server not started\n- Python 3.14 httpx compatibility issue\n- Missing dependencies`);
@@ -618,6 +665,19 @@
             selectedDeviceId = deviceId;
             updateDeviceList();
             
+            if (!selectedDeviceId) {
+                selectedDeviceProtocolSpan.textContent = 'N/A';
+                sendCapEffectBtn.disabled = true;
+                populateCapabilityUI(null); // Clear capabilities
+                return;
+            }
+
+            const selectedDevice = connectedDevices.find(d => d.id === selectedDeviceId);
+            const protocolForSelected = (selectedDevice && selectedDevice.protocols && selectedDevice.protocols.length > 0)
+                                        ? selectedDevice.protocols[0]
+                                        : 'websocket';
+            selectedDeviceProtocolSpan.textContent = protocolForSelected.toUpperCase();
+            
             // Fetch capabilities
             try {
                 const res = await fetch(`/api/capabilities/${encodeURIComponent(deviceId)}`);
@@ -625,10 +685,12 @@
                 latestCaps = caps;
                 populateCapabilityUI(caps);
                 sendCapEffectBtn.disabled = false;
-                addToHistory(`Device selected: ${deviceId}`, 'info');
+                addToHistory(`Device selected: ${deviceId} (Protocol: ${protocolForSelected.toUpperCase()})`, 'info');
             } catch (e) {
                 console.error('Failed to fetch capabilities:', e);
                 addToHistory(`Failed to fetch capabilities for ${deviceId}`, 'error');
+                sendCapEffectBtn.disabled = true;
+                populateCapabilityUI(null); // Clear capabilities on error
             }
         }
         
@@ -840,7 +902,18 @@
             
             let detailsHtml = '';
             if (details) {
-                detailsHtml = `<div class="details">${JSON.stringify(details, null, 2)}</div>`;
+                if (details.type || details.intensity != null || details.duration != null || details.protocol) {
+                    let effectInfo = [];
+                    if (details.type) effectInfo.push(`Type: ${getEffectIcon(details.type)} ${details.type}`);
+                    if (details.protocol) effectInfo.push(`Protocol: ${details.protocol.toUpperCase()}`);
+                    if (details.intensity != null) effectInfo.push(`Intensity: ${details.intensity}`);
+                    if (details.duration != null) effectInfo.push(`Duration: ${details.duration}ms`);
+                    
+                    detailsHtml = `<div class="details">${effectInfo.join(' | ')}</div>`;
+                } else if (Object.keys(details).length > 0) {
+                    // Fallback for other arbitrary details
+                    detailsHtml = `<div class="details">${JSON.stringify(details, null, 2)}</div>`;
+                }
             }
             
             item.innerHTML = `
