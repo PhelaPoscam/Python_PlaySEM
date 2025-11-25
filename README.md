@@ -68,6 +68,10 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+Note: This repository previously used a separate `requirements-dev.txt`. Dev/test dependencies
+have been consolidated into `requirements.txt` to simplify environment setup. If you prefer a
+separate development requirements file, we can split them again (recommended for CI-only dev tools).
+
 **4. Install the Project in Editable Mode**
 
 This crucial step makes the `src` package available to the rest of the project, including examples and tests.
@@ -221,6 +225,9 @@ All 76 tests should pass, validating:
 - Web client registration
 
 ## Configuration
+
+### TODO
+- Add automated smoke tests for `api/connect` and `api/effect` and integrate them into CI as lightweight checks; see `tests/test_smoke_protocols.py` (smoke tests) for a starting reference.
 
 Configuration files are in the `config/` directory:
 
