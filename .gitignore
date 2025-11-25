@@ -74,3 +74,4 @@ temp_java_project/
 # Remove egg info
 pythonplaysem.egg-info/
 # Archive temp java project\narchive/temp_java_project*\n
+# Backups created by maintenance tasks\narchive_backups/\n
