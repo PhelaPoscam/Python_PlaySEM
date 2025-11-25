@@ -45,6 +45,7 @@ from src.device_driver.mock_driver import (  # noqa: E402
     MockLightDevice,
     MockVibrationDevice,
     MockWindDevice,
+    MockConnectivityDriver,
 )
 from src.device_manager import DeviceManager  # noqa: E402
 from src.effect_dispatcher import EffectDispatcher  # noqa: E402
@@ -297,6 +298,7 @@ class ControlPanelServer:
                 device.protocols = protocols
                 device.connection_mode = connection_mode
                 self.devices[device_id] = device
+                # Device registered; manager may be None for HTTP-only registrations
 
                 # Broadcast device list update to WebSocket clients
                 await self.broadcast_device_list()
@@ -513,16 +515,19 @@ class ControlPanelServer:
                     driver.connect()
                     name = f"MQTT Device ({address})"
                 elif driver_type == "mock":
-                    # Create appropriate mock device based on address
+                    # Create appropriate mock device instance AND a mock connectivity driver
                     if "light" in address:
-                        driver = MockLightDevice(address)
+                        mock_device = MockLightDevice(address)
                     elif "wind" in address:
-                        driver = MockWindDevice(address)
+                        mock_device = MockWindDevice(address)
                     elif "vibration" in address:
-                        driver = MockVibrationDevice(address)
+                        mock_device = MockVibrationDevice(address)
                     else:
-                        driver = MockLightDevice(address)  # Default
+                        mock_device = MockLightDevice(address)  # Default
                     name = f"Mock Device ({address})"
+                    # Create a mock connectivity driver and register the device
+                    driver = MockConnectivityDriver()
+                    driver.register_device(device_id, mock_device)
                 else:
                     return {
                         "type": "error",
@@ -537,7 +542,8 @@ class ControlPanelServer:
                     name=name,
                     type=driver_type,
                     address=address,
-                    driver=driver,
+                    # Keep the mock device instance as device.driver for direct calls
+                    driver=mock_device if driver_type == "mock" else driver,
                     manager=manager,
                     dispatcher=dispatcher,
                     connected_at=time.time(),
