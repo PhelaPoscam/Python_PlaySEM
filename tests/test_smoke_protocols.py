@@ -23,6 +23,7 @@ def client(server):
     return TestClient(server.app)
 
 
+@pytest.mark.smoke
 def test_connect_and_effect_mock_via_http(client):
     # 1) connect a mock device via HTTP
     connect_resp = client.post(

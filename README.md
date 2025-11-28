@@ -231,6 +231,7 @@ All 76 tests should pass, validating:
 
 ### TODO
 - Add automated smoke tests for `api/connect` and `api/effect` and integrate them into CI as lightweight checks; see `tests/test_smoke_protocols.py` (smoke tests) for a starting reference.
+    - Status: Completed. These smoke tests are marked `@pytest.mark.smoke` and run in CI as the `smoke` job.
 
 Configuration files are in the `config/` directory:
 
