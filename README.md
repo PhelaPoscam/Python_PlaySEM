@@ -1,8 +1,9 @@
 # PythonPlaySEM - Sensory Effect Media Framework
 
-[![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+![CI](https://github.com/PhelaPoscam/Python_PlaySEM/workflows/CI/badge.svg)
+[![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-active-brightgreen.svg)]()
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 **PythonPlaySEM** is a versatile and extensible Python framework for orchestrating sensory effects across a wide range of devices and protocols. It provides a unified system for receiving, dispatching, and rendering effects like light, wind, vibration, and scent, making it ideal for immersive media, simulations, and interactive experiences.
 
@@ -64,13 +65,15 @@ source venv/bin/activate
 
 **3. Install Dependencies**
 
+For production/running the application:
 ```bash
 pip install -r requirements.txt
 ```
 
-Note: This repository previously used a separate `requirements-dev.txt`. Dev/test dependencies
-have been consolidated into `requirements.txt` to simplify environment setup. If you prefer a
-separate development requirements file, we can split them again (recommended for CI-only dev tools).
+For development (includes testing, linting, and formatting tools):
+```bash
+pip install -r requirements-dev.txt
+```
 
 **4. Install the Project in Editable Mode**
 
