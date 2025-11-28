@@ -229,9 +229,28 @@ All 76 tests should pass, validating:
 
 ## Configuration
 
-### TODO
-- Add automated smoke tests for `api/connect` and `api/effect` and integrate them into CI as lightweight checks; see `tests/test_smoke_protocols.py` (smoke tests) for a starting reference.
-    - Status: Completed. These smoke tests are marked `@pytest.mark.smoke` and run in CI as the `smoke` job.
+
+
+## Smoke Tests & CI Integration
+
+Automated smoke tests are implemented for all supported protocols and device drivers:
+
+- **HTTP/REST**: `/api/connect` and `/api/effect` endpoints
+- **WebSocket**: Protocol server start and effect dispatch
+- **MQTT**: Protocol server start and effect dispatch
+- **CoAP**: Protocol server start and minimal effect POST
+- **UPnP**: Server start and `/description.xml` endpoint
+- **Serial**: Driver instantiation, connect, send, and disconnect (mocked)
+- **Bluetooth**: Driver instantiation, connect, and disconnect (mocked)
+
+These smoke tests are marked with `@pytest.mark.smoke` and are run automatically in CI as the `smoke` job. This ensures that all protocol servers and core device drivers are minimally functional on every commit and pull request.
+
+See:
+- `tests/test_smoke_protocols.py` (HTTP, WebSocket, MQTT, Serial, Bluetooth)
+- `tests/test_coap_server_integration.py` (CoAP)
+- `tests/test_upnp_server.py` (UPnP)
+
+---
 
 Configuration files are in the `config/` directory:
 

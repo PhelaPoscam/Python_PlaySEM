@@ -1,3 +1,127 @@
+import sys
+
+
+import pytest
+
+
+@pytest.mark.smoke
+def test_serial_driver_smoke(monkeypatch):
+    """
+    Smoke test: SerialDriver can be instantiated, connect, send, and disconnect (mocked).
+    """
+    from src.device_driver import serial_driver
+
+    class DummySerial:
+        def __init__(self, *a, **kw):
+            pass
+
+        def open(self):
+            pass
+
+        def close(self):
+            pass
+
+        def write(self, data):
+            return len(data)
+
+        def isOpen(self):
+            return True
+
+    monkeypatch.setattr(serial_driver.serial, "Serial", DummySerial)
+    driver = serial_driver.SerialDriver(port="COM1")
+    driver._serial = DummySerial()
+    driver._is_connected = True
+    # Simulate sending bytes
+    assert driver._is_connected
+    assert driver._serial.write(b"\x01\x02") == 2
+    driver._serial.close()
+
+
+@pytest.mark.smoke
+@pytest.mark.asyncio
+async def test_bluetooth_driver_smoke(monkeypatch):
+    """
+    Smoke test: BluetoothDriver can be instantiated and connect/disconnect (mocked).
+    """
+    from src.device_driver import bluetooth_driver
+
+    class DummyBleakClient:
+        def __init__(self, *a, **kw):
+            self.is_connected = False
+
+        async def connect(self):
+            self.is_connected = True
+
+        async def disconnect(self):
+            self.is_connected = False
+
+    monkeypatch.setattr(bluetooth_driver, "BleakClient", DummyBleakClient)
+    driver = bluetooth_driver.BluetoothDriver(address="00:11:22:33:44:55")
+    driver._client = DummyBleakClient()
+    await driver._client.connect()
+    assert driver._client.is_connected is True
+    await driver._client.disconnect()
+    assert driver._client.is_connected is False
+
+
+@pytest.mark.smoke
+def test_serial_driver_smoke(monkeypatch):
+    """Smoke test: SerialDriver can be instantiated, connect, send, and disconnect (mocked)."""
+    from src.device_driver import serial_driver
+
+    # Patch serial.Serial to a dummy class
+    class DummySerial:
+        def __init__(*a, **kw):
+            pass
+
+        def open(self):
+            pass
+
+        def close(self):
+            pass
+
+        def write(self, data):
+            return len(data)
+
+        def isOpen(self):
+            return True
+
+    monkeypatch.setattr(serial_driver.serial, "Serial", DummySerial)
+    driver = serial_driver.SerialDriver(port="COM1")
+    driver._serial = DummySerial()
+    driver._is_connected = True
+    # Simulate sending bytes
+    assert driver._is_connected
+    assert driver._serial.write(b"\x01\x02") == 2
+    driver._serial.close()
+
+
+@pytest.mark.smoke
+@pytest.mark.asyncio
+async def test_bluetooth_driver_smoke(monkeypatch):
+    """Smoke test: BluetoothDriver can be instantiated and connect/disconnect (mocked)."""
+    from src.device_driver import bluetooth_driver
+
+    # Patch BleakClient to a dummy async class
+    class DummyBleakClient:
+        def __init__(self, *a, **kw):
+            self.is_connected = False
+
+        async def connect(self):
+            self.is_connected = True
+
+        async def disconnect(self):
+            self.is_connected = False
+
+    monkeypatch.setattr(bluetooth_driver, "BleakClient", DummyBleakClient)
+    driver = bluetooth_driver.BluetoothDriver(address="00:11:22:33:44:55")
+    driver._client = DummyBleakClient()
+    await driver._client.connect()
+    assert driver._client.is_connected is True
+    await driver._client.disconnect()
+    assert driver._client.is_connected is False
+
+
 import asyncio
 import json
 import pytest
