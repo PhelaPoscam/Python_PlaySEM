@@ -872,11 +872,12 @@ class UPnPServer:
             group = socket.inet_aton(self.server.SSDP_ADDR)
             mreq = struct.pack("4sL", group, socket.INADDR_ANY)
             try:
-                sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+                sock.setsockopt(
+                    socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq
+                )
             except OSError as e:
                 # This can happen on some systems if the address is already in use
                 logger.warning(f"Could not join multicast group: {e}")
-
 
         def datagram_received(self, data, addr):
             asyncio.create_task(self.server._handle_datagram(data, addr))
@@ -1086,10 +1087,12 @@ class UPnPServer:
             loop = asyncio.get_running_loop()
 
             # 1. Start the SSDP datagram endpoint
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            sock = socket.socket(
+                socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP
+            )
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             if hasattr(socket, "SO_REUSEPORT"):
-                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
             sock.bind(("", self.SSDP_PORT))
             self._transport, _ = await loop.create_datagram_endpoint(
                 lambda: self._SSDPProtocol(self), sock=sock

@@ -38,7 +38,7 @@ class MockConnectivityDriver(BaseDriver):
         params: Optional[Dict[str, Any]] = None,
     ) -> bool:
         logger.info(
-            f"MockConnectivityDriver: send_command(" 
+            f"MockConnectivityDriver: send_command("
             f"device_id='{device_id}', command='{command}', params={params})"
         )
         # If we have a registered mock device for this id, forward the command
@@ -49,7 +49,9 @@ class MockConnectivityDriver(BaseDriver):
                 mock_device.send_command(command, params or {})
                 return True
             except Exception as e:
-                logger.warning(f"Error forwarding to mock device {device_id}: {e}")
+                logger.warning(
+                    f"Error forwarding to mock device {device_id}: {e}"
+                )
                 return False
         # In a real mock driver, you might want to store the state
         # of mock devices here. For now, just logging is enough.
@@ -291,7 +293,9 @@ class MockConnectivityDriver(BaseDriver):
 
         return caps.to_dict()
 
-    def register_device(self, device_id: str, device_obj: "MockDeviceBase") -> None:
+    def register_device(
+        self, device_id: str, device_obj: "MockDeviceBase"
+    ) -> None:
         """Register a MockDevice instance so that send_command can forward to it.
 
         This is used by test utilities and the example server to connect a
