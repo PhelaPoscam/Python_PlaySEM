@@ -33,7 +33,7 @@ async def _asgi_get(app, path: str):
         return {"type": "http.request", "body": b"", "more_body": False}
 
     async def send(message):
-        nonlocal status, headers, body_chunks
+        nonlocal status, headers
         if message["type"] == "http.response.start":
             status = message.get("status")
             headers = message.get("headers", [])
