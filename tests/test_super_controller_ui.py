@@ -7,7 +7,7 @@ except ImportError:  # pragma: no cover
     BeautifulSoup = None
 
 # Import the server app
-from examples.server.main import ControlPanelServer
+from tools.test_server.main import ControlPanelServer
 
 
 @pytest.fixture(scope="module")

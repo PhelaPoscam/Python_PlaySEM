@@ -17,7 +17,7 @@ except ImportError:  # pragma: no cover
     sync_playwright = None
 
 import uvicorn
-from examples.server.main import ControlPanelServer
+from tools.test_server.main import ControlPanelServer
 
 SERVER_PORT = 8091
 BASE_URL = f"http://127.0.0.1:{SERVER_PORT}"

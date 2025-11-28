@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import after path is set
-from examples.server.main import ControlPanelServer
+from tools.test_server.main import ControlPanelServer
 
 
 @pytest.fixture
@@ -40,7 +40,10 @@ class TestDeviceRegistration:
             "connection_mode": "isolated",
         }
 
-        with patch('examples.server.main.ControlPanelServer.broadcast_device_list', new_callable=AsyncMock):
+        with patch(
+            "tools.test_server.main.ControlPanelServer.broadcast_device_list",
+            new_callable=AsyncMock,
+        ):
             response = client.post("/api/devices/register", json=device_data)
             assert response.status_code == 200
             data = response.json()
@@ -50,7 +53,7 @@ class TestDeviceRegistration:
     def test_device_list_includes_metadata(self, server):
         """Test that device list includes protocols, capabilities, and connection_mode."""
         # Mock a device with metadata
-        from examples.server.main import ConnectedDevice
+        from tools.test_server.main import ConnectedDevice
 
         mock_device = Mock(spec=ConnectedDevice)
         mock_device.id = "test_device_123"
@@ -85,7 +88,7 @@ class TestDeviceRegistration:
 
     def test_broadcast_device_list_includes_metadata(self, server):
         """Test that broadcast_device_list includes all metadata."""
-        from examples.server.main import ConnectedDevice
+        from tools.test_server.main import ConnectedDevice
 
         mock_device = Mock(spec=ConnectedDevice)
         mock_device.id = "broadcast_test_001"
@@ -148,7 +151,7 @@ class TestWebSocketCommunication:
     @pytest.mark.asyncio
     async def test_get_devices_message(self, server):
         """Test that 'get_devices' message triggers device list send."""
-        from examples.server.main import ConnectedDevice
+        from tools.test_server.main import ConnectedDevice
 
         # Add a test device
         mock_device = Mock(spec=ConnectedDevice)
@@ -222,7 +225,10 @@ class TestProtocolSupport:
 
     def test_http_device_registration_endpoint_exists(self, client):
         """Test that HTTP device registration endpoint exists."""
-        with patch('examples.server.main.ControlPanelServer.broadcast_device_list', new_callable=AsyncMock):
+        with patch(
+            "tools.test_server.main.ControlPanelServer.broadcast_device_list",
+            new_callable=AsyncMock,
+        ):
             response = client.post(
                 "/api/devices/register",
                 json={
@@ -246,7 +252,10 @@ class TestProtocolSupport:
             "protocols": ["http", "mqtt", "coap", "upnp"],
             "connection_mode": "direct",
         }
-        with patch('examples.server.main.ControlPanelServer.broadcast_device_list', new_callable=AsyncMock):
+        with patch(
+            "tools.test_server.main.ControlPanelServer.broadcast_device_list",
+            new_callable=AsyncMock,
+        ):
             response = client.post("/api/devices/register", json=device_data)
             assert response.status_code == 200
 
@@ -268,7 +277,10 @@ class TestConnectionModes:
             "protocols": ["websocket", "mqtt"],
             "connection_mode": "direct",
         }
-        with patch('examples.server.main.ControlPanelServer.broadcast_device_list', new_callable=AsyncMock):
+        with patch(
+            "tools.test_server.main.ControlPanelServer.broadcast_device_list",
+            new_callable=AsyncMock,
+        ):
             response = client.post("/api/devices/register", json=device_data)
             assert response.status_code == 200
 
@@ -282,7 +294,10 @@ class TestConnectionModes:
             "protocols": ["mqtt"],
             "connection_mode": "isolated",
         }
-        with patch('examples.server.main.ControlPanelServer.broadcast_device_list', new_callable=AsyncMock):
+        with patch(
+            "tools.test_server.main.ControlPanelServer.broadcast_device_list",
+            new_callable=AsyncMock,
+        ):
             response = client.post("/api/devices/register", json=device_data)
             assert response.status_code == 200
 
@@ -323,7 +338,7 @@ class TestEndToEndFlow:
     @pytest.mark.asyncio
     async def test_device_registration_and_listing(self, server):
         """Test complete flow: register device -> broadcast -> list."""
-        from examples.server.main import ConnectedDevice
+        from tools.test_server.main import ConnectedDevice
 
         # 1. Register device via WebSocket
         mock_ws = AsyncMock(spec=WebSocket)
@@ -358,7 +373,10 @@ class TestEndToEndFlow:
     def test_http_to_websocket_flow(self, client, server):
         """Test HTTP registration followed by WebSocket listing."""
         # 1. Register via HTTP
-        with patch('examples.server.main.ControlPanelServer.broadcast_device_list', new_callable=AsyncMock):
+        with patch(
+            "tools.test_server.main.ControlPanelServer.broadcast_device_list",
+            new_callable=AsyncMock,
+        ):
             response = client.post(
                 "/api/devices/register",
                 json={

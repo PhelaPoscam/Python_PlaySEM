@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from examples.server.main import ControlPanelServer
+from tools.test_server.main import ControlPanelServer
 
 
 @pytest.fixture(scope="module")
