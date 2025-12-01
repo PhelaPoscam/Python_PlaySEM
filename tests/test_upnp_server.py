@@ -13,6 +13,22 @@ from src.effect_dispatcher import EffectDispatcher
 from src.device_manager import DeviceManager
 
 
+# --- Smoke test for UPNP ---
+import pytest
+
+
+@pytest.mark.asyncio
+@pytest.mark.smoke
+async def test_upnp_smoke_description(upnp_server):
+    """Smoke test: Start UPnP server and check /description.xml endpoint responds."""
+    desc_url = upnp_server.location_url
+    async with aiohttp.ClientSession() as session:
+        async with session.get(desc_url) as response:
+            assert response.status == 200
+            text = await response.text()
+            assert "<friendlyName>" in text
+
+
 @pytest.fixture
 def device_manager():
     """Create a DeviceManager with a mock client."""

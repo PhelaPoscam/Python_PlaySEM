@@ -41,6 +41,7 @@ class MQTTDriver(BaseDriver):
 
     def __init__(
         self,
+        interface_name: str,
         broker: str,
         port: int = 1883,
         client_id: Optional[str] = None,
@@ -49,11 +50,13 @@ class MQTTDriver(BaseDriver):
         use_tls: bool = False,
         qos: int = 1,
         retain: bool = False,
+        data_format: str = "json",
     ):
         """
         Initialize MQTT driver.
 
         Args:
+            interface_name: The unique name of this interface instance.
             broker: MQTT broker hostname or IP
             port: MQTT broker port (default: 1883)
             client_id: Optional MQTT client ID
@@ -62,11 +65,14 @@ class MQTTDriver(BaseDriver):
             use_tls: Enable TLS/SSL encryption
             qos: Quality of Service level (0, 1, or 2)
             retain: Retain messages on broker
+            data_format: The payload format to use ('json' or 'xml').
         """
+        self.interface_name = interface_name
         self.broker = broker
         self.port = port
         self.qos = qos
         self.retain = retain
+        self.data_format = data_format.lower()
         self._is_connected = False
 
         # Create MQTT client
@@ -85,8 +91,8 @@ class MQTTDriver(BaseDriver):
         self.client.on_disconnect = self._on_disconnect
 
         logger.info(
-            f"MQTTDriver initialized - broker: {broker}:{port}, "
-            f"tls: {use_tls}, qos: {qos}"
+            f"MQTTDriver '{interface_name}' initialized - broker: {broker}:{port}, "
+            f"tls: {use_tls}, qos: {qos}, format: {self.data_format}"
         )
 
     def connect(self) -> bool:
@@ -138,7 +144,7 @@ class MQTTDriver(BaseDriver):
         params: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """
-        Send command to device via MQTT topic.
+        Send command to device via MQTT topic using the configured data_format.
 
         Args:
             device_id: MQTT topic for the device
@@ -147,27 +153,29 @@ class MQTTDriver(BaseDriver):
 
         Returns:
             bool: True if message published successfully
-
-        Example:
-            >>> driver.send_command(
-            ...     "devices/light_001",
-            ...     "set_intensity",
-            ...     {"intensity": 255, "duration": 1000}
-            ... )
-            True
         """
         if not self._is_connected:
             logger.warning("Cannot send command: not connected to broker")
             return False
 
+        if params is None:
+            params = {}
+            
+        message = ""
         try:
-            # Build payload
-            payload = {"command": command}
-            if params:
-                payload["params"] = params
-
-            # Convert to JSON
-            message = json.dumps(payload)
+            # Build payload based on data format
+            if self.data_format == 'xml':
+                param_str = "".join([f"<{k}>{v}</{k}>" for k, v in params.items()])
+                message = (
+                    f"<command>"
+                    f"<deviceId>{device_id}</deviceId>"
+                    f"<name>{command}</name>"
+                    f"<params>{param_str}</params>"
+                    f"</command>"
+                )
+            else: # Default to JSON
+                payload = {"command": command, "params": params, "device_id": device_id}
+                message = json.dumps(payload)
 
             # Publish to topic
             result = self.client.publish(
@@ -204,25 +212,25 @@ class MQTTDriver(BaseDriver):
         """
         return self._is_connected
 
+    def get_interface_name(self) -> str:
+        """Get the unique name of the connectivity interface this driver handles."""
+        return self.interface_name
+
     def get_driver_info(self) -> Dict[str, Any]:
         """
         Get MQTT driver configuration.
 
         Returns:
             dict: Driver information
-
-        Example:
-            >>> driver.get_driver_info()
-            {'type': 'mqtt', 'broker': 'localhost', 'port': 1883, ...}
         """
-        return {
-            "type": "mqtt",
+        info = super().get_driver_info()
+        info.update({
             "broker": self.broker,
             "port": self.port,
             "qos": self.qos,
             "retain": self.retain,
-            "connected": self._is_connected,
-        }
+        })
+        return info
 
     def get_capabilities(self, device_id: str) -> Optional[Dict[str, Any]]:
         """

@@ -27,7 +27,7 @@ jobs:
       run: |
         python -m playwright install --with-deps
 
-    - name: Run smoke tests
+    - name: Run protocol smoke tests (HTTP, WebSocket, MQTT, CoAP, UPnP)
       run: |
         python -m pytest -m smoke -q
 

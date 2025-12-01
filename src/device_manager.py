@@ -1,125 +1,99 @@
 # src/device_manager.py
-
 import logging
-from typing import Dict, Optional, Any
-import paho.mqtt.client as mqtt
+from typing import Dict, List, Any, Optional
 
+from .config_loader import ConfigLoader
 from .device_driver.base_driver import BaseDriver
-from .device_driver.mqtt_driver import MQTTDriver
 
 logger = logging.getLogger(__name__)
 
 
 class DeviceManager:
     """
-    Manage device communication through multiple connectivity drivers.
-
-    Supports MQTT, Serial, Bluetooth, and Mock drivers through a unified
-    interface. Can be configured with a specific driver or fall back to
-    MQTT for backward compatibility.
-
-    Attributes:
-        driver: Connectivity driver instance (BaseDriver)
-
-    Example:
-        >>> # Using MQTT driver (default)
-        >>> manager = DeviceManager(broker_address="localhost")
-        >>> manager.send_command("light_001", "set_intensity", {"value": 255})
-        >>>
-        >>> # Using Serial driver
-        >>> from device_driver.serial_driver import SerialDriver
-        >>> serial_driver = SerialDriver(port="COM3", baudrate=9600)
-        >>> manager = DeviceManager(connectivity_driver=serial_driver)
-        >>> manager.send_command("arduino_001", "turn_on")
+    Manages all active device drivers and routes commands to the correct
+    driver based on device ID.
     """
 
     def __init__(
         self,
-        connectivity_driver: Optional[BaseDriver] = None,
-        broker_address: Optional[str] = None,
-        client: Optional[mqtt.Client] = None,
-        **mqtt_kwargs,
+        drivers: Optional[List[BaseDriver]] = None,
+        config_loader: Optional[ConfigLoader] = None,
+        client: Optional[Any] = None,
+        connectivity_driver: Optional[Any] = None,
     ):
         """
-        Initialize DeviceManager with a connectivity driver.
+        Initializes the DeviceManager.
 
         Args:
-            connectivity_driver: Driver instance (MQTT, Serial, Bluetooth, Mock)
-                If None, falls back to MQTT driver for backward compatibility
-            broker_address: MQTT broker address (used if connectivity_driver is None)
-            client: Legacy MQTT client (for backward compatibility with tests)
-            **mqtt_kwargs: Additional MQTT driver arguments (port, username, etc.)
-
-        Example:
-            >>> # New way: explicit driver
-            >>> from device_driver.serial_driver import SerialDriver
-            >>> driver = SerialDriver(port="COM3")
-            >>> manager = DeviceManager(connectivity_driver=driver)
-            >>>
-            >>> # Old way: MQTT (backward compatible)
-            >>> manager = DeviceManager(broker_address="localhost")
+            drivers: A list of initialized driver instances (e.g., SerialDriver).
+            config_loader: An initialized ConfigLoader instance.
+            client: Legacy MQTT client for backwards compatibility in tests.
+            connectivity_driver: Optional connectivity driver for single driver mode.
         """
-        if connectivity_driver is not None:
-            # New way: use provided driver
-            self.driver = connectivity_driver
-            self._auto_connect = True
+        # Legacy mode: if a raw client is provided, use a simple publish-based driver
+        self._legacy_mode = client is not None
+        self._single_driver_mode = connectivity_driver is not None
+        self.device_to_driver: Dict[str, BaseDriver] = {}
+
+        if self._legacy_mode:
+            logger.info("Initializing DeviceManager in legacy client mode.")
+            self.driver = _LegacyPublishDriver(client)
+        elif self._single_driver_mode:
             logger.info(
-                f"DeviceManager initialized with "
-                f"{self.driver.get_driver_type()} driver"
+                "Initializing DeviceManager with single connectivity driver."
             )
-
-        elif client is not None:
-            # Legacy: wrap injected MQTT client for testing
-            # Create a minimal wrapper that acts like a driver
-            self.driver = _LegacyMQTTClientWrapper(client)
-            self._auto_connect = False
-            logger.info("DeviceManager initialized with legacy MQTT client")
-
+            self.connectivity_driver = connectivity_driver
         else:
-            # Backward compatibility: create MQTT driver from broker address
-            if broker_address is None:
+            drivers = drivers or []
+            logger.info(
+                f"Initializing DeviceManager with {len(drivers)} drivers."
+            )
+            self.drivers_by_interface: Dict[str, BaseDriver] = {
+                driver.get_interface_name(): driver for driver in drivers
+            }
+            if config_loader is None:
                 raise ValueError(
-                    "Must provide either connectivity_driver or broker_address"
+                    "config_loader is required when not using legacy client mode"
+                )
+            self.config_loader = config_loader
+
+            self._map_devices_to_drivers()
+            self.connect_all()
+
+    def _map_devices_to_drivers(self):
+        """
+        Builds a mapping from each deviceId to its corresponding driver instance
+        using the loaded configuration.
+        """
+        devices_config = self.config_loader.load_devices_config()
+        devices = devices_config.get("devices", [])
+
+        logger.info(f"Mapping {len(devices)} devices to their drivers.")
+
+        for device in devices:
+            device_id = device.get("deviceId")
+            interface_name = device.get("connectivityInterface")
+
+            if not device_id or not interface_name:
+                logger.warning(
+                    f"Skipping device with missing 'deviceId' or 'connectivityInterface': {device}"
+                )
+                continue
+
+            driver = self.drivers_by_interface.get(interface_name)
+            if driver:
+                self.device_to_driver[device_id] = driver
+                logger.info(
+                    f"Device '{device_id}' mapped to driver for interface '{interface_name}'."
+                )
+            else:
+                logger.warning(
+                    f"No driver found for interface '{interface_name}' needed by device '{device_id}'. "
+                    f"This device will not be controllable."
                 )
 
-            self.driver = MQTTDriver(broker=broker_address, **mqtt_kwargs)
-            self._auto_connect = True
-            logger.info(
-                f"DeviceManager initialized with MQTT driver "
-                f"(broker: {broker_address})"
-            )
-
-        # Auto-connect if needed
-        if self._auto_connect:
-            self.connect()
-
-    def connect(self) -> bool:
-        """
-        Connect the driver to its target (broker/device).
-
-        Returns:
-            bool: True if connection successful
-
-        Example:
-            >>> manager.connect()
-            True
-        """
-        if not self.driver.is_connected():
-            return self.driver.connect()
-        return True
-
-    def disconnect(self) -> bool:
-        """
-        Disconnect the driver.
-
-        Returns:
-            bool: True if disconnect successful
-
-        Example:
-            >>> manager.disconnect()
-            True
-        """
-        return self.driver.disconnect()
+        if not self.device_to_driver:
+            logger.warning("No devices were successfully mapped to drivers.")
 
     def send_command(
         self,
@@ -128,164 +102,138 @@ class DeviceManager:
         params: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """
-        Send command to device through the configured driver.
+        Sends a command to a specific device. The manager routes it to the
+        correct driver.
 
         Args:
-            device_id: Device identifier (topic for MQTT, port for Serial, UUID for BLE)
-            command: Command type (e.g., "set_intensity", "turn_on")
-            params: Optional command parameters
+            device_id: The ID of the target device.
+            command: The command to send (e.g., "set_power").
+            params: A dictionary of parameters for the command.
 
         Returns:
-            bool: True if command sent successfully
-
-        Example:
-            >>> manager.send_command(
-            ...     "devices/light_001",
-            ...     "set_intensity",
-            ...     {"intensity": 255, "duration": 1000}
-            ... )
-            True
+            True if the command was sent successfully, False otherwise.
         """
         if params is None:
             params = {}
 
-        return self.driver.send_command(device_id, command, params)
-
-    def is_connected(self) -> bool:
-        """
-        Check if driver is connected.
-
-        Returns:
-            bool: True if connected
-
-        Example:
-            >>> if manager.is_connected():
-            ...     manager.send_command("device_001", "ping")
-        """
-        return self.driver.is_connected()
-
-    def get_driver_info(self) -> Dict[str, Any]:
-        """
-        Get information about the configured driver.
-
-        Returns:
-            dict: Driver configuration and status
-
-        Example:
-            >>> info = manager.get_driver_info()
-            >>> print(f"Driver: {info['type']}, Connected: {info['connected']}")
-        """
-        return self.driver.get_driver_info()
-
-    def reconfigure(self, config_data: Dict[str, Any]) -> bool:
-        """
-        Reconfigure the DeviceManager's underlying driver.
-
-        Args:
-            config_data: Dictionary containing new configuration settings.
-
-        Returns:
-            bool: True if reconfiguration was successful, False otherwise.
-        """
-        logger.info(
-            f"Attempting to reconfigure DeviceManager with: {config_data}"
-        )
-
-        if isinstance(self.driver, MQTTDriver):
-            mqtt_config = config_data.get("mqtt_driver", {})
-            new_broker_address = mqtt_config.get("broker")
-            new_port = mqtt_config.get("port")
-
-            if new_broker_address or new_port:
-                logger.info(
-                    f"Reconfiguring MQTTDriver. New broker: {new_broker_address}, new port: {new_port}"
-                )
-
-                # Disconnect current driver
-                self.disconnect()
-
-                # Create a new MQTTDriver instance with updated settings
-                # Preserve existing settings if not provided in config_data
-                current_broker = self.driver.broker
-                current_port = self.driver.port
-
-                updated_broker = (
-                    new_broker_address
-                    if new_broker_address is not None
-                    else current_broker
-                )
-                updated_port = (
-                    new_port if new_port is not None else current_port
-                )
-
-                try:
-                    new_driver = MQTTDriver(
-                        broker=updated_broker, port=updated_port
-                    )
-                    self.driver = new_driver
-                    self.connect()  # Reconnect with new driver
-                    logger.info(
-                        f"MQTTDriver reconfigured to {updated_broker}:{updated_port}"
-                    )
-                    return True
-                except Exception as e:
-                    logger.error(f"Failed to reconfigure MQTTDriver: {e}")
-                    return False
-            else:
-                logger.warning(
-                    "No MQTT driver specific configuration found in reconfigure data."
-                )
+        # Legacy publish mode
+        if self._legacy_mode:
+            try:
+                payload = str({"command": command, "params": params})
+                self.driver.client.publish(device_id, payload)
+                return True
+            except Exception as e:
+                logger.error(f"Legacy publish failed: {e}")
                 return False
-        else:
-            logger.warning(
-                f"Reconfiguration not supported for current driver type: "
-                f"{self.driver.get_driver_type()}"
+
+        # Single connectivity driver mode
+        if self._single_driver_mode:
+            try:
+                return bool(
+                    self.connectivity_driver.send_command(
+                        device_id, command, params
+                    )
+                )
+            except Exception as e:
+                logger.error(f"Single-driver send failed: {e}")
+                return False
+
+        driver = self.device_to_driver.get(device_id)
+        if not driver:
+            logger.error(
+                f"No driver found for device_id '{device_id}'. Cannot send command."
             )
             return False
 
-
-class _LegacyMQTTClientWrapper(BaseDriver):
-    """
-    Wrapper for legacy MQTT client to maintain backward compatibility.
-
-    This allows existing tests that inject an MQTT client to continue working
-    while using the new driver architecture.
-    """
-
-    def __init__(self, client: mqtt.Client):
-        """Wrap legacy MQTT client."""
-        self.client = client
-        self._connected = False
-
-    def connect(self) -> bool:
-        """No-op for legacy wrapper (already connected)."""
-        self._connected = True
-        return True
-
-    def disconnect(self) -> bool:
-        """Disconnect MQTT client."""
+        logger.info(
+            f"Sending command '{command}' to device '{device_id}' via {driver.get_driver_type()} driver."
+        )
         try:
-            self.client.disconnect()
-            self._connected = False
-            return True
-        except Exception:
+            return driver.send_command(device_id, command, params)
+        except Exception as e:
+            logger.error(
+                f"Failed to send command to device '{device_id}': {e}"
+            )
             return False
 
-    def send_command(
-        self,
-        device_id: str,
-        command: str,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> bool:
-        """Send via legacy MQTT client."""
-        payload = {"command": command, "params": params or {}}
-        self.client.publish(device_id, str(payload))
-        return True
+    def connect_all(self):
+        """Connects all managed drivers."""
+        logger.info("Connecting all drivers...")
+        for interface_name, driver in self.drivers_by_interface.items():
+            try:
+                if not driver.is_connected():
+                    driver.connect()
+                    logger.info(
+                        f"Driver for interface '{interface_name}' connected."
+                    )
+            except Exception as e:
+                logger.error(
+                    f"Failed to connect driver for interface '{interface_name}': {e}"
+                )
+
+    def disconnect_all(self):
+        """Disconnects all managed drivers."""
+        logger.info("Disconnecting all drivers...")
+        for interface_name, driver in self.drivers_by_interface.items():
+            try:
+                if driver.is_connected():
+                    driver.disconnect()
+                    logger.info(
+                        f"Driver for interface '{interface_name}' disconnected."
+                    )
+            except Exception as e:
+                logger.error(
+                    f"Failed to disconnect driver for interface '{interface_name}': {e}"
+                )
+
+    # --- Backwards compatibility helpers ---
+    def connect(self):
+        """Connect single connectivity driver (legacy path)."""
+        if self._single_driver_mode:
+            try:
+                if hasattr(self.connectivity_driver, "connect"):
+                    self.connectivity_driver.connect()
+            except Exception:
+                pass
+
+    def disconnect(self):
+        """Disconnect single connectivity driver (legacy path)."""
+        if self._single_driver_mode:
+            try:
+                if hasattr(self.connectivity_driver, "disconnect"):
+                    self.connectivity_driver.disconnect()
+            except Exception:
+                pass
+
+    def get_all_driver_info(self) -> Dict[str, Any]:
+        """Gets status information from all managed drivers."""
+        return {
+            interface_name: driver.get_driver_info()
+            for interface_name, driver in self.drivers_by_interface.items()
+        }
+
+    def get_device_info(self, device_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Gets configuration information for a specific device.
+        """
+        devices_config = self.config_loader.load_devices_config()
+        for device in devices_config.get("devices", []):
+            if device.get("deviceId") == device_id:
+                return device
+        return None
+
+
+class _LegacyPublishDriver:
+    """Minimal driver wrapper exposing a 'client' with publish() for legacy tests."""
+
+    def __init__(self, client: Any):
+        self.client = client
 
     def is_connected(self) -> bool:
-        """Check connection status."""
-        return self._connected
+        return True
 
-    def get_driver_type(self) -> str:
-        """Get driver type."""
-        return "mqtt_legacy"
+    def connect(self) -> None:
+        return None
+
+    def disconnect(self) -> None:
+        return None

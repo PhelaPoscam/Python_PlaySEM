@@ -3,9 +3,65 @@ import json
 import socket
 from unittest.mock import MagicMock
 
+
 import pytest
 
 aiocoap = pytest.importorskip("aiocoap")
+
+
+@pytest.mark.asyncio
+@pytest.mark.smoke
+async def test_coap_smoke_server_starts_and_responds():
+    """Smoke test: Start CoAP server and send a minimal POST, expect success response."""
+    import socket
+    from src.device_manager import DeviceManager
+    from src.effect_dispatcher import EffectDispatcher
+    from src.protocol_server import CoAPServer
+
+    # Pick a free UDP port
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+
+    dm = DeviceManager(client=MagicMock())
+    dispatcher = EffectDispatcher(dm)
+    server = CoAPServer(host="127.0.0.1", port=port, dispatcher=dispatcher)
+
+    async def run_server():
+        await server.start()
+
+    server_task = asyncio.create_task(run_server())
+    await asyncio.sleep(1.0)  # Increased wait time for server to bind
+    try:
+        from aiocoap import Context, Message, Code, error as aiocoap_error
+        from aiocoap.numbers import ContentFormat
+
+        payload = {"effect_type": "light", "intensity": 1}
+        uri = f"coap://127.0.0.1:{port}/effects"
+        request = Message(
+            code=Code.POST,
+            uri=uri,
+            payload=json.dumps(payload).encode("utf-8"),
+        )
+        request.opt.content_format = ContentFormat.by_media_type(
+            "application/json"
+        )
+        client = await Context.create_client_context()
+        try:
+            try:
+                response = await client.request(request).response
+                assert response.code.is_successful()
+            except aiocoap_error.NetworkError as e:
+                pytest.fail(f"NetworkError during CoAP smoke test: {e}")
+        finally:
+            await client.shutdown()
+    finally:
+        await server.stop()
+        if not server_task.done():
+            server_task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await server_task
+
 
 from src.device_manager import DeviceManager  # noqa: E402
 from src.effect_dispatcher import EffectDispatcher  # noqa: E402

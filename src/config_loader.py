@@ -1,166 +1,243 @@
 # src/config_loader.py
+import json
+import logging
+import os
+from typing import Any, Dict, List
 
-import xml.etree.ElementTree as ET
-from typing import List, Dict
+import xmltodict
+from dataclasses import dataclass, field
 import yaml
 
+logger = logging.getLogger(__name__)
 
+
+# --- Backwards-compatibility data models and functions ---
+@dataclass
 class DeviceDefinition:
-    def __init__(
-        self,
-        id: str,
-        device_class: str,
-        connectivity_interface: str,
-        properties: Dict[str, str],
-    ):
-        self.id = id
-        self.device_class = device_class
-        self.connectivity_interface = connectivity_interface
-        self.properties = properties
-
-    def __repr__(self):
-        return (
-            f"DeviceDefinition(id={self.id!r}, "
-            f"device_class={self.device_class!r}, "
-            f"connectivity_interface={self.connectivity_interface!r}, "
-            f"properties={self.properties!r})"
-        )
+    id: str
+    device_class: str
+    connectivity_interface: str
+    properties: Dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
 class Config:
-    def __init__(
-        self,
-        communication_service_broker: str,
-        metadata_parser: str,
-        light_device: str,
-        wind_device: str,
-        vibration_device: str,
-        scent_device: str,
-        devices: List[DeviceDefinition],
-    ):
-        self.communication_service_broker = communication_service_broker
-        self.metadata_parser = metadata_parser
-        self.light_device = light_device
-        self.wind_device = wind_device
-        self.vibration_device = vibration_device
-        self.scent_device = scent_device
-        self.devices = devices
-
-    def __repr__(self):
-        return (
-            f"Config(communication_service_broker="
-            f"{self.communication_service_broker!r}, "
-            f"metadata_parser={self.metadata_parser!r}, "
-            f"light_device={self.light_device!r}, "
-            f"wind_device={self.wind_device!r}, "
-            f"vibration_device={self.vibration_device!r}, "
-            f"scent_device={self.scent_device!r}, "
-            f"devices={self.devices!r})"
-        )
+    communication_service_broker: str = ""
+    metadata_parser: str = ""
+    light_device: str = ""
+    wind_device: str = ""
+    vibration_device: str = ""
+    scent_device: str = ""
+    devices: List[DeviceDefinition] = field(default_factory=list)
 
 
-def load_config(xml_path: str) -> Config:
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
+def load_config(path: str) -> Config:
+    """
+    Legacy loader for SERendererConfig-style XML files used in tests.
 
-    # Top level simple tags
-    comm = root.findtext("communicationServiceBroker")
-    meta = root.findtext("metadataParser")
-    light = root.findtext("lightDevice")
-    wind = root.findtext("windDevice")
-    vib = root.findtext("vibrationDevice")
-    scent = root.findtext("scentDevice")
+    Returns a Config instance populated from the XML.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = xmltodict.parse(f.read())
+    except FileNotFoundError:
+        logger.error(f"Configuration file not found: {path}")
+        raise
 
-    # Devices list
-    devices: List[DeviceDefinition] = []
-    devices_root = root.find("devices")
-    if devices_root is not None:
-        for dev_el in devices_root.findall("device"):
-            dev_id = dev_el.findtext("id", default="")
-            dev_class = dev_el.findtext("deviceClass", default="")
-            conn_if = dev_el.findtext("connectivityInterface", default="")
-            # Properties
-            props: Dict[str, str] = {}
-            props_el = dev_el.find("properties")
-            if props_el is not None:
-                for p in props_el:
-                    props[p.tag] = p.text.strip() if p.text else ""
-            devices.append(DeviceDefinition(dev_id, dev_class, conn_if, props))
+    root = data.get("SERendererConfig", {})
 
-    config = Config(
-        communication_service_broker=comm or "",
-        metadata_parser=meta or "",
-        light_device=light or "",
-        wind_device=wind or "",
-        vibration_device=vib or "",
-        scent_device=scent or "",
-        devices=devices,
+    cfg = Config(
+        communication_service_broker=root.get(
+            "communicationServiceBroker", ""
+        ),
+        metadata_parser=root.get("metadataParser", ""),
+        light_device=root.get("lightDevice", ""),
+        wind_device=root.get("windDevice", ""),
+        vibration_device=root.get("vibrationDevice", ""),
+        scent_device=root.get("scentDevice", ""),
     )
-    return config
 
+    devices_node = root.get("devices", {}) or {}
+    device_list = devices_node.get("device", [])
+    if not isinstance(device_list, list):
+        device_list = [device_list]
 
-def load_yaml_config(yaml_path: str) -> Dict:
-    """
-    Load YAML configuration file.
+    for dev in device_list:
+        if not dev:
+            continue
+        props_node = dev.get("properties", {}) or {}
+        # Flatten properties (keep direct children of <properties>)
+        props: Dict[str, Any] = {}
+        if isinstance(props_node, dict):
+            for k, v in props_node.items():
+                # xmltodict may wrap values; ensure plain strings where possible
+                props[k] = v
 
-    Args:
-        yaml_path: path to YAML configuration file
-
-    Returns:
-        Dictionary containing configuration data
-    """
-    with open(yaml_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
-
-
-def load_devices_yaml(yaml_path: str) -> List[DeviceDefinition]:
-    """
-    Load device definitions from YAML file.
-
-    Args:
-        yaml_path: path to devices.yaml file
-
-    Returns:
-        List of DeviceDefinition objects
-    """
-    config_data = load_yaml_config(yaml_path)
-    devices = []
-
-    for device_data in config_data.get("devices", []):
-        device = DeviceDefinition(
-            id=device_data.get("id", ""),
-            device_class=device_data.get("deviceClass", ""),
-            connectivity_interface=device_data.get(
-                "connectivityInterface", ""
-            ),
-            properties=device_data.get("properties", {}),
+        cfg.devices.append(
+            DeviceDefinition(
+                id=dev.get("id", ""),
+                device_class=dev.get("deviceClass", ""),
+                connectivity_interface=dev.get("connectivityInterface", ""),
+                properties=props,
+            )
         )
-        devices.append(device)
 
-    return devices
+    return cfg
 
 
-def load_effects_yaml(yaml_path: str) -> Dict:
+def load_effects_yaml(path: str) -> Dict[str, Any]:
     """
-    Load effect definitions from YAML file.
-
-    Args:
-        yaml_path: path to effects.yaml file
-
-    Returns:
-        Dictionary containing effect mappings
+    Legacy helper used by EffectDispatcher to load effects.yaml.
+    Returns the parsed YAML as a dict (or empty dict if file is empty).
     """
-    return load_yaml_config(yaml_path)
+    with open(path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    return data or {}
 
 
-def load_protocols_yaml(yaml_path: str) -> Dict:
+class ConfigLoader:
     """
-    Load protocol server configurations from a YAML file.
-
-    Args:
-        yaml_path: The path to the protocols.yaml file.
-
-    Returns:
-        A dictionary containing the protocol configurations.
+    A flexible configuration loader that handles YAML, JSON, and can
+    transform a specific XML format (from the PlaySEM Java project)
+    into the application's expected dictionary structure.
     """
-    return load_yaml_config(yaml_path)
+
+    def __init__(
+        self, devices_path: str, effects_path: str, protocols_path: str
+    ):
+        """
+        Initializes the ConfigLoader and loads all specified configurations.
+        """
+        self.devices_config = self._load_config_file(devices_path)
+        self.effects_config = self._load_config_file(effects_path)
+        self.protocols_config = self._load_config_file(protocols_path)
+
+    def load_devices_config(self) -> Dict[str, Any]:
+        return self.devices_config
+
+    def load_effects_config(self) -> Dict[str, Any]:
+        return self.effects_config
+
+    def load_protocols_config(self) -> Dict[str, Any]:
+        return self.protocols_config
+
+    def _load_config_file(self, path: str) -> Dict[str, Any]:
+        """
+        Loads a configuration file, dispatching to the correct parser
+        based on the file extension.
+        """
+        _, extension = os.path.splitext(path)
+        extension = extension.lower()
+
+        logger.info(f"Loading configuration file: {path}")
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                if extension in [".yaml", ".yml"]:
+                    return yaml.safe_load(f)
+                elif extension == ".json":
+                    return json.load(f)
+                elif extension == ".xml":
+                    raw_dict = xmltodict.parse(f.read())
+                    # Check if this is a PlaySEM XML file and transform it
+                    if "configuration" in raw_dict:
+                        logger.info(
+                            "PlaySEM XML format detected. Transforming..."
+                        )
+                        return self._transform_playsem_dict(raw_dict)
+                    return raw_dict
+                else:
+                    raise ValueError(
+                        f"Unsupported configuration file format: {extension}"
+                    )
+        except FileNotFoundError:
+            logger.error(f"Configuration file not found: {path}")
+            raise
+        except Exception as e:
+            logger.error(f"Error parsing configuration file {path}: {e}")
+            raise
+
+    def _transform_playsem_dict(
+        self, raw_dict: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Transforms a dictionary parsed from SERenderer.xml into the format
+        expected by this application (equivalent to devices.yaml).
+        """
+        transformed_config = {"devices": [], "connectivityInterfaces": []}
+        config_node = raw_dict.get("configuration", {})
+
+        # --- Transform Devices ---
+        device_list = config_node.get("devices", {}).get("device", [])
+        if not isinstance(device_list, list):
+            device_list = [device_list]  # Handle case of single device
+
+        for xml_device in device_list:
+            interface_ref = xml_device.get("connectivityInterface")
+            py_device = {
+                "deviceId": xml_device.get("id"),
+                "label": xml_device.get("id"),  # Use id as a default label
+                "deviceClass": self._map_java_class(
+                    xml_device.get("deviceClass")
+                ),
+                # The protocol is determined by the interface, so we map it later
+                "protocol": interface_ref.lower() if interface_ref else None,
+                "connectivityInterface": (
+                    f"{interface_ref}_interface" if interface_ref else None
+                ),
+                "capabilities": [],  # XML doesn't define this, so default to empty
+            }
+            transformed_config["devices"].append(py_device)
+
+        # --- Transform Connectivity Interfaces ---
+        interface_list = config_node.get("connectivityInterfaces", {}).get(
+            "connectivityInterface", []
+        )
+        if not isinstance(interface_list, list):
+            interface_list = [interface_list]
+
+        for xml_interface in interface_list:
+            interface_id = xml_interface.get("id")
+            py_interface = {
+                "name": f"{interface_id}_interface",
+                "protocol": interface_id.lower(),
+                # Extract properties if they exist
+                **xml_interface.get("properties", {}),
+            }
+            # The XML format has inconsistent property names, so we normalize them
+            if "serialPort" in py_interface:
+                py_interface["port"] = py_interface.pop("serialPort")
+            if "baudRate" in py_interface:
+                py_interface["baudrate"] = int(py_interface.pop("baudRate"))
+
+            transformed_config["connectivityInterfaces"].append(py_interface)
+
+        logger.info(
+            f"Successfully transformed {len(transformed_config['devices'])} devices "
+            f"and {len(transformed_config['connectivityInterfaces'])} interfaces."
+        )
+        return transformed_config
+
+    def _map_java_class(self, java_class: str) -> str:
+        """
+        A best-effort mapping from known PlaySEM Java class names to simple
+        Python-friendly device types.
+        """
+        if not java_class:
+            return "GenericDevice"
+
+        class_name = java_class.lower()
+
+        if "wind" in class_name:
+            return "Fan"
+        if "light" in class_name:
+            return "Light"
+        if "vibration" in class_name:
+            return "Vibration"
+        if "scent" in class_name:
+            return "Scent"
+        if "mock" in class_name:
+            return "MockDevice"
+
+        # Default fallback
+        return "GenericDevice"

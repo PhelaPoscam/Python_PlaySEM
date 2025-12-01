@@ -1299,9 +1299,7 @@ class ControlPanelServer:
                     getattr(device, "name", device_id), device_id
                 )
             )
-            print(
-                f"[ROUTE] mode={connection_mode} protocols={protocols}"
-            )
+            print(f"[ROUTE] mode={connection_mode} protocols={protocols}")
             print(
                 "[ROUTE] payload={}".format(
                     {
@@ -1326,10 +1324,16 @@ class ControlPanelServer:
             )
 
             if device_id in self.web_clients and connection_mode == "isolated":
-                target_protocol = next((p for p in protocols if p != "websocket"), None)
+                target_protocol = next(
+                    (p for p in protocols if p != "websocket"), None
+                )
                 if target_protocol:
-                    print(f"[ISOLATED] Routing '{effect.effect_type}' to {device.name} via {target_protocol.upper()}")
-                    await self.send_effect_protocol(websocket, target_protocol, effect_data)
+                    print(
+                        f"[ISOLATED] Routing '{effect.effect_type}' to {device.name} via {target_protocol.upper()}"
+                    )
+                    await self.send_effect_protocol(
+                        websocket, target_protocol, effect_data
+                    )
                     return
 
             # Fallback for DIRECT mode web clients, mock devices, and real hardware
@@ -1534,8 +1538,14 @@ class ControlPanelServer:
 
                 client = httpx.AsyncClient()
                 try:
+                    # Target the currently running HTTP API server
+                    target_host = getattr(
+                        self.http_api_server, "host", "127.0.0.1"
+                    )
+                    target_port = getattr(self.http_api_server, "port", 8081)
+                    url = f"http://{target_host}:{target_port}/api/effects"
                     response = await client.post(
-                        "http://localhost:8081/api/effects",
+                        url,
                         json={
                             "effect_type": effect.effect_type,
                             "timestamp": effect.timestamp,
@@ -1546,7 +1556,7 @@ class ControlPanelServer:
                         },
                     )
                     response.raise_for_status()
-                    print("[OK] Effect sent via HTTP")
+                    print(f"[OK] Effect sent via HTTP to {url}")
                 finally:
                     await client.aclose()
 
@@ -1608,7 +1618,7 @@ class ControlPanelServer:
                 # Send effect via UPnP SOAP action
                 try:
                     import aiohttp
-                    
+
                     soap_body = f"""<?xml version="1.0"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
             s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
@@ -1751,7 +1761,12 @@ class ControlPanelServer:
                 await asyncio.sleep(0.5)  # Give it time to start
 
             elif protocol == "http":
-                if self.http_api_server and self.http_api_server.is_running():
+                if (
+                    self.http_api_server
+                    and getattr(
+                        self.http_api_server, "is_running", lambda: False
+                    )()
+                ):
                     await websocket.send_json(
                         {
                             "type": "protocol_status",
@@ -1763,13 +1778,21 @@ class ControlPanelServer:
                     return
 
                 # Create HTTP server with proper dispatcher
-                # Use port 8081 to avoid conflict with control panel
+                # Select an ephemeral free port to avoid conflicts on CI/Windows
+                import socket as _sock
+
+                def _pick_port():
+                    with _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM) as s:
+                        s.bind(("127.0.0.1", 0))
+                        return s.getsockname()[1]
+
+                chosen_port = _pick_port()
                 self.http_api_server = HTTPServer(
-                    host="0.0.0.0",
-                    port=8081,
+                    host="127.0.0.1",
+                    port=chosen_port,
                     dispatcher=self.global_dispatcher,
                 )
-                print("[i]  HTTP REST API starting on port 8081")
+                print(f"[i]  HTTP REST API starting on port {chosen_port}")
                 # HTTP server has async start - run in background
                 asyncio.create_task(self.http_api_server.start())
                 await asyncio.sleep(0.5)  # Give it time to start

@@ -63,17 +63,20 @@ class SerialDriver(BaseDriver):
     def __init__(
         self,
         port: str,
+        interface_name: str = "serial_interface",
         baudrate: int = 9600,
         timeout: float = 1.0,
         bytesize: int = 8,
         parity: str = "N",
         stopbits: int = 1,
         on_data_received: Optional[Callable[[bytes], None]] = None,
+        data_format: str = "json",
     ):
         """
         Initialize serial driver.
 
         Args:
+            interface_name: The unique name of this interface instance.
             port: Serial port name (e.g., "COM3" on Windows,
                 "/dev/ttyUSB0" on Linux)
             baudrate: Baud rate (default: 9600). Common values:
@@ -83,6 +86,7 @@ class SerialDriver(BaseDriver):
             parity: Parity checking ('N'=None, 'E'=Even, 'O'=Odd)
             stopbits: Number of stop bits (default: 1)
             on_data_received: Optional callback for incoming data
+            data_format: The payload format to use ('json' or 'xml').
 
         Raises:
             ImportError: If pyserial is not installed
@@ -92,6 +96,7 @@ class SerialDriver(BaseDriver):
                 "pyserial not installed. Run: pip install pyserial"
             )
 
+        self.interface_name = interface_name
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
@@ -99,6 +104,7 @@ class SerialDriver(BaseDriver):
         self.parity = parity
         self.stopbits = stopbits
         self.on_data_received = on_data_received
+        self.data_format = data_format.lower()
 
         self._serial: Optional[serial.Serial] = None
         self._is_connected = False
@@ -106,8 +112,8 @@ class SerialDriver(BaseDriver):
         self._stop_reading = threading.Event()
 
         logger.info(
-            f"SerialDriver initialized - port: {port}, "
-            f"baudrate: {baudrate}"
+            f"SerialDriver '{interface_name}' initialized - port: {port}, "
+            f"baudrate: {baudrate}, format: {self.data_format}"
         )
 
     @classmethod
@@ -371,10 +377,7 @@ class SerialDriver(BaseDriver):
         params: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """
-        Send command to device (BaseDriver interface).
-
-        Implements BaseDriver interface for DeviceManager compatibility.
-        Commands are formatted as JSON with parameters or simple text.
+        Send command to device using the configured data_format (json or xml).
 
         Args:
             device_id: Device identifier
@@ -383,22 +386,29 @@ class SerialDriver(BaseDriver):
 
         Returns:
             bool: True if command sent successfully
-
-        Example:
-            >>> driver.send_command(
-            ...     device_id="arduino_001",
-            ...     command="SET_LED",
-            ...     params={"intensity": 255}
-            ... )
-            True
         """
         if not self.is_connected():
             logger.warning("Cannot send command: not connected")
             return False
 
+        if params is None:
+            params = {}
+
+        payload = ""
         try:
-            # Build command message
-            if params:
+            if self.data_format == "xml":
+                # Build a simple XML string
+                param_str = "".join(
+                    [f"<{k}>{v}</{k}>" for k, v in params.items()]
+                )
+                payload = (
+                    f"<command>"
+                    f"<deviceId>{device_id}</deviceId>"
+                    f"<name>{command}</name>"
+                    f"<params>{param_str}</params>"
+                    f"</command>\n"
+                )
+            else:  # Default to JSON
                 # Send as JSON for structured data
                 message = {
                     "command": command,
@@ -406,9 +416,6 @@ class SerialDriver(BaseDriver):
                     "device_id": device_id,
                 }
                 payload = json.dumps(message) + "\n"
-            else:
-                # Send as simple text command
-                payload = f"{command}\n"
 
             # Send via serial
             return self.send_bytes(payload.encode("utf-8"))
@@ -562,6 +569,10 @@ class SerialDriver(BaseDriver):
             f"status={status})"
         )
 
+    def get_interface_name(self) -> str:
+        """Get the unique name of the connectivity interface this driver handles."""
+        return self.interface_name
+
     # BaseDriver additional methods
     def connect(self) -> bool:
         """Connect to serial device (BaseDriver interface)."""
@@ -578,13 +589,15 @@ class SerialDriver(BaseDriver):
 
     def get_driver_info(self) -> Dict[str, Any]:
         """Get serial driver configuration (BaseDriver interface)."""
-        return {
-            "type": "serial",
-            "port": self.port,
-            "baudrate": self.baudrate,
-            "timeout": self.timeout,
-            "connected": self.is_connected(),
-        }
+        info = super().get_driver_info()
+        info.update(
+            {
+                "port": self.port,
+                "baudrate": self.baudrate,
+                "timeout": self.timeout,
+            }
+        )
+        return info
 
     def get_capabilities(self, device_id: str) -> Optional[Dict[str, Any]]:
         """

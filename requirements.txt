@@ -19,3 +19,4 @@ httpcore>=1.0.7
 qrcode[pil]>=0.21.0
 beautifulsoup4>=4.12.0
 amqtt
+xmltodict

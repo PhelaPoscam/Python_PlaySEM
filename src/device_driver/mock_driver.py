@@ -5,6 +5,7 @@ These drivers log commands to console instead of sending to real devices.
 """
 
 import logging
+import json
 from typing import Dict, Any, Optional
 
 from .base_driver import BaseDriver
@@ -15,9 +16,15 @@ logger = logging.getLogger(__name__)
 class MockConnectivityDriver(BaseDriver):
     """Mock connectivity driver for testing without real hardware."""
 
-    def __init__(self):
+    def __init__(
+        self, interface_name: str = "mock_interface", data_format: str = "json"
+    ):
+        self.interface_name = interface_name
+        self.data_format = data_format.lower()
         self._connected = False
-        logger.info("MockConnectivityDriver initialized")
+        logger.info(
+            f"MockConnectivityDriver '{self.interface_name}' initialized with format '{self.data_format}'"
+        )
         # Map device_id -> MockDeviceBase instance for forwarding commands
         self._devices = {}
 
@@ -37,10 +44,32 @@ class MockConnectivityDriver(BaseDriver):
         command: str,
         params: Optional[Dict[str, Any]] = None,
     ) -> bool:
+        if params is None:
+            params = {}
+
+        payload_str = ""
+        if self.data_format == "xml":
+            param_str = "".join([f"<{k}>{v}</{k}>" for k, v in params.items()])
+            payload_str = (
+                f"<command>"
+                f"<deviceId>{device_id}</deviceId>"
+                f"<name>{command}</name>"
+                f"<params>{param_str}</params>"
+                f"</command>"
+            )
+        else:  # Default to JSON
+            message = {
+                "command": command,
+                "params": params,
+                "device_id": device_id,
+            }
+            payload_str = json.dumps(message)
+
         logger.info(
-            f"MockConnectivityDriver: send_command("
-            f"device_id='{device_id}', command='{command}', params={params})"
+            f"MockConnectivityDriver: send_command to device_id='{device_id}'. "
+            f"Formatted payload ({self.data_format}): {payload_str}"
         )
+
         # If we have a registered mock device for this id, forward the command
         if device_id in self._devices:
             try:
@@ -53,12 +82,14 @@ class MockConnectivityDriver(BaseDriver):
                     f"Error forwarding to mock device {device_id}: {e}"
                 )
                 return False
-        # In a real mock driver, you might want to store the state
-        # of mock devices here. For now, just logging is enough.
         return True
 
     def is_connected(self) -> bool:
         return self._connected
+
+    def get_interface_name(self) -> str:
+        """Get the unique name of the connectivity interface this driver handles."""
+        return self.interface_name
 
     def get_driver_type(self) -> str:
         return "mock"

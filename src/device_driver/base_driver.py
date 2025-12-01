@@ -122,12 +122,26 @@ class BaseDriver(ABC):
 
         Example:
             >>> driver.get_driver_info()
-            {'type': 'mqtt', 'broker': 'localhost', 'connected': True}
+            {'type': 'mqtt', 'interface_name': 'mqtt_interface_0', 'connected': True}
         """
         return {
             "type": self.get_driver_type(),
+            "interface_name": self.get_interface_name(),
             "connected": self.is_connected(),
         }
+
+    @abstractmethod
+    def get_interface_name(self) -> str:
+        """
+        Get the unique name of the connectivity interface this driver handles.
+
+        This name corresponds to the 'name' field in the 'connectivityInterfaces'
+        section of the configuration.
+
+        Returns:
+            str: The unique interface name.
+        """
+        pass
 
     def get_capabilities(self, device_id: str) -> Optional[Dict[str, Any]]:
         """
