@@ -17,7 +17,9 @@ class DriverFactory:
     """
 
     @classmethod
-    def create_driver(cls, interface_config: Dict[str, Any]) -> Optional[BaseDriver]:
+    def create_driver(
+        cls, interface_config: Dict[str, Any]
+    ) -> Optional[BaseDriver]:
         """
         Create a driver instance from an interface configuration dictionary.
 
@@ -44,10 +46,14 @@ class DriverFactory:
                 logger.error(f"Unknown driver protocol: {protocol}")
                 return None
         except (ValueError, KeyError) as e:
-            logger.error(f"Failed to create '{protocol}' driver due to invalid configuration: {e}")
+            logger.error(
+                f"Failed to create '{protocol}' driver due to invalid configuration: {e}"
+            )
             return None
         except Exception as e:
-            logger.error(f"An unexpected error occurred while creating driver '{protocol}': {e}")
+            logger.error(
+                f"An unexpected error occurred while creating driver '{protocol}': {e}"
+            )
             return None
 
     @staticmethod
@@ -56,7 +62,9 @@ class DriverFactory:
         if "port" not in config:
             raise ValueError("Serial config must specify a 'port'")
         if "name" not in config:
-            raise ValueError("Serial config must specify a 'name' for the interface")
+            raise ValueError(
+                "Serial config must specify a 'name' for the interface"
+            )
 
         return SerialDriver(
             interface_name=config["name"],
@@ -72,7 +80,9 @@ class DriverFactory:
         if "broker" not in config:
             raise ValueError("MQTT config must specify a 'broker'")
         if "name" not in config:
-            raise ValueError("MQTT config must specify a 'name' for the interface")
+            raise ValueError(
+                "MQTT config must specify a 'name' for the interface"
+            )
 
         return MQTTDriver(
             interface_name=config["name"],
@@ -87,8 +97,10 @@ class DriverFactory:
     def _create_bluetooth_driver(config: Dict[str, Any]) -> BluetoothDriver:
         """Create Bluetooth driver from config."""
         if "name" not in config:
-            raise ValueError("Bluetooth config must specify a 'name' for the interface")
-            
+            raise ValueError(
+                "Bluetooth config must specify a 'name' for the interface"
+            )
+
         # Address is optional for scanning mode
         return BluetoothDriver(
             interface_name=config["name"],
@@ -100,7 +112,9 @@ class DriverFactory:
     def _create_mock_driver(config: Dict[str, Any]) -> MockConnectivityDriver:
         """Create Mock driver from config."""
         if "name" not in config:
-            raise ValueError("Mock config must specify a 'name' for the interface")
+            raise ValueError(
+                "Mock config must specify a 'name' for the interface"
+            )
 
         return MockConnectivityDriver(
             interface_name=config["name"],

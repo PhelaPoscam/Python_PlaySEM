@@ -160,12 +160,14 @@ class MQTTDriver(BaseDriver):
 
         if params is None:
             params = {}
-            
+
         message = ""
         try:
             # Build payload based on data format
-            if self.data_format == 'xml':
-                param_str = "".join([f"<{k}>{v}</{k}>" for k, v in params.items()])
+            if self.data_format == "xml":
+                param_str = "".join(
+                    [f"<{k}>{v}</{k}>" for k, v in params.items()]
+                )
                 message = (
                     f"<command>"
                     f"<deviceId>{device_id}</deviceId>"
@@ -173,8 +175,12 @@ class MQTTDriver(BaseDriver):
                     f"<params>{param_str}</params>"
                     f"</command>"
                 )
-            else: # Default to JSON
-                payload = {"command": command, "params": params, "device_id": device_id}
+            else:  # Default to JSON
+                payload = {
+                    "command": command,
+                    "params": params,
+                    "device_id": device_id,
+                }
                 message = json.dumps(payload)
 
             # Publish to topic
@@ -224,12 +230,14 @@ class MQTTDriver(BaseDriver):
             dict: Driver information
         """
         info = super().get_driver_info()
-        info.update({
-            "broker": self.broker,
-            "port": self.port,
-            "qos": self.qos,
-            "retain": self.retain,
-        })
+        info.update(
+            {
+                "broker": self.broker,
+                "port": self.port,
+                "qos": self.qos,
+                "retain": self.retain,
+            }
+        )
         return info
 
     def get_capabilities(self, device_id: str) -> Optional[Dict[str, Any]]:
