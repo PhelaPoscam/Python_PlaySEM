@@ -30,6 +30,7 @@ class CoAPServer:
         port: int,
         dispatcher: EffectDispatcher,
         on_effect_received: Optional[Callable[[EffectMetadata], None]] = None,
+        started_event: Optional[asyncio.Event] = None,
     ):
         """
         Initialize CoAP server.
@@ -40,11 +41,13 @@ class CoAPServer:
             port: Port to listen on (default CoAP port: 5683)
             dispatcher: EffectDispatcher for executing effects
             on_effect_received: Optional callback when effect received
+            started_event: asyncio.Event to signal when server is started
         """
         self.host = host
         self.port = port
         self.dispatcher = dispatcher
         self.on_effect_received = on_effect_received
+        self.started_event = started_event
 
         self._context = None
         self._site = None
@@ -121,8 +124,12 @@ class CoAPServer:
             self._site = site
             with self._lock:
                 self._is_running = True
-            # Small delay to ensure UDP socket readiness on Windows
+            
+            # Small delay to ensure UDP socket readiness, especially on Windows
             await asyncio.sleep(0.2)
+            if self.started_event:
+                self.started_event.set()
+
             logger.info(
                 f"CoAP Server started on " f"coap://{self.host}:{self.port}"
             )

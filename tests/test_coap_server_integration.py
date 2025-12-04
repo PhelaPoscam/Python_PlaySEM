@@ -25,13 +25,16 @@ async def test_coap_smoke_server_starts_and_responds():
 
     dm = DeviceManager(client=MagicMock())
     dispatcher = EffectDispatcher(dm)
-    server = CoAPServer(host="127.0.0.1", port=port, dispatcher=dispatcher)
+    started_event = asyncio.Event()
+    server = CoAPServer(
+        host="127.0.0.1", port=port, dispatcher=dispatcher, started_event=started_event
+    )
 
     async def run_server():
         await server.start()
 
     server_task = asyncio.create_task(run_server())
-    await asyncio.sleep(1.0)  # Increased wait time for server to bind
+    await started_event.wait()
     try:
         from aiocoap import Context, Message, Code, error as aiocoap_error
         from aiocoap.numbers import ContentFormat
@@ -86,11 +89,13 @@ async def test_coap_server_receives_and_dispatches_effect():
 
     dm = DeviceManager(client=mock_client)
     dispatcher = EffectDispatcher(dm)
+    started_event = asyncio.Event()
     server = CoAPServer(
         host="127.0.0.1",
         port=port,
         dispatcher=dispatcher,
         on_effect_received=on_effect_received,
+        started_event=started_event,
     )
 
     async def run_server():
@@ -98,7 +103,7 @@ async def test_coap_server_receives_and_dispatches_effect():
 
     # Start server task and give it a moment to bind
     server_task = asyncio.create_task(run_server())
-    await asyncio.sleep(0.2)
+    await started_event.wait()
 
     try:
         # Prepare client request
