@@ -133,7 +133,6 @@ class CoAPServer:
             logger.info(
                 f"CoAP Server started on " f"coap://{self.host}:{self.port}"
             )
-            # Force line ending normalization
 
         except Exception as e:
             logger.error(f"Failed to start CoAP Server: {e}")
