@@ -2,7 +2,7 @@
 import asyncio
 
 from src.device_driver.mock_driver import MockConnectivityDriver
-from src.protocol_server import HTTPServer
+from src.protocol_servers import HTTPServer
 
 
 class _FakeDeviceManager:

@@ -10,7 +10,7 @@ import logging
 from unittest.mock import Mock, MagicMock
 
 import paho.mqtt.client as mqtt
-from src.protocol_server import MQTTServer
+from src.protocol_servers import MQTTServer
 from src.effect_dispatcher import EffectDispatcher
 from src.device_manager import DeviceManager
 from src.effect_metadata import EffectMetadata

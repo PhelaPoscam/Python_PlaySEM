@@ -21,7 +21,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.protocol_server import UPnPServer
+from src.protocol_servers import UPnPServer
 from src.effect_dispatcher import EffectDispatcher
 from src.device_manager import DeviceManager
 from src.effect_metadata import EffectMetadata

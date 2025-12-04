@@ -8,7 +8,7 @@ import pytest
 from unittest.mock import Mock
 import aiohttp
 
-from src.protocol_server import UPnPServer
+from src.protocol_servers import UPnPServer
 from src.effect_dispatcher import EffectDispatcher
 from src.device_manager import DeviceManager
 

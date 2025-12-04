@@ -53,7 +53,7 @@ from src.effect_metadata import (
     EffectMetadataParser,
     create_effect,
 )  # noqa: E402
-from src.protocol_server import (  # noqa: E402
+from src.protocol_servers import (
     CoAPServer,
     HTTPServer,
     MQTTServer,

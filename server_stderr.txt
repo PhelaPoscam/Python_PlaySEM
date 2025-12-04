@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "C:\TUNI - Projects\Python Project\PythonPlaySEM\examples\server\main.py", line 1, in <module>
+    from tools.test_server.main import ControlPanelServer, ConnectedDevice
+ModuleNotFoundError: No module named 'tools'

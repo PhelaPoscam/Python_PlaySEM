@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.device_manager import DeviceManager
 from src.effect_dispatcher import EffectDispatcher
-from src.protocol_server import MQTTServer
+from src.protocol_servers import MQTTServer
 
 # Configure logging
 logging.basicConfig(

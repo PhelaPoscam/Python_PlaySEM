@@ -16,7 +16,7 @@ async def test_coap_smoke_server_starts_and_responds():
     import socket
     from src.device_manager import DeviceManager
     from src.effect_dispatcher import EffectDispatcher
-    from src.protocol_server import CoAPServer
+    from src.protocol_servers import CoAPServer
 
     # Pick a free UDP port
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
