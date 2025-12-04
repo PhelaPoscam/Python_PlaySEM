@@ -1,6 +1,7 @@
 """
 HTTP server for receiving sensory effect requests.
 """
+
 import asyncio
 import json
 import logging
@@ -191,6 +192,7 @@ class HTTPServer:
 
     def _register_routes(self):
         """Register API routes."""
+
         @self._app.post(
             "/api/effects",
             response_model=self._EffectResponse,

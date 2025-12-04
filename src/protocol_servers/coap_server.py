@@ -1,6 +1,7 @@
 """
 CoAP server for receiving sensory effect requests.
 """
+
 import asyncio
 import json
 import logging
@@ -113,7 +114,7 @@ class CoAPServer:
             site.add_resource(["effects"], EffectsResource(self))
 
             # Create server context bound to host/port
-            bind = (self.host, self.port)
+            bind = (self.host, int(self.port))
             self._context = await Context.create_server_context(
                 site, bind=bind
             )

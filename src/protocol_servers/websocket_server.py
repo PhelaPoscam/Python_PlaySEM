@@ -1,6 +1,7 @@
 """
 WebSocket server for receiving sensory effect requests.
 """
+
 import asyncio
 import json
 import logging

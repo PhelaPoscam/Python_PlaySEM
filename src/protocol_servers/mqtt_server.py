@@ -1,6 +1,7 @@
 """
 MQTT server for receiving sensory effect requests.
 """
+
 import asyncio
 import json
 import logging
@@ -10,6 +11,7 @@ from typing import Optional, Callable
 try:
     from amqtt.broker import Broker
     from amqtt.mqtt.constants import QOS_0
+
     AMQTT_AVAILABLE = True
 except ImportError:
     AMQTT_AVAILABLE = False
