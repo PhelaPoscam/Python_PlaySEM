@@ -27,7 +27,10 @@ async def test_coap_smoke_server_starts_and_responds():
     dispatcher = EffectDispatcher(dm)
     started_event = asyncio.Event()
     server = CoAPServer(
-        host="127.0.0.1", port=port, dispatcher=dispatcher, started_event=started_event
+        host="127.0.0.1",
+        port=port,
+        dispatcher=dispatcher,
+        started_event=started_event,
     )
 
     async def run_server():

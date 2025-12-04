@@ -124,7 +124,7 @@ class CoAPServer:
             self._site = site
             with self._lock:
                 self._is_running = True
-            
+
             # Small delay to ensure UDP socket readiness, especially on Windows
             await asyncio.sleep(0.2)
             if self.started_event:
