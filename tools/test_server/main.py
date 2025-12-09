@@ -13,16 +13,12 @@ Features:
 - System statistics and monitoring
 """
 
-import sys
-from pathlib import Path
-
-# Add parent directory to path to allow importing from 'src'
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 import asyncio
 import json
+import sys
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, Set
 
 import uvicorn
@@ -34,7 +30,10 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
+
+# Add parent directory to path to allow importing from 'src'
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.device_driver import (
     BluetoothDriver,

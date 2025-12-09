@@ -18,7 +18,6 @@ import asyncio
 import logging
 import json
 from typing import Optional, List, Dict, Callable, Any
-import time
 
 try:
     from bleak import BleakScanner, BleakClient

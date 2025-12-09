@@ -100,7 +100,7 @@ async def test_coap_smoke_server_starts_and_responds():
 
 from src.device_manager import DeviceManager  # noqa: E402
 from src.effect_dispatcher import EffectDispatcher  # noqa: E402
-from src.protocol_server import CoAPServer  # noqa: E402
+from src.protocol_servers import CoAPServer  # noqa: E402
 
 
 @pytest.mark.skip(reason="Network integration test that may hang in CI")
