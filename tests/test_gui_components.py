@@ -1,11 +1,13 @@
 """Simple GUI and controller component tests."""
 
 import sys
+import os
 from pathlib import Path
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import pytest
 import logging
 
 logging.basicConfig(
@@ -57,6 +59,10 @@ def test_controller():
         return False
 
 
+@pytest.mark.skipif(
+    not os.environ.get("DISPLAY") and sys.platform.startswith("linux"),
+    reason="GUI tests require display server (skip on headless Linux CI)",
+)
 def test_gui():
     """Test GUI component creation."""
     print("\n" + "=" * 60)
