@@ -1,9 +1,11 @@
 # Ensure repository root is importable when running as a script
 import sys
 from pathlib import Path
-from tools.test_server.main import ControlPanelServer, ConnectedDevice
 
+# Add project root to path BEFORE imports
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from tools.test_server.main import ControlPanelServer, ConnectedDevice
 
 __all__ = ["ControlPanelServer", "ConnectedDevice"]
 

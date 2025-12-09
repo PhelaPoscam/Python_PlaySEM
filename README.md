@@ -11,6 +11,29 @@ This version is a Python-based implementation and expansion of the original Java
 
 ---
 
+## 📚 Documentation
+
+All documentation is organized in the [`docs/`](docs/) folder:
+
+**👉 [Start Here: docs/index.md](docs/index.md)** - Complete navigation guide
+
+| Quick Links | Purpose |
+|---|---|
+| [Quick Start](docs/guides/quick-start.md) | Get running in 5 minutes |
+| [Device Setup](docs/guides/devices.md) | Connect and manage devices |
+| [Testing Guide](docs/guides/testing.md) | 12-point testing checklist |
+| [Troubleshooting](docs/guides/troubleshooting.md) | 18 common issues & fixes |
+| [Architecture](docs/reference/architecture.md) | System design & components |
+| [Status](docs/reference/status.md) | Current state & recent fixes |
+
+**Documentation Structure**:
+- `guides/` - How-to guides for users
+- `reference/` - Technical reference & API docs  
+- `development/` - Developer & contributor guides
+- `archive/` - Historical documentation
+
+---
+
 ## ✨ Key Features & Recent Improvements
 
 -   **Flexible Configuration**: Configure your devices using `.yaml`, `.json`, or even the original `.xml` format from the Java PlaySEM project.
@@ -21,7 +44,7 @@ This version is a Python-based implementation and expansion of the original Java
 
 > ### 📝 Connecting a New Device?
 >
-> For a step-by-step guide on connecting a new piece of hardware (like an Arduino), see the **[TUTORIAL.md](TUTORIAL.md)** file.
+> See the **[Device Management Guide](docs/DEVICES.md)** for step-by-step instructions on connecting hardware like Arduino.
 
 ---
 

@@ -1,8 +1,10 @@
 # Timeline Player Feature
 
+⚠️ **Note**: This is a reference document for a planned feature. Timeline player support is **not yet implemented** in the current GUI application.
+
 This document was moved here from examples/control_panel/TIMELINE_PLAYER.md to consolidate reference documentation under docs/reference/.
 
-Below is the original content preserved in full.
+Below is the original content preserved in full for future development reference.
 
 ---
 
