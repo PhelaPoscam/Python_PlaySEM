@@ -4,6 +4,8 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
+[![CI](https://github.com/PhelaPoscam/Python_PlaySEM/actions/workflows/ci.yml/badge.svg)](https://github.com/PhelaPoscam/Python_PlaySEM/actions)
+
 **PlaySEM** is a Python framework for orchestrating sensory effects across devices and protocols. Build immersive experiences with unified control of lights, haptics, wind, scent, and more.
 
 This is a Python-based implementation and expansion of the original Java PlaySEM framework by [Estevão Bissoli](https://github.com/estevaobissoli).
