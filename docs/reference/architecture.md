@@ -100,10 +100,19 @@ Located in: `gui/`
   - POST /api/effects - Send effects
   - Polling for updates (TODO)
 
-- **factory.py**
+- **mqtt_protocol.py** (NEW)
+  - Pub/sub messaging via MQTT broker
+  - Topics: playsem/gui/request, playsem/backend/response, playsem/backend/devices
+  - Auto-start broker feature (via WebSocket command)
+  - 5-retry logic with 1-second delays
+  - Requires: paho-mqtt library
+  - Broker: Uses backend's embedded amqtt/hbmqtt on port 1883
+
+- **protocol_factory.py**
   - ProtocolFactory class
   - Returns protocol instances
   - Validates protocol names
+  - Supports: WebSocket, HTTP, MQTT (extensible)
 
 ### Backend Server
 
@@ -351,12 +360,67 @@ effects:
 - Single protocol → multiple protocol support
 - Single backend → load balanced backend
 
+## MQTT Auto-Start Architecture
+
+### Overview
+The GUI includes an automatic MQTT broker startup feature that eliminates manual configuration.
+
+### Flow Diagram
+```
+User Interface
+     │
+     ├─ Select MQTT protocol
+     └─ Click "Connect"
+          │
+          ▼
+   AppController.connect()
+     │
+     ├─ Detect MQTT protocol
+     │
+     ├─ _start_backend_mqtt_broker()
+     │  ├─ Connect to backend WebSocket (port 8090)
+     │  ├─ Send: {"type": "start_protocol_server", "protocol": "mqtt"}
+     │  ├─ Wait for response (5-second timeout)
+     │  └─ Validate broker is running
+     │
+     ├─ Create MQTTProtocol instance
+     │
+     ├─ MQTTProtocol.connect()
+     │  ├─ Retry up to 5 times (1-second delays)
+     │  ├─ Subscribe to topics
+     │  └─ Return success
+     │
+     └─ UI shows "Connected"
+```
+
+### Key Components
+
+**Frontend (GUI)**:
+- `gui/app_controller.py:_start_backend_mqtt_broker()` - Auto-start logic
+- `gui/protocols/mqtt_protocol.py:connect()` - Retry logic
+
+**Backend**:
+- `tools/test_server/main.py:start_protocol_server()` - Broker startup handler
+- `src/protocol_servers/mqtt_server.py:MQTTServer` - Embedded broker
+
+### Benefits
+1. **Zero Configuration**: No manual broker startup
+2. **Fault Tolerant**: Retry logic handles timing issues
+3. **Transparent**: User just clicks "Connect"
+4. **Extensible**: Pattern can apply to CoAP, UPnP, etc.
+
+### Limitations
+1. **Localhost Only**: Broker auto-starts on 127.0.0.1:1883
+2. **Sequential**: Auto-start waits for broker before connecting
+3. **On-Demand**: Broker only created when MQTT is selected
+
 ## Security Notes
 
 - ⚠️ Backend has CORS enabled (dev only)
 - No authentication implemented (demo)
 - Device IDs transmitted in clear text
 - Consider TLS for production deployment
+- MQTT broker (amqtt) has optional TLS support
 
 ---
 

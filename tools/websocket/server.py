@@ -28,9 +28,8 @@ import socket
 # Add parent directory to path before importing local modules
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.device_manager import DeviceManager
-from src.effect_dispatcher import EffectDispatcher
-from src.protocol_servers import WebSocketServer
+from playsem import DeviceManager, EffectDispatcher
+from playsem.protocol_servers import WebSocketServer
 
 # Configure logging
 logging.basicConfig(

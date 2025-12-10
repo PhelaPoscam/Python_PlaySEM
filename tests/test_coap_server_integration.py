@@ -17,9 +17,9 @@ aiocoap = pytest.importorskip("aiocoap")
 async def test_coap_smoke_server_starts_and_responds():
     """Smoke test: Start CoAP server and send minimal POST, expect success."""
     import socket
-    from src.device_manager import DeviceManager
-    from src.effect_dispatcher import EffectDispatcher
-    from src.protocol_servers import CoAPServer
+    from playsem import DeviceManager
+    from playsem import EffectDispatcher
+    from playsem.protocol_servers import CoAPServer
 
     # Pick a free UDP port (with retries to avoid race conditions on macOS)
     port = None
@@ -101,9 +101,9 @@ async def test_coap_smoke_server_starts_and_responds():
                 await server_task
 
 
-from src.device_manager import DeviceManager  # noqa: E402
-from src.effect_dispatcher import EffectDispatcher  # noqa: E402
-from src.protocol_servers import CoAPServer  # noqa: E402
+from playsem import DeviceManager  # noqa: E402
+from playsem import EffectDispatcher  # noqa: E402
+from playsem.protocol_servers import CoAPServer  # noqa: E402
 
 
 @pytest.mark.skip(reason="Network integration test that may hang in CI")

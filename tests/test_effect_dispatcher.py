@@ -2,8 +2,8 @@
 
 import pytest
 from unittest.mock import MagicMock
-from src.effect_dispatcher import EffectDispatcher
-from src.device_manager import DeviceManager
+
+from playsem import EffectDispatcher, DeviceManager
 
 
 @pytest.fixture

@@ -91,6 +91,19 @@ class AppController:
                 f"Connecting via {config.protocol} to {config.host}:{config.port}"
             )
 
+            # If using MQTT, first auto-start the backend MQTT broker via WebSocket
+            if config.protocol == "mqtt":
+                logger.info(
+                    "MQTT requested: Auto-starting backend MQTT broker..."
+                )
+                if not await self._start_backend_mqtt_broker(
+                    config.host, 8090
+                ):
+                    logger.warning(
+                        "Failed to auto-start MQTT broker, will try direct "
+                        "connection..."
+                    )
+
             # Create protocol instance
             self.protocol = ProtocolFactory.create(
                 protocol=config.protocol,
@@ -123,6 +136,69 @@ class AppController:
             logger.error(f"Connection failed: {e}")
             if self.on_error:
                 self.on_error(str(e))
+            return False
+
+    async def _start_backend_mqtt_broker(
+        self, host: str, ws_port: int
+    ) -> bool:
+        """
+        Connect via WebSocket and send command to start MQTT broker on backend.
+
+        Args:
+            host: Backend host
+            ws_port: WebSocket port (usually 8090)
+
+        Returns:
+            True if MQTT broker started, False otherwise
+        """
+        try:
+            import websockets
+            import json
+
+            uri = f"ws://{host}:{ws_port}/ws"
+            logger.debug(
+                f"Attempting to start MQTT broker via WebSocket: {uri}"
+            )
+
+            async with websockets.connect(uri, ping_interval=20) as websocket:
+                # Send command to start MQTT protocol server
+                command = {"type": "start_protocol_server", "protocol": "mqtt"}
+                await websocket.send(json.dumps(command))
+                logger.info("Sent MQTT broker start command to backend")
+
+                # Wait for response with timeout
+                response = await asyncio.wait_for(
+                    websocket.recv(), timeout=5.0
+                )
+                response_data = json.loads(response)
+
+                if (
+                    response_data.get("type") == "protocol_status"
+                    and response_data.get("protocol") == "mqtt"
+                ):
+                    if response_data.get("running"):
+                        logger.info(
+                            "MQTT broker started successfully on backend"
+                        )
+                        await asyncio.sleep(1)  # Give broker time to start
+                        return True
+                    else:
+                        error_msg = response_data.get("error", "Unknown error")
+                        logger.error(
+                            f"MQTT broker failed to start: {error_msg}"
+                        )
+                        return False
+                else:
+                    logger.warning(f"Unexpected response: {response_data}")
+                    return False
+
+        except asyncio.TimeoutError:
+            logger.debug("Timeout waiting for MQTT broker startup response")
+            return False
+        except Exception as e:
+            logger.debug(
+                f"Failed to auto-start MQTT broker via WebSocket: {e}"
+            )
             return False
 
     async def disconnect(self) -> bool:
@@ -188,7 +264,7 @@ class AppController:
             if not self.protocol or not self.protocol.is_connected:
                 raise ConnectionError("Not connected")
 
-            message = {"type": "request", "action": "get_devices"}
+            message = {"type": "get_devices"}
 
             return await self.protocol.send(message)
         except Exception as e:
@@ -234,7 +310,14 @@ class AppController:
         try:
             msg_type = data.get("type", "")
 
-            if msg_type == "devices":
+            if msg_type == "device_list":
+                devices = data.get("devices", [])
+                self.devices = {d["id"]: d for d in devices}
+                if self.on_device_list_updated:
+                    self.on_device_list_updated(devices)
+
+            elif msg_type == "devices":
+                # Legacy support for different format
                 self.devices = {d["id"]: d for d in data.get("payload", [])}
                 if self.on_device_list_updated:
                     self.on_device_list_updated(data.get("payload", []))

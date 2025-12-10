@@ -19,6 +19,7 @@ Last Updated: December 9, 2025
 ### Protocols
 - ✅ **WebSocket** - Full bidirectional communication
 - ✅ **HTTP/REST** - Polling-based fallback protocol
+- ✅ **MQTT** - Pub/sub with auto-start broker feature (NEW!)
 - ✅ Protocol switching without issues
 - ✅ Reconnection working
 - ✅ Graceful disconnection
@@ -72,6 +73,43 @@ Last Updated: December 9, 2025
    - **Cause**: Manual AsyncWorker threads with different event loops
    - **Fix**: Removed threading, use qasync native support
    - **Commit**: `3221bb8`
+
+---
+
+## 🆕 New Features (Today)
+
+### MQTT Protocol with Auto-Start ✅
+
+**What's New**:
+- Complete MQTT protocol implementation (`gui/protocols/mqtt_protocol.py`)
+- Auto-start mechanism for backend MQTT broker via WebSocket
+- 5-retry connection logic with exponential backoff
+- MQTT connection panel in GUI with host/port/auth settings
+- Integrated with ProtocolFactory for seamless switching
+
+**How It Works**:
+1. User selects MQTT protocol in Connection Panel
+2. Clicks "Connect"
+3. GUI sends WebSocket command to backend: `start_protocol_server`
+4. Backend starts embedded MQTT broker on 127.0.0.1:1883
+5. GUI connects directly to MQTT broker
+6. Connection succeeds with automatic retry on timing issues
+
+**Documentation**:
+- See [`development/PROTOCOL_TESTING.md`](./development/PROTOCOL_TESTING.md) → "GUI MQTT Connection (Auto-Start Feature)"
+- See [`development/PROTOCOL_FIXES.md`](./development/PROTOCOL_FIXES.md) → "✅ 4. GUI MQTT Auto-Start"
+- See [`reference/architecture.md`](./reference/architecture.md) → "MQTT Auto-Start Architecture"
+
+**Testing Ready**:
+```bash
+# Terminal 1: Backend
+python tools/test_server/main.py
+
+# Terminal 2: GUI  
+python -m gui.app
+
+# GUI: Select MQTT → Click Connect → Should work!
+```
 
 ---
 
@@ -366,6 +404,9 @@ python -m gui.app
 | qasync | 0.27.0+ | ✅ |
 | FastAPI | 0.122.0 | ✅ |
 | Uvicorn | 0.24.0 | ✅ |
+| paho-mqtt | Latest | ✅ |
+| amqtt | Latest | ✅ |
+| websockets | 9.0+ | ✅ |
 
 ---
 

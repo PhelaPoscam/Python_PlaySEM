@@ -32,34 +32,33 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse
 
-# Add parent directory to path to allow importing from 'src'
+# Add parent directory to path to allow importing from playsem
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.device_driver import (
+from playsem.drivers import (
     BluetoothDriver,
     MQTTDriver,
     SerialDriver,
 )  # noqa: E402
-from src.device_driver.mock_driver import (  # noqa: E402
+from playsem.drivers.mock_driver import (  # noqa: E402
     MockLightDevice,
     MockVibrationDevice,
     MockWindDevice,
     MockConnectivityDriver,
 )
-from src.device_manager import DeviceManager  # noqa: E402
-from src.effect_dispatcher import EffectDispatcher  # noqa: E402
-from src.effect_metadata import (
+from playsem import DeviceManager, EffectDispatcher  # noqa: E402
+from playsem.effect_metadata import (
     EffectMetadataParser,
     create_effect,
 )  # noqa: E402
-from src.protocol_servers import (
+from playsem.protocol_servers import (
     CoAPServer,
     HTTPServer,
     MQTTServer,
     UPnPServer,
     WebSocketServer,
 )
-from src.timeline import Timeline  # noqa: E402
+from playsem.timeline import Timeline  # noqa: E402
 
 
 @dataclass
@@ -361,7 +360,7 @@ class ControlPanelServer:
                     "mock_"
                 ):
                     try:
-                        from src.device_driver.mock_driver import (
+                        from playsem.drivers.mock_driver import (
                             MockConnectivityDriver,
                         )
 
@@ -375,7 +374,9 @@ class ControlPanelServer:
                 # Fallbacks by driver type
                 # Serial
                 try:
-                    from src.device_driver.serial_driver import SerialDriver
+                    from playsem.drivers.serial_driver import (
+                        SerialDriver,
+                    )
 
                     sdrv = SerialDriver()
                     if hasattr(sdrv, "get_capabilities"):
@@ -387,7 +388,7 @@ class ControlPanelServer:
 
                 # Bluetooth
                 try:
-                    from src.device_driver.bluetooth_driver import (
+                    from playsem.drivers.bluetooth_driver import (
                         BluetoothDriver,
                     )
 
@@ -401,7 +402,7 @@ class ControlPanelServer:
 
                 # MQTT
                 try:
-                    from src.device_driver.mqtt_driver import MQTTDriver
+                    from playsem.drivers.mqtt_driver import MQTTDriver
 
                     mqd = MQTTDriver(broker="localhost")
                     if hasattr(mqd, "get_capabilities"):

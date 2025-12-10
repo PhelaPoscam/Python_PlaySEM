@@ -4,10 +4,9 @@ import json
 import pytest
 from unittest.mock import Mock, AsyncMock
 
-from src.protocol_servers import WebSocketServer
-from src.effect_dispatcher import EffectDispatcher
-from src.device_manager import DeviceManager
-from src.effect_metadata import EffectMetadata
+from playsem.protocol_servers import WebSocketServer
+from playsem import EffectDispatcher, DeviceManager
+from playsem.effect_metadata import EffectMetadata
 
 
 @pytest.fixture

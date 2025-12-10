@@ -10,10 +10,9 @@ import logging
 from unittest.mock import Mock, MagicMock
 
 import paho.mqtt.client as mqtt
-from src.protocol_servers import MQTTServer
-from src.effect_dispatcher import EffectDispatcher
-from src.device_manager import DeviceManager
-from src.effect_metadata import EffectMetadata
+from playsem.protocol_servers import MQTTServer
+from playsem import EffectDispatcher, DeviceManager
+from playsem.effect_metadata import EffectMetadata
 
 logger = logging.getLogger(__name__)
 

@@ -1,4 +1,4 @@
-# src/timeline.py
+# playsem/timeline.py
 """
 Timeline scheduler for synchronized sensory effect rendering.
 
@@ -10,8 +10,8 @@ import time
 import threading
 from typing import List, Callable, Optional, Dict, Any
 from dataclasses import dataclass
-from src.effect_metadata import EffectMetadata, EffectTimeline
-from src.effect_dispatcher import EffectDispatcher
+from .effect_metadata import EffectMetadata, EffectTimeline
+from .effect_dispatcher import EffectDispatcher
 
 
 @dataclass

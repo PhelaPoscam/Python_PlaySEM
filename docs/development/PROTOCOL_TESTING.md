@@ -335,6 +335,148 @@ asyncio.run(test_all_protocols())
 
 ---
 
+---
+
+## GUI MQTT Connection (Auto-Start Feature)
+
+The PyQt6 GUI application now supports direct MQTT connection with automatic broker startup.
+
+### How It Works
+
+When connecting via MQTT protocol in the GUI:
+
+1. **Select MQTT Protocol**: Choose "MQTT" from the protocol dropdown in Connection Panel
+2. **Click Connect**: Triggers auto-start sequence:
+   - GUI sends WebSocket command to backend to start MQTT broker
+   - Backend creates embedded MQTT broker (amqtt/hbmqtt) on 127.0.0.1:1883
+   - GUI waits for confirmation (5-second timeout)
+   - GUI connects directly to MQTT broker on port 1883
+3. **Automatic Retries**: If broker is slow to start, MQTT protocol retries up to 5 times with 1-second delays
+
+### GUI MQTT Testing
+
+**Prerequisites**:
+- Backend server running: `python tools/test_server/main.py`
+- GUI application running: `python -m gui.app`
+
+**Testing Steps**:
+
+1. **Launch Backend** (Terminal 1):
+```bash
+cd tools/test_server
+python main.py
+```
+
+2. **Launch GUI** (Terminal 2):
+```bash
+cd /path/to/PythonPlaySEM
+python -m gui.app
+```
+
+3. **Connect via MQTT** in GUI:
+   - Connection Panel → Select "MQTT" protocol
+   - Click "Connect"
+   - Watch logs for auto-start messages:
+     ```
+     INFO: Connecting via mqtt to localhost:1883
+     INFO: MQTT requested: Auto-starting backend MQTT broker...
+     INFO: Sent MQTT broker start command to backend
+     INFO: MQTT broker started successfully on backend
+     INFO: MQTT connected
+     INFO: Connected: MQTT at localhost:1883
+     ```
+
+4. **Verify Connection**:
+   - Status should show "Connected"
+   - Device list should populate
+   - Should be able to send effects via MQTT topics
+
+### Auto-Start Mechanism
+
+**Code Location**: `gui/app_controller.py` - `_start_backend_mqtt_broker()` method
+
+**How It Auto-Starts**:
+1. Connects to backend WebSocket on port 8090
+2. Sends command: `{"type": "start_protocol_server", "protocol": "mqtt"}`
+3. Backend creates MQTTServer instance and starts broker
+4. Backend responds: `{"type": "protocol_status", "protocol": "mqtt", "running": true}`
+5. GUI validates response and waits 1 second for broker initialization
+6. Direct MQTT connection attempt proceeds
+
+**Fallback Behavior**:
+- If auto-start fails (backend unavailable), warning is logged
+- Direct connection attempt still made (might fail if no broker available)
+- MQTT protocol's retry logic handles timing issues (up to 5 attempts)
+
+### MQTT Topics (GUI)
+
+The GUI uses these MQTT topics for communication:
+
+- **`playsem/gui/request`**: GUI sends requests to backend
+- **`playsem/backend/response`**: Backend sends responses to GUI
+- **`playsem/backend/devices`**: Backend publishes device updates
+
+### Configuration
+
+**GUI MQTT Settings** (in Connection Panel):
+- **Host**: Backend IP address (default: localhost)
+- **Port**: MQTT broker port (default: 1883)
+- **Client ID**: Unique identifier for this GUI connection (optional)
+- **Username/Password**: Optional authentication (if enabled on broker)
+
+**Backend MQTT Broker** (automatically started):
+- Host: 127.0.0.1
+- Port: 1883
+- Broker: amqtt/hbmqtt
+- Topics: playsem/# (all topics under playsem/)
+
+### Troubleshooting GUI MQTT Connection
+
+**Issue**: "Connection refused" even after auto-start
+
+**Solutions**:
+1. Ensure backend is running: `python tools/test_server/main.py`
+2. Check WebSocket port: `netstat -an | findstr 8090` (Windows)
+3. Review logs for auto-start errors
+4. Verify amqtt is installed: `pip install amqtt`
+
+**Issue**: Auto-start times out (5-second timeout)
+
+**Solutions**:
+1. Check system resources (CPU, memory)
+2. Verify backend can start broker (no port conflicts on 1883)
+3. Check firewall isn't blocking WebSocket communication
+4. Try manual broker startup via backend's control interface
+
+**Issue**: Slow connection after auto-start
+
+**Solutions**:
+1. Normal behavior - MQTT broker needs ~1 second to initialize
+2. GUI waits 1 second after broker starts before connecting
+3. If very slow, check system resources
+4. Increase timeout in code if needed (default: 5 seconds)
+
+### Testing without GUI
+
+You can also test the MQTT broker that backend starts:
+
+```bash
+# After GUI connects (which starts broker), test with external client:
+mosquitto_sub -h localhost -p 1883 -t "playsem/#" -v
+
+# Or publish test message:
+mosquitto_pub -h localhost -p 1883 -t "playsem/test" -m "hello"
+```
+
+### Performance Notes
+
+- **Auto-start latency**: ~1 second (broker initialization + confirmation)
+- **Connection time**: <500ms once broker is running
+- **Retry delay**: 1 second between attempts, max 5 attempts
+- **Total worst-case**: ~6 seconds from click to connected
+
+---
+
 ## Next Steps
 
 - **Integrate with Mobile App**: Use MQTT or HTTP to connect mobile apps
@@ -342,3 +484,4 @@ asyncio.run(test_all_protocols())
 - **Network Discovery**: Use UPnP to auto-discover PlaySEM on the network
 - **Load Testing**: Test how many concurrent effects your system can handle
 - **Security**: Add authentication to protocol servers for production use
+- **GUI Testing**: Test all protocol types (WebSocket, HTTP, MQTT, CoAP) from GUI

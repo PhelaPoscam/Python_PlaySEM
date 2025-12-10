@@ -53,7 +53,7 @@ Issues = "https://github.com/PhelaPoscam/Python_PlaySEM/issues"
 playsem = "src.main:main"
 
 [tool.setuptools]
-packages = ["src", "src.device_driver"]
+packages = ["playsem", "playsem.config", "playsem.drivers", "src", "src.device_driver"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

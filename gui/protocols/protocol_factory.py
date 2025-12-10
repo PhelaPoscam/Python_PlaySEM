@@ -10,6 +10,7 @@ from typing import Dict, Type, Optional, Callable
 from .base_protocol import BaseProtocol
 from .websocket_protocol import WebSocketProtocol
 from .http_protocol import HTTPProtocol
+from .mqtt_protocol import MQTTProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,8 @@ class ProtocolFactory:
     _protocols: Dict[str, Type[BaseProtocol]] = {
         "websocket": WebSocketProtocol,
         "http": HTTPProtocol,
+        "mqtt": MQTTProtocol,
         # Future: Add more protocols
-        # "mqtt": MQTTProtocol,
         # "coap": CoAPProtocol,
     }
 

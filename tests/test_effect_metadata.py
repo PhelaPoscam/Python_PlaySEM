@@ -2,7 +2,8 @@
 
 import pytest
 import json
-from src.effect_metadata import (
+
+from playsem.effect_metadata import (
     EffectMetadata,
     EffectTimeline,
     EffectMetadataParser,

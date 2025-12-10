@@ -14,6 +14,8 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QGroupBox,
     QMessageBox,
+    QStackedWidget,
+    QCheckBox,
 )
 from PyQt6.QtCore import pyqtSignal
 
@@ -25,7 +27,9 @@ logger = logging.getLogger(__name__)
 class ConnectionPanel(QWidget):
     """Panel for connection configuration and management."""
 
-    connect_requested = pyqtSignal(str, str, int)  # protocol, host, port
+    connect_requested = pyqtSignal(
+        str, str, int, dict
+    )  # protocol, host, port, kwargs
     disconnect_requested = pyqtSignal()
 
     def __init__(self):
@@ -48,6 +52,9 @@ class ConnectionPanel(QWidget):
         protocols = ProtocolFactory.available_protocols()
         self.protocol_combo.addItems(protocols)
         self.protocol_combo.setCurrentText("websocket")
+        self.protocol_combo.currentTextChanged.connect(
+            self._on_protocol_changed
+        )
         protocol_layout.addWidget(self.protocol_combo)
         group_layout.addLayout(protocol_layout)
 
@@ -67,6 +74,13 @@ class ConnectionPanel(QWidget):
         self.port_spinbox.setValue(8090)
         port_layout.addWidget(self.port_spinbox)
         group_layout.addLayout(port_layout)
+
+        # Stacked widget for protocol-specific settings
+        self.protocol_stack = QStackedWidget()
+        self._setup_websocket_settings()
+        self._setup_http_settings()
+        self._setup_mqtt_settings()
+        group_layout.addWidget(self.protocol_stack)
 
         group.setLayout(group_layout)
         layout.addWidget(group)
@@ -103,11 +117,110 @@ class ConnectionPanel(QWidget):
             QMessageBox.warning(self, "Input Error", "Please enter a host")
             return
 
-        self.connect_requested.emit(protocol, host, port)
+        # Get protocol-specific kwargs
+        kwargs = {}
+        if protocol == "mqtt":
+            kwargs = {
+                "client_id": self.mqtt_client_id.text(),
+                "username": (
+                    self.mqtt_username.text()
+                    if self.mqtt_auth_checkbox.isChecked()
+                    else None
+                ),
+                "password": (
+                    self.mqtt_password.text()
+                    if self.mqtt_auth_checkbox.isChecked()
+                    else None
+                ),
+            }
+            # MQTT default port
+            if port == 8090:  # WebSocket default
+                port = 1883
+
+        self.connect_requested.emit(protocol, host, port, kwargs)
 
     def on_disconnect_clicked(self):
         """Handle disconnect button click."""
         self.disconnect_requested.emit()
+
+    def _on_protocol_changed(self, protocol_name: str):
+        """Switch protocol-specific panel when protocol changes."""
+        if protocol_name == "websocket":
+            self.protocol_stack.setCurrentIndex(0)
+            self.port_spinbox.setValue(8090)
+        elif protocol_name == "http":
+            self.protocol_stack.setCurrentIndex(1)
+            self.port_spinbox.setValue(8090)
+        elif protocol_name == "mqtt":
+            self.protocol_stack.setCurrentIndex(2)
+            self.port_spinbox.setValue(1883)
+
+    def _setup_websocket_settings(self):
+        """Setup WebSocket-specific settings panel."""
+        panel = QWidget()
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("No additional settings for WebSocket"))
+        layout.addStretch()
+        panel.setLayout(layout)
+        self.protocol_stack.addWidget(panel)
+
+    def _setup_http_settings(self):
+        """Setup HTTP-specific settings panel."""
+        panel = QWidget()
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("No additional settings for HTTP"))
+        layout.addStretch()
+        panel.setLayout(layout)
+        self.protocol_stack.addWidget(panel)
+
+    def _setup_mqtt_settings(self):
+        """Setup MQTT-specific settings panel."""
+        panel = QWidget()
+        layout = QVBoxLayout()
+
+        # Client ID
+        client_id_layout = QHBoxLayout()
+        client_id_layout.addWidget(QLabel("Client ID:"))
+        self.mqtt_client_id = QLineEdit("pythonplaysem_gui")
+        self.mqtt_client_id.setPlaceholderText("Unique MQTT client ID")
+        client_id_layout.addWidget(self.mqtt_client_id)
+        layout.addLayout(client_id_layout)
+
+        # Authentication checkbox
+        self.mqtt_auth_checkbox = QCheckBox("Enable Authentication")
+        self.mqtt_auth_checkbox.stateChanged.connect(
+            self._on_mqtt_auth_toggled
+        )
+        layout.addWidget(self.mqtt_auth_checkbox)
+
+        # Username
+        username_layout = QHBoxLayout()
+        username_layout.addWidget(QLabel("Username:"))
+        self.mqtt_username = QLineEdit()
+        self.mqtt_username.setPlaceholderText("Optional MQTT username")
+        self.mqtt_username.setVisible(False)
+        username_layout.addWidget(self.mqtt_username)
+        layout.addLayout(username_layout)
+
+        # Password
+        password_layout = QHBoxLayout()
+        password_layout.addWidget(QLabel("Password:"))
+        self.mqtt_password = QLineEdit()
+        self.mqtt_password.setPlaceholderText("Optional MQTT password")
+        self.mqtt_password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.mqtt_password.setVisible(False)
+        password_layout.addWidget(self.mqtt_password)
+        layout.addLayout(password_layout)
+
+        layout.addStretch()
+        panel.setLayout(layout)
+        self.protocol_stack.addWidget(panel)
+
+    def _on_mqtt_auth_toggled(self, state):
+        """Toggle MQTT authentication fields visibility."""
+        is_checked = self.mqtt_auth_checkbox.isChecked()
+        self.mqtt_username.setVisible(is_checked)
+        self.mqtt_password.setVisible(is_checked)
 
     def set_connected(self, connected: bool):
         """Update connection status display."""

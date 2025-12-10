@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import asyncio
 
-from src.device_driver.mock_driver import MockConnectivityDriver
-from src.protocol_servers import HTTPServer
+from playsem.drivers.mock_driver import MockConnectivityDriver
+from playsem.protocol_servers import HTTPServer
 
 
 class _FakeDeviceManager:

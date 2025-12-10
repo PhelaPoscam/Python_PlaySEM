@@ -1,9 +1,9 @@
-# src/effect_dispatcher.py
+# effect_dispatcher.py
 
 from typing import Dict, Any, Optional
-from src.device_manager import DeviceManager
-from src.config_loader import load_effects_yaml
-from src.effect_metadata import EffectMetadata
+from playsem.device_manager import DeviceManager
+from playsem.config.loader import load_effects_yaml
+from playsem.effect_metadata import EffectMetadata
 
 
 class EffectDispatcher:

@@ -4,12 +4,11 @@ A professional PyQt6-based desktop application for controlling sensory effects a
 
 ## Features
 
-✨ **Protocol-Agnostic Architecture**
+✨ **Multiple Communication Protocols**
 - WebSocket (included)
 - HTTP/REST (included)
-- MQTT (example implementation provided)
-- CoAP (example implementation provided)
-- Easily extensible - add your own protocols!
+- MQTT (included)
+- Easily extensible for other protocols
 
 🎮 **Device Management**
 - Real-time device discovery
@@ -187,6 +186,30 @@ See `gui/example_custom_protocols.py` for complete examples of:
 
 Edit `gui/ui/effect_panel.py` - the Effect Panel is fully customizable!
 
+## Protocols
+
+The GUI supports multiple communication protocols:
+
+- **WebSocket** (default: localhost:8090) - Real-time bidirectional
+- **HTTP/REST** (default: localhost:8090) - Request/response polling
+- **MQTT** (default: localhost:1883) - Pub/Sub messaging
+
+### Using MQTT
+
+1. Install broker: `pip install mosquitto`
+2. Start broker: `mosquitto -l 127.0.0.1 -p 1883`
+3. Launch GUI: `python -m gui.app`
+4. Select "mqtt" in Protocol dropdown and connect
+
+### Adding a New Protocol
+
+1. Create `gui/protocols/your_protocol.py` extending `BaseProtocol`
+2. Implement: `connect()`, `disconnect()`, `send()`, `listen()`
+3. Register in `gui/protocols/protocol_factory.py`
+4. (Optional) Create UI panel in `gui/ui/your_connection_panel.py`
+
+See `BaseProtocol` class for required interface.
+
 ## Troubleshooting
 
 **"Connection refused" error:**
@@ -197,28 +220,14 @@ Edit `gui/ui/effect_panel.py` - the Effect Panel is fully customizable!
 - Click "Scan Devices" button in Devices tab
 - Ensure devices are configured in `config/devices.yaml`
 
-**Protocol not available:**
-- Check if protocol library is installed
-- For MQTT: `pip install paho-mqtt`
-- For CoAP: `pip install aiocoap`
-
-## Performance Notes
-
-- WebSocket: Real-time bidirectional communication, lowest latency
-- HTTP: Polling-based, slightly higher latency (1s poll interval by default)
-- MQTT: Event-driven, good for distributed systems
-- CoAP: Lightweight, good for embedded devices
+**MQTT not showing in dropdown:**
+- Verify `paho-mqtt` is installed: `pip install paho-mqtt`
 
 ## Future Enhancements
 
 - [ ] Timeline player UI integration
 - [ ] Device simulator mode
-- [ ] Effect history/replay
-- [ ] Multi-connection support (multiple backends)
-- [ ] Configuration file management UI
-- [ ] Device capability display
-- [ ] Logging/monitoring panel
-- [ ] Profile save/load for effect presets
+- [ ] Multi-connection support
 - [ ] Bluetooth protocol support
 - [ ] Serial/USB protocol support
 

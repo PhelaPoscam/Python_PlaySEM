@@ -2,8 +2,8 @@
 import logging
 from typing import Dict, List, Any, Optional
 
-from .config_loader import ConfigLoader
-from .device_driver.base_driver import BaseDriver
+from playsem.config.loader import ConfigLoader
+from playsem.drivers.base_driver import BaseDriver
 
 logger = logging.getLogger(__name__)
 

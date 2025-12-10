@@ -2,7 +2,8 @@
 
 import pytest
 from unittest.mock import MagicMock
-from src.device_manager import DeviceManager
+
+from playsem import DeviceManager
 
 
 @pytest.fixture

@@ -21,7 +21,7 @@ from pathlib import Path
 # Make src importable
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.device_driver.serial_driver import SerialDriver
+from playsem.drivers.serial_driver import SerialDriver
 
 logging.basicConfig(
     level=logging.INFO,

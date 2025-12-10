@@ -109,8 +109,14 @@ For testing without real hardware:
 
 1. Go to **Connection** tab
 2. Click **Disconnect**
-3. Change protocol dropdown (WebSocket ↔ HTTP)
+3. Change protocol dropdown (WebSocket ↔ HTTP ↔ MQTT)
 4. Click **Connect**
+
+**MQTT Note**: When selecting MQTT protocol:
+- Auto-start feature automatically starts the backend MQTT broker
+- You'll see "MQTT requested: Auto-starting backend MQTT broker..." in logs
+- Connection proceeds automatically - no manual broker setup needed!
+- See `../development/PROTOCOL_TESTING.md` → "GUI MQTT Connection" for details
 
 ### Task 2: Send Multiple Effects
 

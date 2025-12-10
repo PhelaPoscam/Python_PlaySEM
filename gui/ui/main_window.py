@@ -95,11 +95,15 @@ class MainWindow(QMainWindow):
             on_error=self.on_error,
         )
 
-    @asyncSlot(str, str, int)
-    async def on_connect(self, protocol: str, host: str, port: int):
+    @asyncSlot(str, str, int, dict)
+    async def on_connect(
+        self, protocol: str, host: str, port: int, kwargs: dict
+    ):
         """Handle connection request."""
         try:
-            config = ConnectionConfig(protocol=protocol, host=host, port=port)
+            config = ConnectionConfig(
+                protocol=protocol, host=host, port=port, extra_options=kwargs
+            )
             await self.controller.connect(config)
         except Exception as e:
             logger.error(f"Connection failed: {e}")

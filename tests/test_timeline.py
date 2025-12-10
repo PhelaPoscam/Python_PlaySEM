@@ -3,9 +3,9 @@
 import pytest
 import time
 from unittest.mock import MagicMock
-from src.timeline import Timeline
-from src.effect_metadata import create_effect, create_timeline
-from src.effect_dispatcher import EffectDispatcher
+from playsem.timeline import Timeline
+from playsem.effect_metadata import create_effect, create_timeline
+from playsem import EffectDispatcher
 
 
 @pytest.fixture

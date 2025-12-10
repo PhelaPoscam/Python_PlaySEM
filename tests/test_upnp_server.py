@@ -8,9 +8,8 @@ import pytest
 from unittest.mock import Mock
 import aiohttp
 
-from src.protocol_servers import UPnPServer
-from src.effect_dispatcher import EffectDispatcher
-from src.device_manager import DeviceManager
+from playsem.protocol_servers import UPnPServer
+from playsem import EffectDispatcher, DeviceManager
 
 
 # --- Smoke test for UPNP ---

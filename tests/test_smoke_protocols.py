@@ -1,7 +1,8 @@
 import sys
-
-
+from pathlib import Path
 import pytest
+
+# Note: playsem is installed as a package, direct imports work
 
 
 @pytest.mark.smoke
@@ -9,7 +10,7 @@ def test_serial_driver_smoke(monkeypatch):
     """
     Smoke test: SerialDriver can be instantiated, connect, send, and disconnect (mocked).
     """
-    from src.device_driver import serial_driver
+    from playsem.drivers import serial_driver
 
     class DummySerial:
         def __init__(self, *a, **kw):
@@ -43,7 +44,7 @@ async def test_bluetooth_driver_smoke(monkeypatch):
     """
     Smoke test: BluetoothDriver can be instantiated and connect/disconnect (mocked).
     """
-    from src.device_driver import bluetooth_driver
+    from playsem.drivers import bluetooth_driver
 
     class DummyBleakClient:
         def __init__(self, *a, **kw):
@@ -67,7 +68,7 @@ async def test_bluetooth_driver_smoke(monkeypatch):
 @pytest.mark.smoke
 def test_serial_driver_smoke(monkeypatch):
     """Smoke test: SerialDriver can be instantiated, connect, send, and disconnect (mocked)."""
-    from src.device_driver import serial_driver
+    from playsem.drivers import serial_driver
 
     # Patch serial.Serial to a dummy class
     class DummySerial:
@@ -100,7 +101,7 @@ def test_serial_driver_smoke(monkeypatch):
 @pytest.mark.asyncio
 async def test_bluetooth_driver_smoke(monkeypatch):
     """Smoke test: BluetoothDriver can be instantiated and connect/disconnect (mocked)."""
-    from src.device_driver import bluetooth_driver
+    from playsem.drivers import bluetooth_driver
 
     # Patch BleakClient to a dummy async class
     class DummyBleakClient:
@@ -131,10 +132,10 @@ from unittest.mock import AsyncMock
 from pathlib import Path
 import sys
 
-# Add project root to path so examples.server.main can be found
+# Add project root to path so tools.test_server.main can be found
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from examples.server.main import ControlPanelServer
+from tools.test_server.main import ControlPanelServer
 
 
 @pytest.fixture

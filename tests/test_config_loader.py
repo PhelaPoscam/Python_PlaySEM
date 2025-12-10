@@ -1,6 +1,6 @@
 # tests/test_config_loader.py
 
-from src.config_loader import load_config, DeviceDefinition
+from playsem.config.loader import load_config, DeviceDefinition
 
 
 def test_load_config_minimal(tmp_path):
