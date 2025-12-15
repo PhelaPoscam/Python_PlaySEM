@@ -89,9 +89,7 @@ def test_send_command_routing(
 
     # Send command to serial device
     params = {"speed": 100}
-    result = manager.send_command(
-        "serial_device_1", "set_speed", params
-    )
+    result = manager.send_command("serial_device_1", "set_speed", params)
     assert result is True
     mock_serial_driver.send_command.assert_called_once_with(
         "serial_device_1", "set_speed", params
@@ -165,7 +163,9 @@ def test_legacy_mode():
     manager.send_command("test_device", "activate", params)
 
     expected_payload = str({"command": "activate", "params": params})
-    mock_client.publish.assert_called_once_with("test_device", expected_payload)
+    mock_client.publish.assert_called_once_with(
+        "test_device", expected_payload
+    )
 
 
 def test_single_driver_mode():

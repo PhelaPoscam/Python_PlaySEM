@@ -154,7 +154,7 @@ async def test_protocol_servers_mqtt_http_websocket(server):
         if call.args[0].get("type") == "effect_protocol_result"
         and call.args[0].get("protocol") == "mqtt"
     ]
-    
+
     # If no success message, at least the MQTT message was sent/attempted
     # This test validates the protocol dispatch works, even if MQTT needs more init time
     assert len(calls) > 0, "No messages were sent to websocket"

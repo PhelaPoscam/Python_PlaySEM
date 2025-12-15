@@ -40,14 +40,14 @@ async def test_websocket_connection(live_server):
     async with websockets.connect(ws_url) as websocket:
         # Connection is implicitly tested by the context manager
         # In newer websockets library, check connection state instead of .open attribute
-        assert websocket.state.name == 'OPEN'
+        assert websocket.state.name == "OPEN"
         # Send a ping and expect a pong (or at least no error)
         await websocket.send(json.dumps({"type": "ping"}))
         # The server may or may not send an explicit pong,
         # but the connection should remain open.
         # We'll just ensure we can close gracefully.
     # After exiting context manager, connection should be closed
-    assert websocket.state.name == 'CLOSED'
+    assert websocket.state.name == "CLOSED"
 
 
 async def test_device_discovery_via_websocket(live_server):

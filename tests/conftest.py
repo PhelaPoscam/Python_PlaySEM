@@ -37,7 +37,9 @@ def live_server():
         try:
             with httpx.Client() as client:
                 response = client.get(health_url)
-                if response.status_code == 200 and response.json() == {"status": "ok"}:
+                if response.status_code == 200 and response.json() == {
+                    "status": "ok"
+                }:
                     is_ready = True
                     break
         except httpx.RequestError:

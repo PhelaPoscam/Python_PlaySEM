@@ -43,9 +43,7 @@ def sample_effects_config():
 def dispatcher(mock_device_manager, sample_effects_config):
     """Fixture for an EffectDispatcher initialized with mock config."""
     # Patch load_effects_yaml to avoid file system access
-    with patch(
-        "playsem.effect_dispatcher.load_effects_yaml"
-    ) as mock_load:
+    with patch("playsem.effect_dispatcher.load_effects_yaml") as mock_load:
         mock_load.return_value = sample_effects_config
         # Initialize with a dummy path to trigger loading
         dispatcher = EffectDispatcher(mock_device_manager, "dummy/path.yaml")
@@ -61,7 +59,9 @@ def test_dispatch_effect_simple(dispatcher, mock_device_manager):
     )
 
 
-def test_dispatch_effect_with_parameter_mapping(dispatcher, mock_device_manager):
+def test_dispatch_effect_with_parameter_mapping(
+    dispatcher, mock_device_manager
+):
     """Test dispatching an effect with a mapped 'intensity' parameter."""
     dispatcher.dispatch_effect("light_on", {"intensity": "high"})
 
@@ -71,7 +71,9 @@ def test_dispatch_effect_with_parameter_mapping(dispatcher, mock_device_manager)
     )
 
 
-def test_dispatch_effect_with_default_parameter(dispatcher, mock_device_manager):
+def test_dispatch_effect_with_default_parameter(
+    dispatcher, mock_device_manager
+):
     """Test that a default parameter is used when none is provided."""
     # Dispatch 'light_on' without providing 'intensity'
     dispatcher.dispatch_effect("light_on", {})
@@ -91,7 +93,8 @@ def test_dispatch_unknown_effect(dispatcher):
 def test_dispatch_incomplete_effect_config(dispatcher):
     """Test that an effect with missing 'command' raises a ValueError."""
     with pytest.raises(
-        ValueError, match="Effect 'incomplete_effect' missing device or command"
+        ValueError,
+        match="Effect 'incomplete_effect' missing device or command",
     ):
         dispatcher.dispatch_effect("incomplete_effect", {})
 
@@ -109,7 +112,9 @@ def test_dispatch_effect_metadata(dispatcher, mock_device_manager):
     )
 
 
-def test_dispatch_effect_metadata_with_location(dispatcher, mock_device_manager):
+def test_dispatch_effect_metadata_with_location(
+    dispatcher, mock_device_manager
+):
     """Test that location from EffectMetadata is passed as a parameter."""
     effect = EffectMetadata(
         effect_type="fan_on",
@@ -126,7 +131,9 @@ def test_dispatch_effect_metadata_with_location(dispatcher, mock_device_manager)
 def test_dispatch_reconfigure_command(dispatcher, mock_device_manager):
     """Test the special 'reconfigure' effect type."""
     reconfig_data = {"device_manager": {"some_setting": "some_value"}}
-    effect = EffectMetadata(effect_type="reconfigure", parameters=reconfig_data)
+    effect = EffectMetadata(
+        effect_type="reconfigure", parameters=reconfig_data
+    )
 
     dispatcher.dispatch_effect_metadata(effect)
 
@@ -149,9 +156,7 @@ def test_get_supported_effects(dispatcher, sample_effects_config):
 def test_fallback_to_default_mappings(mock_device_manager):
     """Test that the dispatcher uses default mappings if config fails to load."""
     # Patch load_effects_yaml to simulate it failing
-    with patch(
-        "playsem.effect_dispatcher.load_effects_yaml"
-    ) as mock_load:
+    with patch("playsem.effect_dispatcher.load_effects_yaml") as mock_load:
         mock_load.side_effect = FileNotFoundError
         dispatcher = EffectDispatcher(mock_device_manager, "bad/path.yaml")
 
