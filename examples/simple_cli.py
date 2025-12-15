@@ -10,21 +10,51 @@ Usage:
 import asyncio
 import logging
 from pathlib import Path
+import cmd
 
 # Import from the playsem library
-from playsem import DeviceManager, EffectMetadata
+from playsem import DeviceManager
+from playsem.drivers import MockLightDevice
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def main():
-    """Run simple CLI demonstration."""
-    logger.info("🎮 PlaySEM Simple CLI Example")
-    logger.info("=" * 50)
+class SimpleCLI(cmd.Cmd):
+    """Simple command-line interface for PlaySEM."""
 
-    # Initialize device manager
-    logger.info("\n1️⃣  Initializing Device Manager...")
+    prompt = "(playsem) "
+    intro = "🎮 Welcome to the PlaySEM Simple CLI! Type help or ? to list commands.\n"
+
+    def __init__(self, manager):
+        super().__init__()
+        self.manager = manager
+
+    def do_list_devices(self, arg):
+        """List all available devices."""
+        logger.info("Available Devices:")
+        devices = self.manager.get_all_devices()
+        if not devices:
+            logger.info("   No devices found.")
+        for device in devices:
+            logger.info(f"   • {device.name} ({device.id}) - Type: {device.type}")
+
+    def do_a_thing(self, arg):
+        """Prints 'Doing a thing!'"""
+        print("Doing a thing!")
+
+    def do_quit(self, arg):
+        """Exit the CLI."""
+        print("👋 Goodbye!")
+        return True
+
+    def do_exit(self, arg):
+        """Exit the CLI."""
+        return self.do_quit(arg)
+
+
+async def initialize_manager():
+    """Initialize the device manager."""
     manager = DeviceManager()
 
     # Load configuration
@@ -40,55 +70,27 @@ async def main():
             "   Using mock devices for demonstration..."
         )
         # Fallback to mock devices
-        from playsem.drivers import MockLightDevice
-
         mock_device = MockLightDevice("mock_light_1", "Demo Light")
         await manager.add_device(mock_device)
+    return manager
 
-    # List available devices
-    logger.info("2️⃣  Available Devices:")
-    devices = manager.get_all_devices()
-    for device in devices:
-        logger.info(f"   • {device.name} ({device.id}) - Type: {device.type}")
 
-    if not devices:
-        logger.error("❌ No devices available")
-        return
+def main():
+    """Run simple CLI demonstration."""
+    logger.info("🎮 PlaySEM Simple CLI Example")
+    logger.info("=" * 50)
 
-    # Send test effect
-    logger.info("\n3️⃣  Sending Test Effects...")
-    target_device = devices[0]
+    # Initialize device manager
+    logger.info("\n1️⃣  Initializing Device Manager...")
+    manager = asyncio.run(initialize_manager())
 
-    effects_to_test = [
-        EffectMetadata(
-            effect_type="light", intensity=80, duration=1000, timestamp=0
-        ),
-        EffectMetadata(
-            effect_type="vibration", intensity=60, duration=500, timestamp=0
-        ),
-    ]
-
-    for effect in effects_to_test:
-        logger.info(
-            f"   📤 {effect.effect_type} (intensity={effect.intensity}) "
-            f"→ {target_device.name}"
-        )
-        success = await manager.send_effect(target_device.id, effect)
-        if success:
-            logger.info(f"      ✅ Effect delivered")
-        else:
-            logger.error(f"      ❌ Effect failed")
-
-        await asyncio.sleep(0.5)
-
-    logger.info("\n✨ Demo complete!")
-    logger.info(
-        "\n💡 Next steps:\n"
-        "   - Add your own devices to config/devices.yaml\n"
-        "   - Check examples/platform/ for full server\n"
-        "   - See docs/ for API documentation"
-    )
+    # Start the CLI
+    cli = SimpleCLI(manager)
+    try:
+        cli.cmdloop()
+    except KeyboardInterrupt:
+        print("\n👋 Goodbye!")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

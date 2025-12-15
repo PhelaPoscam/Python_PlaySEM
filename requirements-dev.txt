@@ -7,6 +7,10 @@ pytest-playwright
 pytest-timeout>=2.1.0
 pytest-cov
 playwright>=1.46.0
+httpx
+websockets
+uvicorn
+pyserial
 
 # Code quality
 black

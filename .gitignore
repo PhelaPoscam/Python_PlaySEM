@@ -71,6 +71,7 @@ temp_java_project/
 .gemini_temp/
 .qodo/
 .mypy_cache/
+GEMINI.md
 
 # Remove egg info
 pythonplaysem.egg-info/

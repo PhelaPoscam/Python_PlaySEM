@@ -275,13 +275,18 @@ class EffectService:
 
         ready = False
         if mqtt_server:
-            try:
-                await asyncio.wait_for(
-                    mqtt_server.wait_until_ready(), timeout=3.0
-                )
-                ready = bool(mqtt_server.internal_client)
-            except asyncio.TimeoutError:
-                print("[WARN] MQTT readiness timeout")
+            # Increase retries for MQTT readiness
+            for attempt in range(5):
+                try:
+                    await asyncio.wait_for(
+                        mqtt_server.wait_until_ready(), timeout=2.0
+                    )
+                    ready = bool(mqtt_server.internal_client)
+                    if ready:
+                        break
+                except asyncio.TimeoutError:
+                    print(f"[WARN] MQTT readiness timeout (attempt {attempt + 1}/5)")
+                    await asyncio.sleep(0.5)
 
         if not ready:
             raise Exception("MQTT server not ready")

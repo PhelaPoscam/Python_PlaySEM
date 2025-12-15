@@ -234,6 +234,11 @@ class ControlPanelServer:
             with open(path, "r", encoding="utf-8") as f:
                 return HTMLResponse(content=f.read())
 
+        @self.app.get("/health")
+        async def health_check():
+            """Health check endpoint for integration tests."""
+            return {"status": "ok"}
+
         @self.app.get("/mobile_device")
         async def get_mobile_device():
             """Serve the mobile device client HTML."""
@@ -1480,31 +1485,26 @@ class ControlPanelServer:
 
                 ready = False
                 if self.mqtt_server:
-                    try:
-                        await asyncio.wait_for(
-                            self.mqtt_server.wait_until_ready(), timeout=3.0
-                        )
-                        ready = bool(self.mqtt_server.internal_client)
-                        if ready:
-                            print(
-                                "[DEBUG] MQTT internal client is ready for publishing."
+                    # Increase timeout and add more retries
+                    for attempt in range(5):
+                        try:
+                            await asyncio.wait_for(
+                                self.mqtt_server.wait_until_ready(), timeout=2.0
                             )
-                    except asyncio.TimeoutError:
-                        print(
-                            "[WARN] MQTT readiness timeout; will retry publish"
-                        )
-                    except Exception as e:
-                        print(f"[WARN] MQTT readiness error: {e}")
-
-                # Backoff retries if not ready
-                attempts = 0
-                while not ready and attempts < 3 and self.mqtt_server:
-                    attempts += 1
-                    await asyncio.sleep(0.3 * attempts)
-                    ready = bool(self.mqtt_server.internal_client)
-                    print(
-                        f"[DEBUG] MQTT publish retry {attempts} ready={ready}"
-                    )
+                            ready = bool(self.mqtt_server.internal_client)
+                            if ready:
+                                print(
+                                    "[DEBUG] MQTT internal client is ready for publishing."
+                                )
+                                break
+                        except asyncio.TimeoutError:
+                            print(
+                                f"[WARN] MQTT readiness timeout (attempt {attempt + 1}/5); will retry"
+                            )
+                            await asyncio.sleep(0.5)
+                        except Exception as e:
+                            print(f"[WARN] MQTT readiness error: {e}")
+                            await asyncio.sleep(0.5)
 
                 if not ready:
                     raise Exception("MQTT server not ready after retries")
