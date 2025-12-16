@@ -202,8 +202,11 @@ class TestShutdownBehavior:
 
     @pytest.mark.asyncio
     async def test_shutdown_calls_os_exit(self, server):
-        """Test that shutdown calls os._exit(0) to force process termination."""
-        with patch("os._exit") as mock_exit:
+        """Test that shutdown calls os._exit(0) when PLAYSEM_FORCE_EXIT=1."""
+        with (
+            patch("os._exit") as mock_exit,
+            patch.dict("os.environ", {"PLAYSEM_FORCE_EXIT": "1"}),
+        ):
             await server._shutdown()
 
         # Verify os._exit was called with 0

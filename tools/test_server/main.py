@@ -189,10 +189,11 @@ class ControlPanelServer:
 
         print("[OK] Shutdown complete.")
 
-        # Force exit to kill any lingering threads
+        # Force exit to kill lingering threads only when explicitly requested
         import os
 
-        os._exit(0)
+        if os.environ.get("PLAYSEM_FORCE_EXIT") == "1":
+            os._exit(0)
 
     def _setup_routes(self):
         """Set up FastAPI routes."""
@@ -261,6 +262,11 @@ class ControlPanelServer:
                         "name": dev.name,
                         "type": dev.type,
                         "address": dev.address,
+                        "protocols": getattr(dev, "protocols", []),
+                        "capabilities": getattr(dev, "capabilities", []),
+                        "connection_mode": getattr(
+                            dev, "connection_mode", "unknown"
+                        ),
                         "uptime": time.time() - dev.connected_at,
                     }
                     for dev in self.devices.values()
@@ -1489,7 +1495,8 @@ class ControlPanelServer:
                     for attempt in range(5):
                         try:
                             await asyncio.wait_for(
-                                self.mqtt_server.wait_until_ready(), timeout=2.0
+                                self.mqtt_server.wait_until_ready(),
+                                timeout=2.0,
                             )
                             ready = bool(self.mqtt_server.internal_client)
                             if ready:
