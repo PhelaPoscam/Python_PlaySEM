@@ -81,14 +81,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from tools.test_server.main import ControlPanelServer
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def server():
     return ControlPanelServer()
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def client(server):
-    return TestClient(server.app)
+    with TestClient(server.app) as client:
+        yield client
 
 
 @pytest.mark.smoke

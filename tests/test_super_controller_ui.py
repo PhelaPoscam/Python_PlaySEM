@@ -16,9 +16,10 @@ def test_app():
     return server.app
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def client(test_app):
-    return TestClient(test_app)
+    with TestClient(test_app) as client:
+        yield client
 
 
 def test_super_controller_route_serves_html(client):

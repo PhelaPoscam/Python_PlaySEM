@@ -14,16 +14,25 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from tools.test_server.main import ControlPanelServer
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def server():
     """Create a control panel server instance."""
     return ControlPanelServer()
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def client(server):
     """Create a test client."""
-    return TestClient(server.app)
+    with TestClient(server.app) as client:
+        yield client
+
+
+@pytest.fixture(autouse=True)
+def clear_devices(server):
+    """Clear devices before each test to avoid state pollution."""
+    server.devices.clear()
+    server.clients.clear()
+    yield
 
 
 class TestDeviceRegistration:
