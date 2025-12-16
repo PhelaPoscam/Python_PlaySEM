@@ -31,6 +31,10 @@ class ConnectionPanel(QWidget):
         str, str, int, dict
     )  # protocol, host, port, kwargs
     disconnect_requested = pyqtSignal()
+    mqtt_broker_requested = pyqtSignal(str, int)  # host, ws_port
+    protocol_server_requested = pyqtSignal(
+        str, str, str
+    )  # action (start/stop), protocol, host
 
     def __init__(self):
         super().__init__()
@@ -81,6 +85,55 @@ class ConnectionPanel(QWidget):
         self._setup_http_settings()
         self._setup_mqtt_settings()
         group_layout.addWidget(self.protocol_stack)
+
+        # MQTT broker control (uses WebSocket control plane)
+        broker_layout = QHBoxLayout()
+        self.mqtt_broker_button = QPushButton(
+            "Start MQTT broker (via WS 8090)"
+        )
+        self.mqtt_broker_button.clicked.connect(self.on_start_mqtt_broker)
+        broker_layout.addWidget(self.mqtt_broker_button)
+        self.mqtt_status_label = QLabel("MQTT broker: unknown")
+        broker_layout.addWidget(self.mqtt_status_label)
+        group_layout.addLayout(broker_layout)
+
+        # Protocol servers control panel
+        servers_layout = QVBoxLayout()
+        servers_label = QLabel("Protocol Servers:")
+        servers_label.setStyleSheet("font-weight: bold;")
+        servers_layout.addWidget(servers_label)
+
+        # CoAP, UPnP, HTTP server buttons
+        for protocol_name in ["coap", "upnp", "http"]:
+            proto_layout = QHBoxLayout()
+            start_btn = QPushButton(f"Start {protocol_name.upper()}")
+            stop_btn = QPushButton(f"Stop {protocol_name.upper()}")
+            status_label = QLabel(f"{protocol_name.upper()}: off")
+            status_label.setStyleSheet("color: red;")
+
+            start_btn.clicked.connect(
+                lambda checked, p=protocol_name: self.on_start_protocol_server(
+                    p
+                )
+            )
+            stop_btn.clicked.connect(
+                lambda checked, p=protocol_name: self.on_stop_protocol_server(
+                    p
+                )
+            )
+
+            proto_layout.addWidget(start_btn)
+            proto_layout.addWidget(stop_btn)
+            proto_layout.addWidget(status_label)
+
+            servers_layout.addLayout(proto_layout)
+
+            # Store references for status updates
+            setattr(self, f"{protocol_name}_start_btn", start_btn)
+            setattr(self, f"{protocol_name}_stop_btn", stop_btn)
+            setattr(self, f"{protocol_name}_status_label", status_label)
+
+        group_layout.addLayout(servers_layout)
 
         group.setLayout(group_layout)
         layout.addWidget(group)
@@ -142,6 +195,46 @@ class ConnectionPanel(QWidget):
     def on_disconnect_clicked(self):
         """Handle disconnect button click."""
         self.disconnect_requested.emit()
+
+    def on_start_mqtt_broker(self):
+        """Trigger backend MQTT broker start via WebSocket control."""
+        host = self.host_input.text().strip() or "127.0.0.1"
+        self.mqtt_broker_requested.emit(host, 8090)
+
+    def on_start_protocol_server(self, protocol: str):
+        """Trigger backend protocol server start."""
+        host = self.host_input.text().strip() or "127.0.0.1"
+        self.protocol_server_requested.emit("start", protocol, host)
+
+    def on_stop_protocol_server(self, protocol: str):
+        """Trigger backend protocol server stop."""
+        host = self.host_input.text().strip() or "127.0.0.1"
+        self.protocol_server_requested.emit("stop", protocol, host)
+
+    def set_mqtt_status(self, text: str, color: str = "gray"):
+        """Update MQTT broker status label."""
+        self.mqtt_status_label.setText(text)
+        color_map = {
+            "green": "#4CAF50",
+            "red": "#F44336",
+            "orange": "#FF9800",
+            "gray": "#999999",
+        }
+        self.mqtt_status_label.setStyleSheet(
+            f"color: {color_map.get(color, color)};"
+        )
+
+    def set_protocol_status(self, protocol: str, running: bool):
+        """Update protocol server status label."""
+        status_label = getattr(self, f"{protocol}_status_label", None)
+        if status_label:
+            color = "green" if running else "red"
+            text = f"{protocol.upper()}: {'on' if running else 'off'}"
+            status_label.setText(text)
+            color_map = {"green": "#4CAF50", "red": "#F44336"}
+            status_label.setStyleSheet(
+                f"color: {color_map.get(color, 'red')};"
+            )
 
     def _on_protocol_changed(self, protocol_name: str):
         """Switch protocol-specific panel when protocol changes."""

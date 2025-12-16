@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QMessageBox,
     QTabWidget,
+    QListWidget,
 )
 from PyQt6.QtCore import pyqtSignal, QObject
 from qasync import asyncSlot
@@ -64,6 +65,12 @@ class MainWindow(QMainWindow):
         self.connection_panel = ConnectionPanel()
         self.connection_panel.connect_requested.connect(self.on_connect)
         self.connection_panel.disconnect_requested.connect(self.on_disconnect)
+        self.connection_panel.mqtt_broker_requested.connect(
+            self.on_start_mqtt_broker
+        )
+        self.connection_panel.protocol_server_requested.connect(
+            self.on_protocol_server_requested
+        )
         tabs.addTab(self.connection_panel, "Connection")
 
         # Device panel
@@ -76,6 +83,11 @@ class MainWindow(QMainWindow):
         self.effect_panel = EffectPanel()
         self.effect_panel.effect_sent.connect(self.on_send_effect)
         tabs.addTab(self.effect_panel, "Effects")
+
+        # Effect history
+        self.effect_history = QListWidget()
+        self.effect_history.setMinimumHeight(120)
+        layout.addWidget(self.effect_history)
 
         layout.addWidget(tabs)
 
@@ -117,6 +129,21 @@ class MainWindow(QMainWindow):
         except Exception as e:
             logger.error(f"Disconnection failed: {e}")
             self.on_error(str(e))
+
+    @asyncSlot(str, int)
+    async def on_start_mqtt_broker(self, host: str, ws_port: int):
+        """Handle request to start backend MQTT broker via WebSocket control plane."""
+        self.connection_panel.set_mqtt_status(
+            "Starting MQTT broker...", "orange"
+        )
+        ok = await self.controller.start_mqtt_broker(host, ws_port)
+        if ok:
+            self.connection_panel.set_mqtt_status(
+                "MQTT broker running", "green"
+            )
+            self.status_widget.update_info("MQTT broker started")
+        else:
+            self.connection_panel.set_mqtt_status("MQTT broker failed", "red")
 
     @asyncSlot(dict)
     async def on_send_effect(self, effect_data: dict):
@@ -170,12 +197,58 @@ class MainWindow(QMainWindow):
         effect_type = effect_data.get("effect_type", "unknown")
         self.status_widget.update_info(f"Sent: {effect_type}")
         logger.info(f"Effect sent: {effect_type}")
+        summary = f"{effect_type} -> {effect_data.get('device_id', 'unknown')}"
+        self.effect_history.addItem(summary)
 
     def on_error(self, error_msg: str):
         """Error occurred."""
         self.status_widget.set_status("Error", "orange")
         logger.error(f"Application error: {error_msg}")
         QMessageBox.warning(self, "Error", error_msg)
+
+    @asyncSlot(str, int)
+    async def on_start_mqtt_broker(self, host: str, ws_port: int):
+        """Handle request to start backend MQTT broker via WebSocket control plane."""
+        self.connection_panel.set_mqtt_status(
+            "Starting MQTT broker...", "orange"
+        )
+        ok = await self.controller.start_mqtt_broker(host, ws_port)
+        if ok:
+            self.connection_panel.set_mqtt_status(
+                "MQTT broker running", "green"
+            )
+            self.status_widget.update_info("MQTT broker started")
+        else:
+            self.connection_panel.set_mqtt_status("MQTT broker failed", "red")
+
+    @asyncSlot(str, str, str)
+    async def on_protocol_server_requested(
+        self, action: str, protocol: str, host: str
+    ):
+        """Handle start/stop protocol server request."""
+        if action == "start":
+            self.connection_panel.set_protocol_status(protocol, False)
+            ok = await self.controller.start_protocol_server(
+                protocol, host, 8090
+            )
+            if ok:
+                self.connection_panel.set_protocol_status(protocol, True)
+                self.status_widget.update_info(
+                    f"{protocol.upper()} server started"
+                )
+            else:
+                self.connection_panel.set_protocol_status(protocol, False)
+        elif action == "stop":
+            ok = await self.controller.stop_protocol_server(
+                protocol, host, 8090
+            )
+            if ok:
+                self.connection_panel.set_protocol_status(protocol, False)
+                self.status_widget.update_info(
+                    f"{protocol.upper()} server stopped"
+                )
+            else:
+                self.connection_panel.set_protocol_status(protocol, True)
 
     def closeEvent(self, event):
         """Handle window close event."""

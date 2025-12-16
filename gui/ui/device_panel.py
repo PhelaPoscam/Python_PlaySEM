@@ -75,12 +75,18 @@ class DevicePanel(QWidget):
             device_id = device.get("id", "unknown")
             device_name = device.get("name", "Unknown Device")
             device_type = device.get("type", "").capitalize()
+            protocols = ", ".join(device.get("protocols", [])) or "unknown"
+            capabilities = (
+                ", ".join(device.get("capabilities", [])) or "unknown"
+            )
 
-            # Create display text
-            text = f"{device_name} ({device_type})"
+            text = f"{device_name} ({device_type}) | {protocols}"
 
             item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, device_id)
+            item.setToolTip(
+                f"ID: {device_id}\nProtocols: {protocols}\nCapabilities: {capabilities}"
+            )
             self.device_list.addItem(item)
 
         # Update info

@@ -21,14 +21,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Add project root to path
-PROJECT_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
+# Expect `playsem` to be installed (e.g., `pip install -e .`).
 
 
 def main():
     """Main entry point for the GUI application."""
-    from gui.ui import MainWindow
+    try:
+        from gui.ui import MainWindow
+    except ModuleNotFoundError:
+        # Fallback for editable/local runs if package is not installed yet.
+        PROJECT_ROOT = Path(__file__).parent.parent
+        sys.path.insert(0, str(PROJECT_ROOT))
+        from gui.ui import MainWindow
 
     logger.info("Starting PythonPlaySEM GUI Application")
 

@@ -38,6 +38,10 @@ class AppController:
         self.config: Optional[ConnectionConfig] = None
         self.devices: Dict[str, Any] = {}
         self.is_running = False
+        self.mqtt_broker_running = False
+        self.coap_server_running = False
+        self.upnp_server_running = False
+        self.http_server_running = False
 
         # Callbacks for UI updates
         self.on_connected: Optional[Callable] = None
@@ -45,6 +49,7 @@ class AppController:
         self.on_device_list_updated: Optional[Callable] = None
         self.on_effect_sent: Optional[Callable] = None
         self.on_error: Optional[Callable] = None
+        self.on_server_status_changed: Optional[Callable] = None
 
     def set_callbacks(
         self,
@@ -103,6 +108,8 @@ class AppController:
                         "Failed to auto-start MQTT broker, will try direct "
                         "connection..."
                     )
+                else:
+                    self.mqtt_broker_running = True
 
             # Create protocol instance
             self.protocol = ProtocolFactory.create(
@@ -136,6 +143,80 @@ class AppController:
             logger.error(f"Connection failed: {e}")
             if self.on_error:
                 self.on_error(str(e))
+            return False
+
+    async def start_mqtt_broker(
+        self, host: str = "127.0.0.1", ws_port: int = 8090
+    ) -> bool:
+        """Attempt to start the backend MQTT broker via WebSocket control."""
+        result = await self._start_backend_mqtt_broker(host, ws_port)
+        self.mqtt_broker_running = result
+        if self.on_server_status_changed:
+            self.on_server_status_changed("mqtt", result)
+        if not result and self.on_error:
+            self.on_error("Failed to start MQTT broker on backend")
+        return result
+
+    async def start_protocol_server(
+        self, protocol: str, host: str = "127.0.0.1", ws_port: int = 8090
+    ) -> bool:
+        """Start a protocol server (coap, upnp, http) via WebSocket control."""
+        try:
+            if not self.protocol or not self.protocol.is_connected:
+                raise ConnectionError("Not connected to backend")
+
+            message = {"type": "start_protocol_server", "protocol": protocol}
+            if await self.protocol.send(message):
+                # Mark as running (best-effort; may need response validation)
+                if protocol == "coap":
+                    self.coap_server_running = True
+                elif protocol == "upnp":
+                    self.upnp_server_running = True
+                elif protocol == "http":
+                    self.http_server_running = True
+                if self.on_server_status_changed:
+                    self.on_server_status_changed(protocol, True)
+                logger.info(f"{protocol.upper()} server started")
+                return True
+            else:
+                raise RuntimeError(
+                    f"Failed to send start command for {protocol}"
+                )
+        except Exception as e:
+            logger.error(f"Error starting {protocol} server: {e}")
+            if self.on_error:
+                self.on_error(f"Failed to start {protocol}: {e}")
+            return False
+
+    async def stop_protocol_server(
+        self, protocol: str, host: str = "127.0.0.1", ws_port: int = 8090
+    ) -> bool:
+        """Stop a protocol server via WebSocket control."""
+        try:
+            if not self.protocol or not self.protocol.is_connected:
+                raise ConnectionError("Not connected to backend")
+
+            message = {"type": "stop_protocol_server", "protocol": protocol}
+            if await self.protocol.send(message):
+                # Mark as not running
+                if protocol == "coap":
+                    self.coap_server_running = False
+                elif protocol == "upnp":
+                    self.upnp_server_running = False
+                elif protocol == "http":
+                    self.http_server_running = False
+                if self.on_server_status_changed:
+                    self.on_server_status_changed(protocol, False)
+                logger.info(f"{protocol.upper()} server stopped")
+                return True
+            else:
+                raise RuntimeError(
+                    f"Failed to send stop command for {protocol}"
+                )
+        except Exception as e:
+            logger.error(f"Error stopping {protocol} server: {e}")
+            if self.on_error:
+                self.on_error(f"Failed to stop {protocol}: {e}")
             return False
 
     async def _start_backend_mqtt_broker(
