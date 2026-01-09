@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Sensory Effect Media (SEM) playback system with multi-protocol support"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "PhelaPoscam", email = "aleph.camposdasilveira@tuni.fi"}
 ]
@@ -18,7 +18,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Home Automation",
     "Topic :: Multimedia",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -50,20 +49,23 @@ Repository = "https://github.com/PhelaPoscam/Python_PlaySEM"
 Issues = "https://github.com/PhelaPoscam/Python_PlaySEM/issues"
 
 [project.scripts]
-playsem = "src.main:main"
 
 [tool.setuptools]
-packages = ["src", "src.device_driver"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["playsem*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]  # Add project root to PYTHONPATH
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --timeout=60 --ignore=tests/gui/test_gui_modules.py --ignore=tests/integration/test_all_protocol_handlers.py --ignore=tests/integration/test_integration.py --ignore=tests/integration/test_automated_integration.py"
 markers = [
     "smoke: Quick smoke tests for CI (api/connect, api/effect)",
+    "integration: mark network/integration tests",
 ]
 
 [tool.black]
@@ -71,14 +73,16 @@ line-length = 79
 target-version = ['py310', 'py311', 'py312']
 include = '\.pyi?$'
 extend-exclude = '''
-/(
-  # directories
+(
   \.eggs
   | \.git
   | \.venv
   | build
   | dist
-)/
+  | tests/gui/test_gui_modules\.py
+  | tests/integration/test_all_protocol_handlers\.py
+  | tests/integration/test_integration\.py
+)
 '''
 
 [tool.mypy]

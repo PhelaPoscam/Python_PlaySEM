@@ -185,11 +185,75 @@ All other protocols work with existing dependencies:
 3. **Device Discovery**: Currently manual via WebSocket registration
 4. **Serial Devices**: Still require virtual serial setup (see SERIAL_TESTING_GUIDE.md)
 
+---
+
+## ✅ 4. GUI MQTT Auto-Start - Implemented
+
+**Feature:** PyQt6 GUI can now connect directly to MQTT with automatic broker startup
+
+**What Was Done:**
+
+1. **Created MQTT Protocol Handler** (`gui/protocols/mqtt_protocol.py`)
+   - Extends `BaseProtocol` abstract class
+   - Uses `paho-mqtt` library
+   - Implements connect/disconnect/send/listen/status methods
+   - Includes 5-retry logic with 1-second delays
+   - Subscribes to: `playsem/gui/request`, `playsem/backend/response`, `playsem/backend/devices`
+
+2. **Added Auto-Start Mechanism** (`gui/app_controller.py`)
+   - New method: `_start_backend_mqtt_broker()`
+   - When MQTT protocol selected, auto-starts backend broker via WebSocket
+   - Connects to backend's WebSocket on port 8090
+   - Sends: `{"type": "start_protocol_server", "protocol": "mqtt"}`
+   - Waits for broker confirmation (5-second timeout)
+   - Gracefully falls back to direct connection if auto-start fails
+
+3. **Integrated with GUI** 
+   - Added MQTT panel to Connection Panel (host, port, client ID, auth settings)
+   - Updated MainWindow to accept protocol-specific kwargs
+   - Registered MQTT in ProtocolFactory
+   - StackedWidget properly switches between protocol panels
+
+**How It Works:**
+
+```
+User → Select MQTT → Click Connect
+  ↓
+GUI sends: ws://backend:8090/ws → {"type": "start_protocol_server", "protocol": "mqtt"}
+  ↓
+Backend creates MQTTServer on 127.0.0.1:1883
+  ↓
+Backend responds: {"type": "protocol_status", "protocol": "mqtt", "running": true}
+  ↓
+GUI waits 1 second for broker initialization
+  ↓
+GUI connects directly to localhost:1883
+  ↓
+Connection succeeds (with retries if needed)
+```
+
+**Key Benefits:**
+- ✅ Zero-configuration: No manual broker startup required
+- ✅ Fault-tolerant: Multiple retry mechanisms
+- ✅ Backward compatible: Other protocols unaffected
+- ✅ Extensible: Pattern reusable for CoAP, UPnP auto-start
+
+**Testing:**
+1. Start backend: `python tools/test_server/main.py`
+2. Start GUI: `python -m gui.app`
+3. Select MQTT protocol
+4. Click Connect
+5. Observe logs for auto-start messages
+
+See `PROTOCOL_TESTING.md` → "GUI MQTT Connection (Auto-Start Feature)" for detailed testing guide.
+
 ## Next Steps
 
-- ✅ All protocols now functional
+- ✅ All protocols now functional (including GUI MQTT)
 - ✅ Device registration working
 - ✅ Multi-protocol testing enabled
+- ✅ GUI MQTT auto-start implemented
 - Consider: Auto-discovery for serial devices
 - Consider: CoAP service discovery
 - Consider: UPnP SSDP discovery
+- Consider: Pre-start all protocol servers on backend launch (optional config)

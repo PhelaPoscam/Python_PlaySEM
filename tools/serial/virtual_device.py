@@ -24,12 +24,8 @@ import sys
 import time
 import logging
 import threading
-from pathlib import Path
 from typing import Optional
 import platform
-
-# Make src importable
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
     import serial
@@ -488,7 +484,7 @@ def main():
     print("Virtual device is running!")
     print("=" * 60)
     print(f"\nConnect from another terminal/script:")
-    print(f"  from src.device_driver import SerialDriver")
+    print(f"  from playsem.drivers import SerialDriver")
     print(f"  driver = SerialDriver(port='{device_port}', baudrate=9600)")
     print(f"  driver.open_connection()")
     print(f"  driver.send_command('PING')")

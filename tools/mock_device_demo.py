@@ -1,137 +1,84 @@
-#!/usr/bin/env python3
 """
-Simple example demonstrating mock sensory effect devices.
-Run this to test the PythonPlaySEM framework without hardware.
+Demonstration of the MockConnectivityDriver for testing without hardware.
 """
+<<<<<<< HEAD
+import sys
+from pathlib import Path
+import logging
+
+# Make src importable
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+=======
 
 import logging
 import time
-import sys
-from pathlib import Path
+>>>>>>> refactor/modular-server
 
-# Add parent directory to path to import src modules
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from playsem.drivers.mock_driver import MockConnectivityDriver, MockLightDevice
 
-from src.device_driver import (
-    MockLightDevice,
-    MockWindDevice,
-    MockVibrationDevice,
-    MockScentDevice,
-)
-
-# Configure logging to see device output
+# Configure logging to see the output from the mock driver
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(asctime)s - [%(levelname)s] %(name)s - %(message)s",
+    datefmt="%H:%M:%S",
 )
 
+def main():
+    """
+    Demonstrates how to use the MockConnectivityDriver and a MockLightDevice.
+    """
+    print("\n" + "=" * 60)
+    print("🔌 Mock Driver Demo")
+    print("=" * 60)
 
-def demo_light_effects():
-    """Demonstrate light device effects."""
-    print("\n=== Light Effects Demo ===")
-    light = MockLightDevice("living_room_light")
+    # 1. Initialize the MockConnectivityDriver
+    # This driver doesn't connect to any real hardware. It just logs commands.
+    print("\n1. Creating MockConnectivityDriver...")
+    mock_driver = MockConnectivityDriver()
+    mock_driver.connect()
 
-    # Brightness control
-    light.set_brightness(128)
-    time.sleep(0.5)
+    # 2. Create a mock device
+    # This simulates a specific piece of hardware, like a smart light.
+    # We give it a unique ID.
+    light_device_id = "mock-light-01"
+    print(f"\n2. Creating a MockLightDevice with ID: '{light_device_id}'...")
+    mock_light = MockLightDevice(device_id=light_device_id)
 
-    # Color changes
-    light.set_color(255, 0, 0)  # Red
-    time.sleep(0.5)
-    light.set_color(0, 255, 0)  # Green
-    time.sleep(0.5)
-    light.set_color(0, 0, 255)  # Blue
-    time.sleep(0.5)
+    # 3. Register the mock device with the driver
+    # This tells the driver to forward commands for this ID to our mock light object.
+    print(f"\n3. Registering '{light_device_id}' with the driver...")
+    mock_driver.register_device(device_id=light_device_id, device_obj=mock_light)
 
-    # Reset
-    light.reset()
+    # 4. Check the initial state of the mock light
+    print("\n4. Checking initial state of the light...")
+    initial_state = mock_light.get_state()
+    print(f"   - Initial state: {initial_state}")
 
+    # 5. Send a command to the mock light via the driver
+    # We'll tell the light to turn red.
+    print("\n5. Sending 'set_color' command to the light...")
+    command_params = {"r": 255, "g": 0, "b": 0}
+    mock_driver.send_command(
+        device_id=light_device_id,
+        command="set_color",
+        params=command_params
+    )
 
-def demo_wind_effects():
-    """Demonstrate wind device effects."""
-    print("\n=== Wind Effects Demo ===")
-    fan = MockWindDevice("desk_fan")
+    # 6. Check the final state of the mock light
+    # The state should now be updated with the color we sent.
+    print("\n6. Checking final state of the light...")
+    final_state = mock_light.get_state()
+    print(f"   - Final state: {final_state}")
 
-    # Speed control
-    fan.set_speed(25)  # Gentle breeze
-    time.sleep(0.5)
-    fan.set_speed(75)  # Strong wind
-    time.sleep(0.5)
+    if final_state["r"] == 255 and final_state["g"] == 0 and final_state["b"] == 0:
+        print("\n✅ Success! The mock light state was updated correctly.")
+    else:
+        print("\n❌ Failure! The mock light state was not updated correctly.")
 
-    # Direction
-    fan.set_direction("reverse")
-    time.sleep(0.5)
-
-    # Reset
-    fan.reset()
-
-
-def demo_vibration_effects():
-    """Demonstrate vibration device effects."""
-    print("\n=== Vibration Effects Demo ===")
-    vibrator = MockVibrationDevice("chair_haptic")
-
-    # Intensity control
-    vibrator.set_intensity(50)
-    vibrator.set_duration(1000)
-    time.sleep(0.5)
-
-    # Stronger vibration
-    vibrator.set_intensity(100)
-    vibrator.set_duration(500)
-    time.sleep(0.5)
-
-    # Reset
-    vibrator.reset()
-
-
-def demo_scent_effects():
-    """Demonstrate scent device effects."""
-    print("\n=== Scent Effects Demo ===")
-    diffuser = MockScentDevice("scent_diffuser")
-
-    # Activate different scents
-    diffuser.set_scent("rose", 75)
-    time.sleep(0.5)
-    diffuser.set_scent("ocean", 50)
-    time.sleep(0.5)
-
-    # Stop scent
-    diffuser.stop_scent()
-    time.sleep(0.5)
-
-    # Reset
-    diffuser.reset()
-
-
-def demo_generic_commands():
-    """Demonstrate generic command interface."""
-    print("\n=== Generic Command Interface Demo ===")
-
-    light = MockLightDevice("rgb_strip")
-    light.send_command("set_brightness", {"brightness": 200})
-    light.send_command("set_color", {"r": 255, "g": 128, "b": 0})
-
-    fan = MockWindDevice("ceiling_fan")
-    fan.send_command("set_speed", {"speed": 60})
-
-    print(f"\nLight state: {light.get_state()}")
-    print(f"Fan state: {fan.get_state()}")
+    print("\n" + "=" * 60)
+    print("✅ Mock driver demo complete!")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
-    print("PythonPlaySEM Mock Device Demo")
-    print("=" * 50)
-
-    demo_light_effects()
-    demo_wind_effects()
-    demo_vibration_effects()
-    demo_scent_effects()
-    demo_generic_commands()
-
-    print("\n" + "=" * 50)
-    print("Demo completed successfully!")
-    print("\nNext steps:")
-    print("  - Check config/devices.yaml for device registry")
-    print("  - Check config/effects.yaml for effect mappings")
-    print("  - Run 'pytest' to execute unit tests")
+    main()

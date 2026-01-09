@@ -12,14 +12,9 @@ Usage:
 2. Run this client: python examples/test_mqtt_client_public.py
 """
 
-import sys
 import time
 import json
-from pathlib import Path
 import paho.mqtt.client as mqtt
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 def main():

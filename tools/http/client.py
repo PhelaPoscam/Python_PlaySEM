@@ -12,12 +12,7 @@ Run:
   python examples/clients/test_http_client.py
 """
 
-import sys
 import time
-from pathlib import Path
-
-# Make src importable
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import requests  # noqa: E402
 

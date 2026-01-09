@@ -25,7 +25,7 @@ MANIFEST
 
 # Virtual Environment
 .venv/
-venv/
+virtualenv/
 ENV/
 env/
 
@@ -42,6 +42,7 @@ env/
 htmlcov/
 .tox/
 .hypothesis/
+coverage.xml
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -70,10 +71,18 @@ temp_java_project/
 .gemini_temp/
 .qodo/
 .mypy_cache/
+GEMINI.md
 
 # Remove egg info
 pythonplaysem.egg-info/
-# Archive temp java project\narchive/temp_java_project*\n
+# Archive temp java project
+archive/temp_java_project*
 # Backups created by maintenance tasks
 archive_backups/
 server.err
+# Phase 3D: Spring Cleaning
+legacy_backup/
+tests/unit/__pycache__/
+tests/integration/__pycache__/
+tests/gui/__pycache__/
+tests/protocols/__pycache__/

@@ -15,17 +15,12 @@ Send test effect (from another terminal):
   python examples/test_coap_client.py
 """
 
-import sys
 import asyncio
 import logging
-from pathlib import Path
 
-# Make src importable
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from src.device_manager import DeviceManager  # noqa: E402
-from src.effect_dispatcher import EffectDispatcher  # noqa: E402
-from src.protocol_servers import CoAPServer  # noqa: E402
+from playsem.device_manager import DeviceManager  # noqa: E402
+from playsem.effect_dispatcher import EffectDispatcher  # noqa: E402
+from playsem.protocol_servers import CoAPServer  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,

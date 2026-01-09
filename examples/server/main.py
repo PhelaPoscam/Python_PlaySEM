@@ -1,8 +1,7 @@
-# Ensure repository root is importable when running as a script
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+if __package__ in (None, ""):
+    raise RuntimeError(
+        "Execute via module to ensure package imports work: python -m examples.server.main"
+    )
 
 from tools.test_server.main import ControlPanelServer, ConnectedDevice
 

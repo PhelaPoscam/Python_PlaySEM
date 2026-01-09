@@ -13,15 +13,10 @@ Usage:
   python examples/demos/serial_driver_demo.py
 """
 
-import sys
 import time
 import logging
-from pathlib import Path
 
-# Make src importable
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from src.device_driver.serial_driver import SerialDriver
+from playsem.drivers.serial_driver import SerialDriver
 
 logging.basicConfig(
     level=logging.INFO,
@@ -94,42 +89,49 @@ def demo_manual_connection(port: str):
     print(f"Demo 3: Manual Connection to {port}")
     print("=" * 60)
 
-    # Create driver with context manager
+    driver = None
     try:
-        with SerialDriver(port=port, baudrate=9600) as driver:
-            print(f"\n✅ Connected to {port}")
+        driver = SerialDriver(port=port, baudrate=9600)
+        if not driver.open_connection():
+            # The error is already logged by the driver
+            return
 
-            # Send some test commands
-            print("\n📤 Sending test commands...")
+        print(f"\n✅ Connected to {port}")
 
-            # Example 1: Send bytes
-            driver.send_bytes(b"\xff\x00\x64")
-            print("   Sent: 0xFF 0x00 0x64")
-            time.sleep(0.1)
+        # Send some test commands
+        print("\n📤 Sending test commands...")
 
-            # Example 2: Send ASCII command
-            driver.send_command("LED:ON\n")
-            print("   Sent: LED:ON")
-            time.sleep(0.5)
+        # Example 1: Send bytes
+        driver.send_bytes(b"\xff\x00\x64")
+        print("   Sent: 0xFF 0x00 0x64")
+        time.sleep(0.1)
 
-            # Example 3: Send effect command
-            driver.send_command("EFFECT:LIGHT:255:1000\n")
-            print("   Sent: EFFECT:LIGHT:255:1000")
-            time.sleep(1.0)
+        # Example 2: Send ASCII command
+        driver.send_text("LED:ON\n")
+        print("   Sent: LED:ON")
+        time.sleep(0.5)
 
-            # Try to read response (if device sends any)
-            print("\n📥 Checking for response...")
-            response = driver.read_line()
-            if response:
-                print(f"   Device response: {response}")
-            else:
-                print("   No response (timeout)")
+        # Example 3: Send effect command
+        driver.send_text("EFFECT:LIGHT:255:1000\n")
+        print("   Sent: EFFECT:LIGHT:255:1000")
+        time.sleep(1.0)
 
-            print(f"\n✅ Connection test complete")
+        # Try to read response (if device sends any)
+        print("\n📥 Checking for response...")
+        response = driver.read_line()
+        if response:
+            print(f"   Device response: {response}")
+        else:
+            print("   No response (timeout)")
+
+        print(f"\n✅ Connection test complete")
 
     except Exception as e:
         print(f"\n❌ Error: {e}")
         logger.error(f"Connection failed: {e}")
+    finally:
+        if driver and driver.is_connected():
+            driver.close_connection()
 
 
 def demo_callback_mode(port: str):

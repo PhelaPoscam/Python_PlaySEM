@@ -1,199 +1,356 @@
-# PythonPlaySEM - Sensory Effect Media Framework
+# PlaySEM - Sensory Effect Media Framework
 
-![CI](https://github.com/PhelaPoscam/Python_PlaySEM/workflows/CI/badge.svg)
+[![CI](https://github.com/PhelaPoscam/Python_PlaySEM/actions/workflows/ci.yml/badge.svg)](https://github.com/PhelaPoscam/Python_PlaySEM/actions)
 [![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-**PythonPlaySEM** is a versatile and extensible Python framework for orchestrating sensory effects across a wide range of devices and protocols. It provides a unified system for receiving, dispatching, and rendering effects like light, wind, vibration, and scent, making it ideal for immersive media, simulations, and interactive experiences.
+**PlaySEM** is a Python platform and library for orchestrating sensory effects across multiple protocols — lighting, haptics, wind, scent, and more — with a single, production-ready API. 🚀
 
-This version is a Python-based implementation and expansion of the original Java-based PlaySEM framework developed by [Estevão Bissoli](https://github.com/estevaobissoli).
-
----
-
-## ✨ Key Features & Recent Improvements
-
--   **Flexible Configuration**: Configure your devices using `.yaml`, `.json`, or even the original `.xml` format from the Java PlaySEM project.
--   **Flexible Device Payloads**: Communicate with devices using either **JSON** (recommended) or **XML** payloads, configurable per device.
--   **Multi-Driver Architecture**: Run multiple communication protocols (e.g., Serial, MQTT, Mock) simultaneously. The system automatically routes commands to the correct device.
--   **Extensible by Design**: A plug-and-play system for device communication. Easily add new hardware by creating a new driver.
--   **Protocol Ingestion**: The example server shows how to ingest effect commands from various protocols, including WebSocket, HTTP/REST, MQTT, CoAP, and UPnP.
-
-> ### 📝 Connecting a New Device?
->
-> For a step-by-step guide on connecting a new piece of hardware (like an Arduino), see the **[TUTORIAL.md](TUTORIAL.md)** file.
+Based on and expanded from the PlaySEM Java framework by [Estevão Bissoli](https://github.com/estevaobissoli), bringing a more agile experience for creating immersive applications.
 
 ---
 
-## Getting Started
-
-**1. Clone the Repository**
-
-```bash
-git clone <your-repo-url>
-cd PythonPlaySEM
-```
-
-**2. Create and Activate a Virtual Environment**
-
-```bash
-# Windows
-python -m venv venv
-.\venv\Scripts\activate
-
-# macOS / Linux
-python3 -m venv venv
-source venv/bin/activate
-```
-
-**3. Install Dependencies**
-
-```bash
-pip install -r requirements.txt
-```
-For development, you may also want to install development-specific tools:
-```bash
-pip install -r requirements-dev.txt
-```
-
-**4. Run the Core Application**
-
-The main, refactored application entry point is `src/main.py`.
-
-```bash
-# This will run the application using the default config/devices.yaml
-python src/main.py
-```
-
-The application will start, connect to all devices defined in your configuration file, and await commands from other parts of the system.
+## Table of Contents
+- [PlaySEM - Sensory Effect Media Framework](#playsem---sensory-effect-media-framework)
+  - [Table of Contents](#table-of-contents)
+  - [✨ Features](#-features)
+  - [🚀 Quick Start](#-quick-start)
+    - [Installation](#installation)
+    - [Basic Usage](#basic-usage)
+    - [Device Registry (Multi-Protocol)](#device-registry-multi-protocol)
+    - [Protocol Isolation Mode](#protocol-isolation-mode)
+  - [📦 What's Included](#-whats-included)
+    - [Core Library (`playsem/`)](#core-library-playsem)
+    - [Examples](#examples)
+    - [Optional Components](#optional-components)
+  - [📖 Documentation](#-documentation)
+  - [🎯 Use Cases](#-use-cases)
+    - [As a Library](#as-a-library)
+    - [As a Platform](#as-a-platform)
+  - [🔧 Development](#-development)
+    - [Setup](#setup)
+    - [Run Tests](#run-tests)
+    - [Run Examples](#run-examples)
+  - [🏗️ Architecture](#️-architecture)
+    - [Protocol Handlers (Modular Design)](#protocol-handlers-modular-design)
+  - [🧭 How it Works](#-how-it-works)
+  - [🌟 What's New](#-whats-new)
+    - [Version 0.1.0 - Library Release](#version-010---library-release)
+  - [🤝 Contributing](#-contributing)
+    - [Development Workflow](#development-workflow)
+  - [📝 License](#-license)
+  - [🔗 Links](#-links)
+  - [🙏 Acknowledgments](#-acknowledgments)
+  - [📊 Project Status](#-project-status)
 
 ---
 
-## Configuration
+## ✨ Features
 
-The application's device setup is highly flexible.
-
-### Command-Line Configuration
-
-You can specify which device configuration file to use via the command line. This is useful for testing or switching between setups.
-
-```bash
-# Run with the default YAML config
-python src/main.py
-
-# Run with a JSON config file
-python src/main.py --devices-config config/my_devices.json
-
-# Run with the original Java PlaySEM XML config
-# The loader will automatically transform it for you.
-python src/main.py --devices-config config/SERenderer.xml
-```
-
-### Device Configuration (`devices.yaml`)
-
-This is the primary file for defining your devices and how to connect to them. It is split into two main sections: `devices` and `connectivityInterfaces`.
-
--   **`devices`**: A list of your hardware, giving each a unique `deviceId`.
--   **`connectivityInterfaces`**: Defines the communication channels (e.g., a specific serial port or MQTT broker).
-
-#### Example: JSON vs. XML Payloads
-
-You can control the data format sent to each device using the `dataFormat` field in the interface definition.
-
-```yaml
-devices:
-  # This fan will receive JSON commands
-  - deviceId: "json_fan"
-    protocol: "serial"
-    connectivityInterface: "serial_json_interface"
-
-  # This fan will receive XML commands
-  - deviceId: "xml_fan"
-    protocol: "serial"
-    connectivityInterface: "serial_xml_interface"
-
-connectivityInterfaces:
-  - name: "serial_json_interface"
-    protocol: "serial"
-    port: "COM3"
-    baudrate: 9600
-    dataFormat: "json"  # Explicitly JSON
-
-  - name: "serial_xml_interface"
-    protocol: "serial"
-    port: "COM4"
-    baudrate: 9600
-    dataFormat: "xml"   # This interface will send XML
-```
+- 🔌 **Multi-Protocol Support**: MQTT, WebSocket, Serial, CoAP, UPnP
+- 🎯 **Device Registry**: Central management with optional protocol isolation
+- 🔄 **Effect Routing**: Automatic effect dispatch based on device capabilities
+- 🧩 **Extensible Drivers**: Easy plugin system for new hardware
+- 🔒 **Thread-Safe**: Concurrent access from multiple protocols
+- 🧪 **Well-Tested**: Comprehensive unit test coverage
 
 ---
 
-## How It Works
+## 🚀 Quick Start
 
-The framework follows a clean, decoupled data flow.
-
-```
-[Client] -> [Protocol Server] -> [Effect Dispatcher] -> [Device Manager] -> [Device Driver] -> [Hardware]
-```
-
-1.  **Configuration Loader**: At startup, `ConfigLoader` reads a configuration file (YAML, JSON, or XML) and creates a unified dictionary of all devices and interfaces.
-2.  **Driver Factory**: `DriverFactory` creates instances of the necessary drivers (`SerialDriver`, `MQTTDriver`, etc.) based on the loaded configuration.
-3.  **Device Manager**: This central component holds all active drivers. It knows which device is connected to which driver.
-4.  **Effect Dispatcher & Protocol Servers**: Higher-level components (like those in the `examples` folder) can receive commands from the outside world (via HTTP, WebSockets, etc.) and use the `DeviceManager` to send a command to a specific `deviceId`, without needing to know how that device is connected.
-5.  **Device Drivers**: The final layer that implements the specific logic to format the payload (JSON/XML) and communicate with the hardware.
-
-
-## Examples and UI
-
-The `examples/` directory contains a separate, more feature-rich server that includes a web-based UI, protocol servers, and more. To run it:
+### Installation
 
 ```bash
-# Install the project in editable mode first
+git clone https://github.com/PhelaPoscam/Python_PlaySEM.git
+cd Python_PlaySEM
 pip install -e .
-
-# Run the example server
-python examples/server/main.py
 ```
-This will start a web server at `http://localhost:8090` which provides a control panel for managing the system. The features described below, such as the capabilities endpoint and mobile client, relate to this example server.
 
-### Device Capabilities
+### Basic Usage
 
-Devices can advertise what effects they support. The example server exposes this via an endpoint.
+<details>
+<summary>Show basic usage example</summary>
 
--   **Endpoint**: `GET /api/capabilities/{device_id}` returns a JSON description.
--   **Test**: `curl http://localhost:8080/api/capabilities/mock_light_1 | jq .`
+```python
+from playsem import DeviceManager, EffectMetadata
 
-### Mobile Device Client
+# Initialize
+manager = DeviceManager()
+await manager.initialize("config/devices.yaml")
 
-The example server can turn your smartphone into a sensory device.
+# Send effect
+effect = EffectMetadata(
+    effect_type="vibration",
+    intensity=80,
+    duration=1000
+)
+await manager.send_effect("device_id", effect)
+```
 
-1.  Find your PC's IP address.
-2.  Start the example server: `python examples/server/main.py`.
-3.  On your phone's browser, navigate to: `http://YOUR_PC_IP:8090/mobile_device`.
-4.  Tap "Connect" - your phone will now appear in the device list!
+</details>
 
-See `docs/guides/MOBILE_PHONE_SETUP.md` for detailed setup.
+### Device Registry (Multi-Protocol)
 
+<details>
+<summary>Show device registry example</summary>
 
-## Testing
+```python
+from playsem import DeviceRegistry
 
-Run the test suite:
+# Create registry
+registry = DeviceRegistry()
+
+# Register devices from any protocol
+registry.register_device({
+    "id": "light_001",
+    "name": "Smart Light",
+    "type": "light",
+    "protocols": ["mqtt"]
+}, source_protocol="mqtt")
+
+# Query devices (cross-protocol visibility!)
+all_devices = registry.get_all_devices()
+```
+
+</details>
+
+### Protocol Isolation Mode
+
+<details>
+<summary>Show protocol isolation example</summary>
+
+```python
+# Enable isolation (like Super Controller Device Simulator)
+registry = DeviceRegistry(enable_protocol_isolation=True)
+
+# MQTT devices only visible to MQTT clients
+mqtt_devices = registry.get_all_devices(requesting_protocol="mqtt")
+
+# WebSocket devices only visible to WebSocket clients
+ws_devices = registry.get_all_devices(requesting_protocol="websocket")
+```
+
+</details>
+
+---
+
+## 📦 What's Included
+
+### Core Library (`playsem/`)
+
+```python
+from playsem import DeviceManager, EffectMetadata, DeviceRegistry
+from playsem.drivers import SerialDriver, MQTTDriver
+from playsem.config import ConfigLoader
+```
+
+- **DeviceManager**: Device lifecycle and effect routing
+- **EffectDispatcher**: Effect orchestration
+- **DeviceRegistry**: Central device storage (NEW!)
+- **Drivers**: Serial, MQTT, Bluetooth, Mock
+- **Configuration**: YAML/JSON device config
+
+### Examples
+
+- `examples/simple_cli.py` - Basic usage
+- `examples/device_registry_demo.py` - Multi-protocol demo
+
+### Optional Components
+
+- `tools/test_server/` - Multi-protocol backend server
+- `gui/` - PyQt6 graphical interface
+
+---
+
+## 📖 Documentation
+
+**Complete Library Documentation**: [`docs/LIBRARY.md`](docs/LIBRARY.md)
+
+| Document | Description |
+|----------|-------------|
+| [`docs/LIBRARY.md`](docs/LIBRARY.md) | Complete API reference and usage guide |
+| [`docs/REFACTORING.md`](docs/REFACTORING.md) | Refactoring progress and migration guide |
+| [`docs/guides/quick-start.md`](docs/guides/quick-start.md) | Platform server setup |
+| [`docs/guides/devices.md`](docs/guides/devices.md) | Device configuration |
+
+---
+
+## 🎯 Use Cases
+
+### As a Library
+
+```python
+# Use PlaySEM in your own projects
+from playsem import DeviceManager, DeviceRegistry
+
+# Build your own control system
+# Integrate with your application
+# Create custom device drivers
+```
+
+### As a Platform
+
+```bash
+# Run the included platform server (module execution avoids sys.path hacks)
+python -m tools.test_server.main_new
+
+# Or use the GUI
+python -m gui.app
+```
+
+---
+
+## 🔧 Development
+
+### Setup
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate  # Windows
+pip install -e ".[dev]"
+```
+
+### Run Tests
 
 ```bash
 pytest
+pytest --cov=playsem
+pytest -v
 ```
 
-Run with coverage:
+### Run Examples
 
 ```bash
-pytest --cov=src --cov-report=html
+python examples/simple_cli.py
+python examples/device_registry_demo.py
 ```
 
-### Testing Notes
+---
 
-- `tools/test_server` uses an ephemeral HTTP port for its REST API to avoid conflicts on Windows/CI. When the control server starts the HTTP protocol, it picks a free port automatically and logs it. Client calls inside the tests automatically discover and target the active port.
-- CoAP on Windows: a small readiness delay is applied after binding to ensure the UDP socket is available before sending requests. This improves stability of CoAP smoke tests on Windows.
+## 🏗️ Architecture
 
-## License
+```mermaid
+flowchart LR
+    A[User App / Script] --> B[DeviceManager]
+    B --> C[DeviceRegistry]
+    C --> D[EffectDispatcher]
+    D --> E[Protocol Handlers]
+    E --> |MQTT| F[(Physical Devices)]
+    E --> |HTTP/REST| F
+    E --> |WebSocket| F
+    E --> |CoAP| F
+    E --> |UPnP/SSDP| F
+```
 
-This project is licensed under the MIT License.
+### Protocol Handlers (Modular Design)
+
+PlaySEM uses **isolated protocol handlers** for clean separation of concerns:
+
+| Protocol | Handler | Purpose |
+|----------|---------|---------|
+| **MQTT** | `MQTTHandler` | Pub/Sub broker integration |
+| **HTTP** | `HTTPHandler` | REST API endpoints |
+| **WebSocket** | `WebSocketHandler` | Real-time bidirectional communication |
+| **CoAP** | `CoAPHandler` | IoT/embedded devices (UDP) |
+| **UPnP** | `UPnPHandler` | Device discovery via SSDP multicast |
+
+Each handler follows the same interface:
+```python
+async def start() → None          # Start protocol server
+async def stop() → None           # Stop protocol server
+async def send_effect(...) → bool # Send effect to device
+def get_status() → dict          # Get protocol status
+```
+
+**Location**: `tools/test_server/handlers/`
+
+## 🧭 How it Works
+- **Lib Core (playsem/)**: APIs e componentes que você importa no seu código (DeviceManager, DeviceRegistry, EffectDispatcher, drivers). Sem opinião de runtime; você controla o ciclo de vida.
+- **Plataforma/Server (tools/test_server/)**: Backend FastAPI/WebSocket para multi-protocolo, timeline e testes. Usa a lib core e expõe endpoints/WS para clientes externos.
+- **GUI (gui/)**: Interface PyQt6 que conversa com o servidor via WebSocket/HTTP.
+
+---
+
+## 🌟 What's New
+
+### Version 0.1.0 - Library Release
+
+✅ **Phase 1: Library Extraction**
+- Core modules extracted to `playsem/` package
+- Clean import structure: `from playsem import ...`
+- Installable via `pip install -e .`
+
+✅ **Phase 2: Device Registry**
+- Central device storage across all protocols
+- **Protocol Isolation Mode**: Optional device visibility control
+- Cross-protocol device discovery
+- Thread-safe concurrent access
+- Event notification system
+
+✅ **Phase 3: Modular Protocol Handlers**
+- Extracted 5 protocol handlers (HTTP, CoAP, UPnP, MQTT, WebSocket)
+- Standardized Pydantic configuration pattern
+- Dependency injection for clean architecture
+- Each protocol independently testable and deployable
+- Consistent `start/stop/send_effect/get_status` interface
+
+**Migration Guide**: See [`docs/REFACTORING.md`](docs/REFACTORING.md)
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [contribution guidelines](docs/CONTRIBUTING.md).
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+---
+
+## 📝 License
+
+MIT License - see [LICENSE](LICENSE) for details
+
+---
+
+## 🔗 Links
+
+- **Repository**: https://github.com/PhelaPoscam/Python_PlaySEM
+- **Issues**: https://github.com/PhelaPoscam/Python_PlaySEM/issues
+- **Original Java PlaySEM**: https://github.com/estevaobissoli/PlaySEM
+
+---
+
+## 🙏 Acknowledgments
+
+- Original PlaySEM framework by [Estevão Bissoli](https://github.com/estevaobissoli)
+- Python implementation and extensions by PhelaPoscam
+
+---
+
+## 📊 Project Status
+
+**Current Version**: 0.1.0 (Library Release)
+
+| Component | Status |
+|-----------|--------|
+| Core Library | ✅ Stable |
+| Device Registry | ✅ Complete (with protocol isolation) |
+| Serial Driver | ✅ Working |
+| MQTT Driver | ✅ Working |
+| Bluetooth Driver | ⚠️ Experimental |
+| Platform Server | ⚠️ Refactoring (Phase 3) |
+| GUI | ✅ Working |
+| Documentation | ✅ Complete |
+
+---
+
+<p align="center">
+  <strong>Transform your ideas into immersive experiences with PlaySEM! 🎮✨</strong>
+</p>

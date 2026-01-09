@@ -10,15 +10,10 @@ Usage:
 2. Run this script: python examples/test_mqtt_client.py
 """
 
-import sys
 import time
 import json
-from pathlib import Path
 import paho.mqtt.client as mqtt
 from paho.mqtt.client import CallbackAPIVersion
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 def on_connect(client, userdata, flags, rc, properties):

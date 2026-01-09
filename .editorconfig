@@ -1,0 +1,57 @@
+# EditorConfig for PlaySEM
+# https://editorconfig.org
+
+root = true
+
+# Defaults for all files
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# Python files
+[*.py]
+indent_size = 4
+max_line_length = 79
+
+# YAML files
+[*.{yml,yaml}]
+indent_size = 2
+
+# JSON files
+[*.json]
+indent_size = 2
+
+# Markdown files
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = 120
+
+# PowerShell scripts
+[*.ps1]
+indent_size = 4
+end_of_line = crlf
+
+# Bash scripts
+[*.sh]
+indent_size = 4
+end_of_line = lf
+
+# HTML/CSS/JS
+[*.{html,css,js}]
+indent_size = 2
+
+# Config files
+[{pyproject.toml,*.toml}]
+indent_size = 4
+
+[{.gitignore,.gitattributes}]
+indent_size = 4
+
+# Don't enforce for legacy/generated files
+[{legacy_backup/**,pythonplaysem.egg-info/**,.venv/**}]
+insert_final_newline = unset
+trim_trailing_whitespace = unset

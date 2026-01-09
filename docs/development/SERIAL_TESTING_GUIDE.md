@@ -56,7 +56,7 @@ Advanced effect visualization:
 
 4. Connect from another script/terminal:
    ```python
-   from src.device_driver import SerialDriver
+   from playsem.drivers import SerialDriver
    driver = SerialDriver(port="COM4", baudrate=9600)  # Use the other port
    driver.open_connection()
    driver.send_command("PING")
@@ -89,7 +89,7 @@ If you have a USB-to-Serial adapter:
 
 3. Connect to the slave port:
    ```python
-   from src.device_driver import SerialDriver
+   from playsem.drivers import SerialDriver
    driver = SerialDriver(port="/dev/ttys003", baudrate=9600)
    driver.open_connection()
    driver.send_command("PING")

@@ -12,12 +12,7 @@ This will scan the network for PlaySEM servers and display their details.
 
 import asyncio
 import socket
-import sys
 import logging
-from pathlib import Path
-
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Setup logging
 logging.basicConfig(

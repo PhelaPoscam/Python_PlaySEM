@@ -13,16 +13,11 @@ Features:
 - System statistics and monitoring
 """
 
-import sys
-from pathlib import Path
-
-# Add parent directory to path to allow importing from 'src'
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 import asyncio
 import json
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, Set
 
 import uvicorn
@@ -34,33 +29,32 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 
-from src.device_driver import (
+from playsem.drivers import (
     BluetoothDriver,
     MQTTDriver,
     SerialDriver,
 )  # noqa: E402
-from src.device_driver.mock_driver import (  # noqa: E402
+from playsem.drivers.mock_driver import (  # noqa: E402
     MockLightDevice,
     MockVibrationDevice,
     MockWindDevice,
     MockConnectivityDriver,
 )
-from src.device_manager import DeviceManager  # noqa: E402
-from src.effect_dispatcher import EffectDispatcher  # noqa: E402
-from src.effect_metadata import (
+from playsem import DeviceManager, EffectDispatcher  # noqa: E402
+from playsem.effect_metadata import (
     EffectMetadataParser,
     create_effect,
 )  # noqa: E402
-from src.protocol_servers import (
+from playsem.protocol_servers import (
     CoAPServer,
     HTTPServer,
     MQTTServer,
     UPnPServer,
     WebSocketServer,
 )
-from src.timeline import Timeline  # noqa: E402
+from playsem.timeline import Timeline  # noqa: E402
 
 
 @dataclass
@@ -191,10 +185,11 @@ class ControlPanelServer:
 
         print("[OK] Shutdown complete.")
 
-        # Force exit to kill any lingering threads
+        # Force exit to kill lingering threads only when explicitly requested
         import os
 
-        os._exit(0)
+        if os.environ.get("PLAYSEM_FORCE_EXIT") == "1":
+            os._exit(0)
 
     def _setup_routes(self):
         """Set up FastAPI routes."""
@@ -216,7 +211,7 @@ class ControlPanelServer:
         @self.app.get("/receiver")
         async def get_receiver():
             """Serve the receiver HTML."""
-            path = Path(__file__).parent.parent / "ui" / "receiver.html"
+            path = Path(__file__).parent.parent / "ui_demos" / "receiver.html"
             with open(path, "r", encoding="utf-8") as f:
                 return HTMLResponse(content=f.read())
 
@@ -224,7 +219,7 @@ class ControlPanelServer:
         async def get_super_controller():
             """Serve the super_controller HTML."""
             path = (
-                Path(__file__).parent.parent / "ui" / "super_controller.html"
+                Path(__file__).parent.parent / "ui_demos" / "super_controller.html"
             )
             with open(path, "r", encoding="utf-8") as f:
                 return HTMLResponse(content=f.read())
@@ -232,9 +227,14 @@ class ControlPanelServer:
         @self.app.get("/super_receiver")
         async def get_super_receiver():
             """Serve the super_receiver HTML."""
-            path = Path(__file__).parent.parent / "ui" / "super_receiver.html"
+            path = Path(__file__).parent.parent / "ui_demos" / "super_receiver.html"
             with open(path, "r", encoding="utf-8") as f:
                 return HTMLResponse(content=f.read())
+
+        @self.app.get("/health")
+        async def health_check():
+            """Health check endpoint for integration tests."""
+            return {"status": "ok"}
 
         @self.app.get("/mobile_device")
         async def get_mobile_device():
@@ -258,6 +258,11 @@ class ControlPanelServer:
                         "name": dev.name,
                         "type": dev.type,
                         "address": dev.address,
+                        "protocols": getattr(dev, "protocols", []),
+                        "capabilities": getattr(dev, "capabilities", []),
+                        "connection_mode": getattr(
+                            dev, "connection_mode", "unknown"
+                        ),
                         "uptime": time.time() - dev.connected_at,
                     }
                     for dev in self.devices.values()
@@ -362,7 +367,7 @@ class ControlPanelServer:
                     "mock_"
                 ):
                     try:
-                        from src.device_driver.mock_driver import (
+                        from playsem.drivers.mock_driver import (
                             MockConnectivityDriver,
                         )
 
@@ -376,7 +381,9 @@ class ControlPanelServer:
                 # Fallbacks by driver type
                 # Serial
                 try:
-                    from src.device_driver.serial_driver import SerialDriver
+                    from playsem.drivers.serial_driver import (
+                        SerialDriver,
+                    )
 
                     sdrv = SerialDriver()
                     if hasattr(sdrv, "get_capabilities"):
@@ -388,7 +395,7 @@ class ControlPanelServer:
 
                 # Bluetooth
                 try:
-                    from src.device_driver.bluetooth_driver import (
+                    from playsem.drivers.bluetooth_driver import (
                         BluetoothDriver,
                     )
 
@@ -402,7 +409,7 @@ class ControlPanelServer:
 
                 # MQTT
                 try:
-                    from src.device_driver.mqtt_driver import MQTTDriver
+                    from playsem.drivers.mqtt_driver import MQTTDriver
 
                     mqd = MQTTDriver(broker="localhost")
                     if hasattr(mqd, "get_capabilities"):
@@ -1480,31 +1487,27 @@ class ControlPanelServer:
 
                 ready = False
                 if self.mqtt_server:
-                    try:
-                        await asyncio.wait_for(
-                            self.mqtt_server.wait_until_ready(), timeout=3.0
-                        )
-                        ready = bool(self.mqtt_server.internal_client)
-                        if ready:
-                            print(
-                                "[DEBUG] MQTT internal client is ready for publishing."
+                    # Increase timeout and add more retries
+                    for attempt in range(5):
+                        try:
+                            await asyncio.wait_for(
+                                self.mqtt_server.wait_until_ready(),
+                                timeout=2.0,
                             )
-                    except asyncio.TimeoutError:
-                        print(
-                            "[WARN] MQTT readiness timeout; will retry publish"
-                        )
-                    except Exception as e:
-                        print(f"[WARN] MQTT readiness error: {e}")
-
-                # Backoff retries if not ready
-                attempts = 0
-                while not ready and attempts < 3 and self.mqtt_server:
-                    attempts += 1
-                    await asyncio.sleep(0.3 * attempts)
-                    ready = bool(self.mqtt_server.internal_client)
-                    print(
-                        f"[DEBUG] MQTT publish retry {attempts} ready={ready}"
-                    )
+                            ready = bool(self.mqtt_server.internal_client)
+                            if ready:
+                                print(
+                                    "[DEBUG] MQTT internal client is ready for publishing."
+                                )
+                                break
+                        except asyncio.TimeoutError:
+                            print(
+                                f"[WARN] MQTT readiness timeout (attempt {attempt + 1}/5); will retry"
+                            )
+                            await asyncio.sleep(0.5)
+                        except Exception as e:
+                            print(f"[WARN] MQTT readiness error: {e}")
+                            await asyncio.sleep(0.5)
 
                 if not ready:
                     raise Exception("MQTT server not ready after retries")
