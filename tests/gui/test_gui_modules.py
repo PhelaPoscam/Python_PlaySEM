@@ -14,7 +14,7 @@ if str(root_dir) not in sys.path:
 
 try:
     from gui.protocols import ProtocolFactory
-    from gui.app_controller import AppController
+    from gui.app_controller import AppController, ConnectionConfig
 
     HAS_GUI_PROTOCOLS = True
 except ImportError:
