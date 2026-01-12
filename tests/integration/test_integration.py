@@ -28,11 +28,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@pytest.mark.integration
-@pytest.mark.skipif(
-    not HAS_GUI_PROTOCOLS, reason="gui.protocols module not available"
-)
-async def test_websocket_connection():
+
     """Test WebSocket connection to backend server."""
     print("\n" + "=" * 60)
     print("Testing WebSocket Connection to Backend Server")
@@ -76,11 +72,7 @@ async def test_websocket_connection():
         return False
 
 
-@pytest.mark.integration
-@pytest.mark.skipif(
-    not HAS_GUI_PROTOCOLS, reason="gui.protocols module not available"
-)
-async def test_http_connection():
+
     """Test HTTP connection to backend server."""
     print("\n" + "=" * 60)
     print("Testing HTTP Connection to Backend Server")
@@ -111,11 +103,7 @@ async def test_http_connection():
         return False
 
 
-@pytest.mark.integration
-@pytest.mark.skipif(
-    not HAS_GUI_PROTOCOLS, reason="gui.protocols module not available"
-)
-async def test_device_discovery():
+
     """Test device discovery through WebSocket."""
     print("\n" + "=" * 60)
     print("Testing Device Discovery")
