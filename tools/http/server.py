@@ -25,8 +25,13 @@ Test:
   # Or visit http://localhost:8080/docs for interactive testing
 """
 
+import sys
 import asyncio
 import logging
+from pathlib import Path
+
+# Make src importable
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from playsem.device_manager import DeviceManager  # noqa: E402
 from playsem.effect_dispatcher import EffectDispatcher  # noqa: E402

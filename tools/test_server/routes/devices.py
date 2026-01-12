@@ -13,29 +13,24 @@ from typing import Dict
 from fastapi import APIRouter, WebSocket
 from fastapi.responses import JSONResponse
 
-from ..dependencies import DeviceServiceDep
-from ..services import DeviceService
-
 
 class DeviceRoutes:
     """Routes for device management."""
 
-    def __init__(self, router: APIRouter, device_service: DeviceService = None):
+    def __init__(self, router: APIRouter):
         """Initialize device routes.
 
         Args:
             router: FastAPI router
-            device_service: Device service instance (optional for backward compat)
         """
         self.router = router
-        self.device_service = device_service
         self._register_routes()
 
     def _register_routes(self):
         """Register device routes."""
 
         @self.router.get("/api/devices")
-        async def list_devices(device_service: DeviceService = DeviceServiceDep):
+        async def list_devices(device_service):
             """List connected devices."""
             devices = device_service.get_device_list()
             return JSONResponse(
@@ -49,7 +44,7 @@ class DeviceRoutes:
         async def scan_devices(
             driver_type: str,
             websocket: WebSocket,
-            device_service: DeviceService = DeviceServiceDep,
+            device_service,
         ):
             """Scan for devices.
 
@@ -61,7 +56,7 @@ class DeviceRoutes:
             print(f"[SCAN] Scanning for {driver_type} devices...")
 
             try:
-                await device_service.scan_devices(
+                devices = await device_service.scan_devices(
                     websocket=websocket,
                     driver_type=driver_type,
                 )
@@ -70,6 +65,8 @@ class DeviceRoutes:
                     {
                         "type": "scan_result",
                         "success": True,
+                        "devices_found": len(devices),
+                        "devices": devices,
                     }
                 )
 
@@ -89,7 +86,7 @@ class DeviceRoutes:
             address: str,
             driver_type: str,
             websocket: WebSocket,
-            device_service: DeviceService = DeviceServiceDep,
+            device_service,
         ):
             """Connect to a device.
 
@@ -100,36 +97,24 @@ class DeviceRoutes:
                 device_service: Device service instance
             """
             try:
-                success = await device_service.connect_device(
+                device = await device_service.connect_device(
                     websocket=websocket,
                     address=address,
                     driver_type=driver_type,
                 )
 
-                if success:
-                    device_id = f"{driver_type}_{address.replace(':', '_').replace('/', '_')}"
-                    device = device_service.get_device(device_id)
-                    return JSONResponse(
-                        {
-                            "type": "connect_result",
-                            "success": True,
-                            "device": {
-                                "id": device.id,
-                                "name": device.name,
-                                "type": device.type,
-                                "address": device.address,
-                            },
-                        }
-                    )
-                else:
-                    return JSONResponse(
-                        {
-                            "type": "connect_result",
-                            "success": False,
-                            "error": "Connection failed",
+                return JSONResponse(
+                    {
+                        "type": "connect_result",
+                        "success": True,
+                        "device": {
+                            "id": device.id,
+                            "name": device.name,
+                            "type": device.type,
+                            "address": device.address,
                         },
-                        status_code=500,
-                    )
+                    }
+                )
 
             except Exception as e:
                 print(f"[x] Connect error: {e}")
@@ -146,7 +131,7 @@ class DeviceRoutes:
         async def disconnect_device(
             device_id: str,
             websocket: WebSocket,
-            device_service: DeviceService = DeviceServiceDep,
+            device_service,
         ):
             """Disconnect from a device.
 
@@ -156,7 +141,7 @@ class DeviceRoutes:
                 device_service: Device service instance
             """
             try:
-                success = await device_service.disconnect_device(
+                await device_service.disconnect_device(
                     websocket=websocket,
                     device_id=device_id,
                 )
@@ -164,7 +149,7 @@ class DeviceRoutes:
                 return JSONResponse(
                     {
                         "type": "disconnect_result",
-                        "success": success,
+                        "success": True,
                         "device_id": device_id,
                     }
                 )

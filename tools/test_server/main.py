@@ -15,6 +15,7 @@ Features:
 
 import asyncio
 import json
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,6 +31,9 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.responses import HTMLResponse
+
+# Add parent directory to path to allow importing from playsem
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from playsem.drivers import (
     BluetoothDriver,
@@ -204,7 +208,9 @@ class ControlPanelServer:
         @self.app.get("/controller")
         async def get_controller():
             """Serve the controller HTML."""
-            path = Path(__file__).parent.parent / "ui" / "controller.html"
+            path = (
+                Path(__file__).parent.parent / "ui_demos" / "controller.html"
+            )
             with open(path, "r", encoding="utf-8") as f:
                 return HTMLResponse(content=f.read())
 
@@ -219,7 +225,9 @@ class ControlPanelServer:
         async def get_super_controller():
             """Serve the super_controller HTML."""
             path = (
-                Path(__file__).parent.parent / "ui_demos" / "super_controller.html"
+                Path(__file__).parent.parent
+                / "ui_demos"
+                / "super_controller.html"
             )
             with open(path, "r", encoding="utf-8") as f:
                 return HTMLResponse(content=f.read())
@@ -227,7 +235,11 @@ class ControlPanelServer:
         @self.app.get("/super_receiver")
         async def get_super_receiver():
             """Serve the super_receiver HTML."""
-            path = Path(__file__).parent.parent / "ui_demos" / "super_receiver.html"
+            path = (
+                Path(__file__).parent.parent
+                / "ui_demos"
+                / "super_receiver.html"
+            )
             with open(path, "r", encoding="utf-8") as f:
                 return HTMLResponse(content=f.read())
 
@@ -239,7 +251,11 @@ class ControlPanelServer:
         @self.app.get("/mobile_device")
         async def get_mobile_device():
             """Serve the mobile device client HTML."""
-            path = Path(__file__).parent.parent / "ui" / "mobile_device.html"
+            path = (
+                Path(__file__).parent.parent
+                / "ui_demos"
+                / "mobile_device.html"
+            )
             with open(path, "r", encoding="utf-8") as f:
                 return HTMLResponse(content=f.read())
 

@@ -8,6 +8,7 @@ using various communication protocols (WebSocket, HTTP, MQTT, CoAP, etc).
 import sys
 import asyncio
 import logging
+from pathlib import Path
 
 from qasync import QEventLoop
 from PyQt6.QtWidgets import QApplication
@@ -20,14 +21,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-<<<<<<< HEAD
 # Expect `playsem` to be installed (e.g., `pip install -e .`).
-=======
-if __package__ in (None, ""):
-    raise RuntimeError(
-        "Execute the GUI as a module to resolve imports: python -m gui.app"
-    )
->>>>>>> refactor/modular-server
 
 
 def main():

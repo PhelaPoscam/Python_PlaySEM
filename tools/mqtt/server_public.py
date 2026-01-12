@@ -14,8 +14,13 @@ To test:
    mosquitto_pub -h test.mosquitto.org -t "effects/light" -m '{"effect_type":"light","timestamp":0,"duration":1000,"intensity":100}'
 """
 
+import sys
 import time
 import logging
+from pathlib import Path
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from playsem import DeviceManager, EffectDispatcher
 from playsem.protocol_servers import MQTTServer

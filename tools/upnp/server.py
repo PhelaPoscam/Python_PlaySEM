@@ -13,8 +13,13 @@ discover the server on your local network.
 """
 
 import asyncio
+import sys
 import logging
 import socket
+from pathlib import Path
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from playsem.protocol_servers import UPnPServer
 from playsem.effect_dispatcher import EffectDispatcher

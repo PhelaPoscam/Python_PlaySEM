@@ -1,18 +1,12 @@
 """
 Demonstration of the MockConnectivityDriver for testing without hardware.
 """
-<<<<<<< HEAD
 import sys
 from pathlib import Path
 import logging
 
 # Make src importable
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-=======
-
-import logging
-import time
->>>>>>> refactor/modular-server
 
 from playsem.drivers.mock_driver import MockConnectivityDriver, MockLightDevice
 

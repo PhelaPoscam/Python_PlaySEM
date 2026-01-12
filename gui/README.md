@@ -74,8 +74,7 @@ Then:
 
 ```python
 # In gui/app.py, before MainWindow creation:
-# See examples/protocols/custom_protocols_guide.py for implementation
-from examples.protocols.custom_protocols_guide import register_custom_protocols
+from gui.example_custom_protocols import register_custom_protocols
 
 register_custom_protocols()  # Registers MQTT, CoAP, etc.
 
@@ -114,7 +113,7 @@ gui/
 ├── __init__.py                          # Package init
 ├── app.py                               # Entry point
 ├── app_controller.py                    # Core application logic
-├── (moved to examples/protocols/custom_protocols_guide.py)
+├── example_custom_protocols.py          # Protocol examples
 ├── protocols/
 │   ├── __init__.py
 │   ├── base_protocol.py                 # Abstract base class
@@ -170,7 +169,7 @@ The protocol will automatically appear in the "Protocol:" dropdown in the Connec
 
 ## Protocol Examples
 
-See `examples/protocols/custom_protocols_guide.py` for complete examples of:
+See `gui/example_custom_protocols.py` for complete examples of:
 - **MQTTProtocol**: MQTT broker integration
 - **CoAPProtocol**: CoAP protocol support
 

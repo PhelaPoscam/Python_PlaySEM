@@ -11,7 +11,7 @@
 
 ```powershell
 cd 'c:\TUNI - Projects\Python Project\PythonPlaySEM'
-python -m tools.test_server.main_new
+python examples/server/main.py
 ```
 
 **Expected output**:
@@ -75,10 +75,10 @@ A window titled "PythonPlaySEM Control Panel" should appear.
 │   └── HTTPProtocol                  │
 ├─────────────────────────────────────┤
 │   Backend Server (FastAPI)          │
-│   (tools/test_server/main_new.py)   │
+│   (examples/server/main.py)         │
 ├─────────────────────────────────────┤
 │   Device Management                 │
-│   (playsem/device_manager.py)       │
+│   (src/device_manager.py)           │
 └─────────────────────────────────────┘
 ```
 

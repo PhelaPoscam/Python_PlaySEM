@@ -6,8 +6,13 @@ This example shows how to create a timeline with multiple effects
 and play them back with precise timing synchronization.
 """
 
+import sys
 import time
 import logging
+from pathlib import Path
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from playsem import DeviceManager, EffectDispatcher
 from playsem.effect_metadata import create_effect, create_timeline

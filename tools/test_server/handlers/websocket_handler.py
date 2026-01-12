@@ -12,7 +12,8 @@ import json
 import time
 from typing import Dict, Optional, Set
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
+from starlette.websockets import WebSocketDisconnect
 
 from ..models import ConnectedDevice
 from playsem.effect_metadata import create_effect

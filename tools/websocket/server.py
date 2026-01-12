@@ -18,10 +18,15 @@ To test:
 3. Send effects through the web interface
 """
 
+import sys
 import asyncio
 import logging
+from pathlib import Path
 import qrcode
 import socket
+
+# Add parent directory to path before importing local modules
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from playsem import DeviceManager, EffectDispatcher
 from playsem.protocol_servers import WebSocketServer

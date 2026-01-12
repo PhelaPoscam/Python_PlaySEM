@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 
 from playsem import DeviceManager, EffectDispatcher, Timeline
 
-from .config import ServerConfig
+from .config import ServerConfig, UI_PATH
 from .handlers import WebSocketHandler
 from .models import ConnectedDevice
 from .routes import DeviceRoutes, EffectRoutes, UIRoutes
@@ -82,7 +82,7 @@ class ControlPanelServer:
         self.timeline_player = Timeline(self.global_dispatcher)
 
         # Initialize services
-        self.device_service = DeviceService(global_dispatcher=self.global_dispatcher)
+        self.device_service = DeviceService(self.global_dispatcher)
         self.effect_service = EffectService()
         self.timeline_service = TimelineService()
         self.protocol_service = ProtocolService()
@@ -103,8 +103,7 @@ class ControlPanelServer:
         EffectRoutes(router)
 
         # UI routes
-        ui_path = self.config.get_ui_path()
-        UIRoutes(router, ui_path)
+        UIRoutes(router, UI_PATH)
 
         # WebSocket endpoint
         @self.app.websocket("/ws")
@@ -116,9 +115,10 @@ class ControlPanelServer:
                 message_handler=self._handle_websocket_message,
             )
 
+        # Health endpoint
         @self.app.get("/health")
         async def health_check():
-            """Health check for automated tests."""
+            """Health check for integration tests."""
             return {"status": "ok"}
 
         # API endpoints
@@ -136,7 +136,7 @@ class ControlPanelServer:
 
     def _setup_static_files(self):
         """Setup static file serving."""
-        ui_path = self.config.get_ui_path()
+        ui_path = UI_PATH
         if ui_path.exists():
             try:
                 self.app.mount(
@@ -223,7 +223,7 @@ class ControlPanelServer:
                     websocket=websocket,
                     protocol=protocol,
                     port=port,
-                    host=self.config.host,
+                    host=self.config.DEFAULT_HOST,
                 )
 
                 # Store server reference

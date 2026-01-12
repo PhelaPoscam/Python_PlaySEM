@@ -5,44 +5,11 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-**PlaySEM** is a Python platform and library for orchestrating sensory effects across multiple protocols — lighting, haptics, wind, scent, and more — with a single, production-ready API. 🚀
 
-Based on and expanded from the PlaySEM Java framework by [Estevão Bissoli](https://github.com/estevaobissoli), bringing a more agile experience for creating immersive applications.
 
----
+**PlaySEM** is a Python framework for orchestrating sensory effects across devices and protocols. Build immersive experiences with unified control of lights, haptics, wind, scent, and more.
 
-## Table of Contents
-- [PlaySEM - Sensory Effect Media Framework](#playsem---sensory-effect-media-framework)
-  - [Table of Contents](#table-of-contents)
-  - [✨ Features](#-features)
-  - [🚀 Quick Start](#-quick-start)
-    - [Installation](#installation)
-    - [Basic Usage](#basic-usage)
-    - [Device Registry (Multi-Protocol)](#device-registry-multi-protocol)
-    - [Protocol Isolation Mode](#protocol-isolation-mode)
-  - [📦 What's Included](#-whats-included)
-    - [Core Library (`playsem/`)](#core-library-playsem)
-    - [Examples](#examples)
-    - [Optional Components](#optional-components)
-  - [📖 Documentation](#-documentation)
-  - [🎯 Use Cases](#-use-cases)
-    - [As a Library](#as-a-library)
-    - [As a Platform](#as-a-platform)
-  - [🔧 Development](#-development)
-    - [Setup](#setup)
-    - [Run Tests](#run-tests)
-    - [Run Examples](#run-examples)
-  - [🏗️ Architecture](#️-architecture)
-    - [Protocol Handlers (Modular Design)](#protocol-handlers-modular-design)
-  - [🧭 How it Works](#-how-it-works)
-  - [🌟 What's New](#-whats-new)
-    - [Version 0.1.0 - Library Release](#version-010---library-release)
-  - [🤝 Contributing](#-contributing)
-    - [Development Workflow](#development-workflow)
-  - [📝 License](#-license)
-  - [🔗 Links](#-links)
-  - [🙏 Acknowledgments](#-acknowledgments)
-  - [📊 Project Status](#-project-status)
+This is a Python-based implementation and expansion of the original Java PlaySEM framework by [Estevão Bissoli](https://github.com/estevaobissoli).
 
 ---
 
@@ -69,9 +36,6 @@ pip install -e .
 
 ### Basic Usage
 
-<details>
-<summary>Show basic usage example</summary>
-
 ```python
 from playsem import DeviceManager, EffectMetadata
 
@@ -88,12 +52,7 @@ effect = EffectMetadata(
 await manager.send_effect("device_id", effect)
 ```
 
-</details>
-
 ### Device Registry (Multi-Protocol)
-
-<details>
-<summary>Show device registry example</summary>
 
 ```python
 from playsem import DeviceRegistry
@@ -113,12 +72,7 @@ registry.register_device({
 all_devices = registry.get_all_devices()
 ```
 
-</details>
-
 ### Protocol Isolation Mode
-
-<details>
-<summary>Show protocol isolation example</summary>
 
 ```python
 # Enable isolation (like Super Controller Device Simulator)
@@ -130,8 +84,6 @@ mqtt_devices = registry.get_all_devices(requesting_protocol="mqtt")
 # WebSocket devices only visible to WebSocket clients
 ws_devices = registry.get_all_devices(requesting_protocol="websocket")
 ```
-
-</details>
 
 ---
 
@@ -192,8 +144,8 @@ from playsem import DeviceManager, DeviceRegistry
 ### As a Platform
 
 ```bash
-# Run the included platform server (module execution avoids sys.path hacks)
-python -m tools.test_server.main_new
+# Run the included platform server
+python tools/test_server/main.py
 
 # Or use the GUI
 python -m gui.app
@@ -230,45 +182,29 @@ python examples/device_registry_demo.py
 
 ## 🏗️ Architecture
 
-```mermaid
-flowchart LR
-    A[User App / Script] --> B[DeviceManager]
-    B --> C[DeviceRegistry]
-    C --> D[EffectDispatcher]
-    D --> E[Protocol Handlers]
-    E --> |MQTT| F[(Physical Devices)]
-    E --> |HTTP/REST| F
-    E --> |WebSocket| F
-    E --> |CoAP| F
-    E --> |UPnP/SSDP| F
+### Library Structure
+
+```
+playsem/                    # Core library
+├── device_manager.py      # Device management
+├── effect_dispatcher.py   # Effect routing
+├── effect_metadata.py     # Effect data structure
+├── device_registry.py     # Central device registry (NEW!)
+├── config/               # Configuration loading
+└── drivers/              # Hardware drivers
+    ├── serial_driver.py
+    ├── mqtt_driver.py
+    ├── bluetooth_driver.py
+    └── mock_driver.py
 ```
 
-### Protocol Handlers (Modular Design)
+### Optional Platform
 
-PlaySEM uses **isolated protocol handlers** for clean separation of concerns:
-
-| Protocol | Handler | Purpose |
-|----------|---------|---------|
-| **MQTT** | `MQTTHandler` | Pub/Sub broker integration |
-| **HTTP** | `HTTPHandler` | REST API endpoints |
-| **WebSocket** | `WebSocketHandler` | Real-time bidirectional communication |
-| **CoAP** | `CoAPHandler` | IoT/embedded devices (UDP) |
-| **UPnP** | `UPnPHandler` | Device discovery via SSDP multicast |
-
-Each handler follows the same interface:
-```python
-async def start() → None          # Start protocol server
-async def stop() → None           # Stop protocol server
-async def send_effect(...) → bool # Send effect to device
-def get_status() → dict          # Get protocol status
 ```
-
-**Location**: `tools/test_server/handlers/`
-
-## 🧭 How it Works
-- **Lib Core (playsem/)**: APIs e componentes que você importa no seu código (DeviceManager, DeviceRegistry, EffectDispatcher, drivers). Sem opinião de runtime; você controla o ciclo de vida.
-- **Plataforma/Server (tools/test_server/)**: Backend FastAPI/WebSocket para multi-protocolo, timeline e testes. Usa a lib core e expõe endpoints/WS para clientes externos.
-- **GUI (gui/)**: Interface PyQt6 que conversa com o servidor via WebSocket/HTTP.
+tools/test_server/         # Multi-protocol server
+gui/                       # PyQt6 interface
+examples/                  # Usage examples
+```
 
 ---
 
@@ -288,20 +224,13 @@ def get_status() → dict          # Get protocol status
 - Thread-safe concurrent access
 - Event notification system
 
-✅ **Phase 3: Modular Protocol Handlers**
-- Extracted 5 protocol handlers (HTTP, CoAP, UPnP, MQTT, WebSocket)
-- Standardized Pydantic configuration pattern
-- Dependency injection for clean architecture
-- Each protocol independently testable and deployable
-- Consistent `start/stop/send_effect/get_status` interface
-
 **Migration Guide**: See [`docs/REFACTORING.md`](docs/REFACTORING.md)
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [contribution guidelines](docs/CONTRIBUTING.md).
+We welcome contributions! Please see our [contribution guidelines](CONTRIBUTING.md).
 
 ### Development Workflow
 

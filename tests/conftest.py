@@ -1,25 +1,24 @@
 import sys
-import pytest
 import subprocess
 import time
-import httpx
 from pathlib import Path
 
-# CRITICAL: Add root to sys.path BEFORE any imports
-# This must happen during module load, not during test collection
+import httpx
+import pytest
+
+# Ensure project root (and gui package) are on sys.path before imports/collection
 root_dir = Path(__file__).resolve().parent.parent
-if str(root_dir) not in sys.path:
-    sys.path.insert(0, str(root_dir))
+gui_dir = root_dir / "gui"
+for path in (root_dir, gui_dir):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 
 def pytest_configure(config):
-    """
-    Pytest hook that runs early in the startup process.
-    Ensures project root is in sys.path before test discovery.
-    """
-    # Double-check root_dir is in sys.path (should already be from module load)
-    if str(root_dir) not in sys.path:
-        sys.path.insert(0, str(root_dir))
+    """Guarantee sys.path contains the project root during collection."""
+    for path in (root_dir, gui_dir):
+        if str(path) not in sys.path:
+            sys.path.insert(0, str(path))
 
 
 @pytest.fixture(scope="session")
@@ -31,14 +30,9 @@ def live_server():
     server_host = "127.0.0.1"
     server_port = 8090
     server_url = f"http://{server_host}:{server_port}"
-    # Command to run the server as module (new architecture, with /health)
-    command = [
-        sys.executable,
-        "-m",
-        "tools.test_server.main_new",
-    ]
 
-    # Start the server process
+    # Run the server as a module to pick up package imports; use new main_new entrypoint
+    command = [sys.executable, "-m", "tools.test_server.main_new"]
     process = subprocess.Popen(command, cwd=root_dir)
 
     # Wait for the server to be ready

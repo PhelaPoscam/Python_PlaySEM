@@ -72,6 +72,12 @@ import pytest
 from fastapi.testclient import TestClient
 from fastapi.websockets import WebSocket
 from unittest.mock import AsyncMock
+from pathlib import Path
+import sys
+
+# Add project root to path so tools.test_server.main can be found
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from tools.test_server.main import ControlPanelServer
 
 

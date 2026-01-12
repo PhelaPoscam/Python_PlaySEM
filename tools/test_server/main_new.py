@@ -4,39 +4,31 @@ PlaySEM Control Panel Backend Server
 
 Main entry point for the web-based control panel backend.
 Provides WebSocket + FastAPI server with device discovery, effect dispatch, and protocol support.
-
-This is the modular entry point using the new app factory.
-Execute via module: python -m tools.test_server.main_new
 """
 
+import asyncio
 import sys
+from pathlib import Path
 
-if __package__ in (None, ""):
-    raise RuntimeError(
-        "Execute this entrypoint as a module: python -m tools.test_server.main_new"
-    )
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-import uvicorn
-
-from .app import create_app
 from .config import ServerConfig
+from .server import ControlPanelServer
 
 
-def main():
-    """Run the control panel server with modular app factory."""
+async def main():
+    """Run the control panel server."""
     # Load configuration
     config = ServerConfig()
 
-    # Create FastAPI application with dependency injection
-    app = create_app(config=config)
+    # Create and run server
+    server = ControlPanelServer(config=config)
 
-    # Run with uvicorn
     try:
-        uvicorn.run(
-            app,
+        await server.run(
             host=config.host,
             port=config.port,
-            log_level="info",
         )
     except KeyboardInterrupt:
         print("\n[*] Shutdown requested by user")
@@ -46,4 +38,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -15,17 +15,17 @@ API_TITLE = "PythonPlaySEM Control Panel API"
 API_VERSION = "0.1.0"
 
 # Paths
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 # Root for static UI assets served by the control panel
-UI_ROOT = PROJECT_ROOT / "tools" / "ui_demos"  # Phase 3D: renamed from tools/ui
+UI_PATH = (
+    PROJECT_ROOT / "tools" / "ui_demos"
+)  # Phase 3D: renamed from tools/ui
 
-# UI Files
+# UI Files (must exist in UI_PATH directory)
 UI_FILES = {
-    "controller": UI_ROOT / "controller.html",
-    "receiver": UI_ROOT / "receiver.html",
-    "super_controller": UI_ROOT / "super_controller.html",
-    "super_receiver": UI_ROOT / "super_receiver.html",
-    "mobile_device": UI_ROOT / "mobile_device.html",
+    "super_controller": UI_PATH / "super_controller.html",
+    "super_receiver": UI_PATH / "super_receiver.html",
+    "mobile_device": UI_PATH / "mobile_device.html",
 }
 
 # Protocol Servers
@@ -74,19 +74,16 @@ class ServerConfig:
         self.debug = debug
         self.base_url = f"http://{host}:{port}"
 
-    def get_ui_path(self, ui_name: str | None = None) -> Path:
-        """Get path to a UI file or the UI root directory.
+    def get_ui_path(self, ui_name: str) -> Path:
+        """Get path to UI file.
 
         Args:
-            ui_name: Optional UI file key (e.g., 'super_controller'). If omitted,
-                returns the UI root directory.
+            ui_name: Name of UI file (e.g., 'super_controller')
 
         Returns:
-            Path to the requested UI resource.
+            Path to UI file
         """
-        if ui_name is None:
-            return UI_ROOT
-        return UI_FILES.get(ui_name, UI_ROOT / ui_name)
+        return UI_FILES.get(ui_name)
 
     def get_protocol_port(self, protocol: str) -> int:
         """Get port for protocol server.
