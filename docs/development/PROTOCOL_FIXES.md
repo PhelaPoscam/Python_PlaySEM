@@ -239,7 +239,7 @@ Connection succeeds (with retries if needed)
 - ✅ Extensible: Pattern reusable for CoAP, UPnP auto-start
 
 **Testing:**
-1. Start backend: `python tools/test_server/main.py`
+1. Start backend: `python examples/platform/basic_server.py`
 2. Start GUI: `python -m gui.app`
 3. Select MQTT protocol
 4. Click Connect

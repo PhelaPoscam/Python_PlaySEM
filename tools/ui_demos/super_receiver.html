@@ -339,83 +339,110 @@
             75% { transform: translateX(10px); }
         }
     </style>
+    <!-- MQTT over WebSocket client for browser listener -->
+    <script src="https://unpkg.com/paho-mqtt/mqttws31.min.js"></script>
 </head>
 <body>
     <!-- Configuration Modal -->
     <div class="config-modal hidden" id="configModal">
         <div class="config-panel">
             <h2>🎭 Device Simulator Setup</h2>
-            <p>Configure what type of device you want to simulate</p>
+            <p>Load a pre-configured device from YAML or create a custom device</p>
             
-            <div class="config-section">
-                <h3>Device Identity</h3>
-                <div class="config-option">
-                    <label>Device Name</label>
-                    <input type="text" id="deviceName" value="Smart Device" placeholder="e.g., Living Room Light">
+            <!-- Tabs -->
+            <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb;">
+                <button id="tabLoadDevice" class="tab-btn active" onclick="switchTab('load')" style="padding: 10px 20px; background: none; border: none; cursor: pointer; font-weight: bold; border-bottom: 3px solid #3b82f6;">📦 Load from YAML</button>
+                <button id="tabCreateDevice" class="tab-btn" onclick="switchTab('create')" style="padding: 10px 20px; background: none; border: none; cursor: pointer; font-weight: bold; border-bottom: 3px solid transparent;">✨ Create Custom</button>
+            </div>
+            
+            <!-- Load Device Tab -->
+            <div id="loadDeviceTab" class="config-tab active">
+                <div class="config-section">
+                    <h3>Available Device Templates</h3>
+                    <div id="templatesLoading" style="text-align: center; padding: 20px; color: #6b7280;">Loading templates...</div>
+                    <div id="templatesList" style="display: none;">
+                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px;">
+                            <div id="templatesContainer"></div>
+                        </div>
+                    </div>
                 </div>
-                <div class="config-option">
-                    <label>Device Type</label>
-                    <select id="deviceType">
-                        <option value="light">💡 Light Device</option>
-                        <option value="vibration">📳 Vibration Device</option>
-                        <option value="wind">💨 Wind/Fan Device</option>
-                        <option value="heat">🔥 Heat Device</option>
-                        <option value="scent">🌸 Scent Device</option>
-                        <option value="generic">🔧 Generic Multi-Effect Device</option>
-                    </select>
+                <div style="margin-top: 20px;">
+                    <button class="start-btn" onclick="loadSelectedDevice()">📥 Load Selected Device</button>
                 </div>
             </div>
             
-            <div class="config-section">
-                <h3>Supported Capabilities</h3>
-                <div class="checkbox-group">
-                    <label class="checkbox-item">
-                        <input type="checkbox" value="light" checked> 💡 Light
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" value="vibration" checked> 📳 Vibration
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" value="wind" checked> 💨 Wind
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" value="heat" checked> 🔥 Heat
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" value="scent"> 🌸 Scent
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" value="cold"> ❄️ Cold
-                    </label>
+            <!-- Create Device Tab -->
+            <div id="createDeviceTab" class="config-tab" style="display: none;">
+                <div class="config-section">
+                    <h3>Device Identity</h3>
+                    <div class="config-option">
+                        <label>Device Name</label>
+                        <input type="text" id="deviceName" value="Smart Device" placeholder="e.g., Living Room Light">
+                    </div>
+                    <div class="config-option">
+                        <label>Device Type</label>
+                        <select id="deviceType">
+                            <option value="light">💡 Light Device</option>
+                            <option value="vibration">📳 Vibration Device</option>
+                            <option value="wind">💨 Wind/Fan Device</option>
+                            <option value="heat">🔥 Heat Device</option>
+                            <option value="scent">🌸 Scent Device</option>
+                            <option value="generic">🔧 Generic Multi-Effect Device</option>
+                        </select>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="config-section">
-                <h3>Connection Mode</h3>
-                <div class="config-option">
-                    <select id="connectionMode">
-                        <option value="direct">🔀 Direct Mode - Always connected via WebSocket, protocols are transport methods</option>
-                        <option value="isolated">🔒 Isolated Mode - Only reachable via selected protocol (true isolation)</option>
-                    </select>
+                
+                <div class="config-section">
+                    <h3>Supported Capabilities</h3>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" value="light" checked> 💡 Light
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" value="vibration" checked> 📳 Vibration
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" value="wind" checked> 💨 Wind
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" value="heat" checked> 🔥 Heat
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" value="scent"> 🌸 Scent
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" value="cold"> ❄️ Cold
+                        </label>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="config-section">
-                <h3>Communication Protocols</h3>
-                <p style="font-size: 0.9em; opacity: 0.8; margin-bottom: 15px;">
-                    <span id="protocolHelp">Select which protocols this device listens on</span>
-                </p>
-                <div class="protocol-chips" id="protocolChips">
-                    <div class="protocol-chip selected" data-protocol="websocket">🔌 WebSocket</div>
-                    <div class="protocol-chip" data-protocol="http">🌐 HTTP</div>
-                    <div class="protocol-chip" data-protocol="mqtt">📡 MQTT</div>
-                    <div class="protocol-chip" data-protocol="coap">📦 CoAP</div>
-                    <div class="protocol-chip" data-protocol="upnp">🏠 UPnP</div>
-                    <div class="protocol-chip" data-protocol="serial">🔌 Serial</div>
+                
+                <div class="config-section">
+                    <h3>Connection Mode</h3>
+                    <div class="config-option">
+                        <select id="connectionMode">
+                            <option value="direct">🔀 Direct Mode - Always connected via WebSocket, protocols are transport methods</option>
+                            <option value="isolated">🔒 Isolated Mode - Only reachable via selected protocol (true isolation)</option>
+                        </select>
+                    </div>
                 </div>
+                
+                <div class="config-section">
+                    <h3>Communication Protocols</h3>
+                    <p style="font-size: 0.9em; opacity: 0.8; margin-bottom: 15px;">
+                        <span id="protocolHelp">Select which protocols this device listens on</span>
+                    </p>
+                    <div class="protocol-chips" id="protocolChips">
+                        <div class="protocol-chip selected" data-protocol="websocket">🔌 WebSocket</div>
+                        <div class="protocol-chip" data-protocol="http">🌐 HTTP</div>
+                        <div class="protocol-chip" data-protocol="mqtt">📡 MQTT</div>
+                        <div class="protocol-chip" data-protocol="coap">📦 CoAP</div>
+                        <div class="protocol-chip" data-protocol="upnp">🏠 UPnP</div>
+                        <div class="protocol-chip" data-protocol="serial">🔌 Serial</div>
+                    </div>
+                </div>
+                
+                <button class="start-btn" onclick="startDevice()">🚀 Start Device</button>
             </div>
-            
-            <button class="start-btn" onclick="startDevice()">🚀 Start Device</button>
         </div>
     </div>
     
@@ -449,7 +476,8 @@
                 <span class="health-indicator good" id="healthIndicator"></span>
                 <span id="healthStatus">System Healthy</span>
             </div>
-            <button id="disconnectBtn" onclick="disconnectDevice()" style="padding: 6px 12px; background: #111827; color: white; border: 1px solid #111827; border-radius: 6px; cursor: pointer;">Disconnect</button>
+            <button id="disconnectBtn" onclick="disconnectDevice()" style="padding: 6px 12px; background: #111827; color: white; border: 1px solid #111827; border-radius: 6px; cursor: pointer; margin-right: 10px;">Disconnect</button>
+            <button id="setupBtn" onclick="openSetupModal()" style="padding: 6px 12px; background: #3b82f6; color: white; border: 1px solid #3b82f6; border-radius: 6px; cursor: pointer;">⚙️ Device Setup</button>
         </div>
         
         <div class="main-content">
@@ -536,8 +564,45 @@
             capabilities: ['light', 'vibration', 'wind', 'heat'],
             protocols: ['websocket', 'http', 'mqtt', 'coap', 'upnp'],
             connectionMode: 'direct',
-            deviceId: null
+            deviceId: null,
+            protocolEndpoints: {}
         };
+
+        function buildProtocolEndpoints(deviceId) {
+            const idSuffix = deviceId || `dev_${Date.now()}`;
+            const val = (id, fallback = "") => {
+                const el = document.getElementById(id);
+                if (!el) return fallback;
+                const v = el.value;
+                return v === undefined || v === null || v === "" ? fallback : v;
+            };
+
+            return {
+                mqtt: {
+                    host: val('mqttHost', 'localhost'),
+                    port: parseInt(val('mqttPort', '1883'), 10),
+                    ws_port: parseInt(val('mqttWsPort', '9001'), 10),
+                    topic: val('mqttTopic', `effects/${idSuffix}`)
+                },
+                http: {
+                    url: val('httpUrl', 'http://localhost:8090/api/effects/inbox'),
+                    poll_url: val('httpPollUrl', 'http://localhost:8090/api/effects/inbox'),
+                    poll_interval_ms: parseInt(val('httpPollInterval', '2000'), 10)
+                },
+                coap: {
+                    host: val('coapHost', 'localhost'),
+                    port: parseInt(val('coapPort', '5683'), 10),
+                    path: val('coapPath', 'effects')
+                },
+                serial: {
+                    port: val('serialPort', 'COM3'),
+                    baudrate: parseInt(val('serialBaud', '115200'), 10)
+                },
+                websocket: {
+                    url: val('wsUrl', `ws://${window.location.host}/ws`)
+                }
+            };
+        }
 
         function disconnectDevice() {
             if (ws && ws.readyState === WebSocket.OPEN && deviceConfig.deviceId) {
@@ -550,6 +615,183 @@
                 // Update UI to disconnected state
                 updateConnectionStatus(false);
                 document.getElementById('disconnectBtn').style.display = 'none'; // Hide the button
+            }
+        }
+
+        function switchTab(tab) {
+            const loadTab = document.getElementById('loadDeviceTab');
+            const createTab = document.getElementById('createDeviceTab');
+            const loadBtn = document.getElementById('tabLoadDevice');
+            const createBtn = document.getElementById('tabCreateDevice');
+
+            if (tab === 'load') {
+                loadTab.style.display = 'block';
+                createTab.style.display = 'none';
+                loadBtn.style.borderBottom = '3px solid #3b82f6';
+                createBtn.style.borderBottom = '3px solid transparent';
+            } else {
+                loadTab.style.display = 'none';
+                createTab.style.display = 'block';
+                loadBtn.style.borderBottom = '3px solid transparent';
+                createBtn.style.borderBottom = '3px solid #3b82f6';
+            }
+        }
+
+        function openSetupModal() {
+            console.log('[SETUP] Opening device setup modal');
+            const modal = document.getElementById('configModal');
+            console.log('[SETUP] Modal element:', modal);
+            modal.classList.remove('hidden');
+            console.log('[SETUP] Modal classes:', modal.className);
+            loadDeviceTemplates();
+        }
+
+        // Load device templates
+        let deviceTemplates = [];
+        let selectedTemplate = null;
+
+        async function loadDeviceTemplates() {
+            console.log('[TEMPLATES] Loading device templates...');
+            try {
+                const response = await fetch('/api/device-templates');
+                console.log('[TEMPLATES] Response status:', response.status);
+                const data = await response.json();
+                console.log('[TEMPLATES] Data received:', data);
+                deviceTemplates = data.templates || [];
+
+                const loading = document.getElementById('templatesLoading');
+                const list = document.getElementById('templatesList');
+                const container = document.getElementById('templatesContainer');
+
+                if (deviceTemplates.length === 0) {
+                    console.log('[TEMPLATES] No templates found');
+                    loading.textContent = 'No device templates found';
+                    loading.style.color = '#ef4444';
+                    return;
+                }
+
+                console.log('[TEMPLATES] Found', deviceTemplates.length, 'templates');
+                loading.style.display = 'none';
+                list.style.display = 'block';
+
+                container.innerHTML = deviceTemplates.map((t, idx) => `
+                    <div style="padding: 15px; border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: background 0.2s;" 
+                         onmouseover="this.style.background='#f9fafb'" 
+                         onmouseout="this.style.background='white'"
+                         onclick="selectTemplate(${idx})">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: bold; margin-bottom: 5px;">${t.name}</div>
+                                <div style="font-size: 0.85em; color: #6b7280;">
+                                    📋 Config: <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 3px;">${t.file}</code>
+                                </div>
+                                <div style="font-size: 0.85em; color: #6b7280; margin-top: 3px;">
+                                    🔌 Protocol: <strong>${t.protocol.toUpperCase()}</strong> | Type: <strong>${t.type}</strong>
+                                </div>
+                            </div>
+                            <div id="template-check-${idx}" style="font-size: 1.5em; color: transparent;">✓</div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('[TEMPLATES] Failed to load device templates:', error);
+                document.getElementById('templatesLoading').textContent = '❌ Failed to load templates: ' + error.message;
+                document.getElementById('templatesLoading').style.color = '#ef4444';
+            }
+        }
+
+        function selectTemplate(idx) {
+            // Clear previous selection
+            if (selectedTemplate !== null) {
+                const prevCheck = document.getElementById(`template-check-${selectedTemplate}`);
+                if (prevCheck) prevCheck.style.color = 'transparent';
+            }
+
+            selectedTemplate = idx;
+            const check = document.getElementById(`template-check-${idx}`);
+            if (check) check.style.color = '#3b82f6';
+        }
+
+        async function loadSelectedDevice() {
+            if (selectedTemplate === null) {
+                alert('Please select a device template');
+                return;
+            }
+
+            const template = deviceTemplates[selectedTemplate];
+            console.log('[LOAD] Loading device from template:', template.file);
+
+            try {
+                const response = await fetch('/api/device-load', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file: template.file })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert(`Failed to load device: ${error.detail}`);
+                    return;
+                }
+
+                const result = await response.json();
+                console.log('[LOADED] Device loaded:', result);
+
+                // Set device config from loaded device
+                deviceConfig.deviceId = result.device_id;
+                deviceConfig.name = result.device_name;
+                deviceConfig.protocols = result.protocols;
+
+                // Default endpoints for protocol listeners (match server defaults)
+                const id = deviceConfig.deviceId;
+                deviceConfig.protocolEndpoints = {
+                    mqtt: {
+                        host: 'localhost',
+                        port: 1883,
+                        ws_port: 9001,
+                        topic: `effects/${id}`
+                    },
+                    http: {
+                        url: 'http://localhost:8090/api/effects/inbox',
+                        poll_url: 'http://localhost:8090/api/effects/inbox',
+                        poll_interval_ms: 2000,
+                    },
+                    coap: {
+                        host: 'localhost',
+                        port: 5683,
+                        path: 'effects',
+                    },
+                    websocket: {
+                        url: `ws://${window.location.host}/ws`,
+                    }
+                };
+
+                // Hide modal
+                document.getElementById('configModal').classList.add('hidden');
+
+                // Update badge
+                const typeIcons = {
+                    'light': '💡',
+                    'vibration': '📳',
+                    'wind': '💨',
+                    'heat': '🔥',
+                    'scent': '🌸',
+                    'generic': '🔧'
+                };
+                document.getElementById('badgeDeviceType').textContent =
+                    `${typeIcons[template.type] || '🔧'} ${result.device_name}`;
+                const modeIcon = '🔒';
+                document.getElementById('badgeProtocols').textContent =
+                    `${modeIcon} ISOLATED | ${result.protocols.join(', ').toUpperCase()}`;
+                document.getElementById('deviceBadge').style.display = 'block';
+
+                // Connect via WebSocket
+                connectWebSocket();
+                // Start protocol listeners for loaded device
+                startProtocolListeners();
+            } catch (error) {
+                console.error('Error loading device:', error);
+                alert(`Error: ${error.message}`);
             }
         }
         
@@ -629,6 +871,9 @@
                 return;
             }
             
+            // Build endpoints from UI fields
+            deviceConfig.protocolEndpoints = buildProtocolEndpoints();
+
             // Update badge
             const typeIcons = {
                 'light': '💡',
@@ -657,7 +902,17 @@
                 // Direct mode: always connect via WebSocket
                 connectWebSocket();
             }
+            // Start listeners for configured protocols
+            startProtocolListeners();
         };
+
+        function startProtocolListeners() {
+            const protos = deviceConfig.protocols || [];
+            if (protos.includes('mqtt')) startMQTTListener();
+            if (protos.includes('http')) startHTTPPolling();
+            if (protos.includes('coap')) startCoAPListener();
+            if (protos.includes('upnp')) startUPnPListener();
+        }
         
         // Isolated Protocol Connection
         function connectIsolatedProtocol() {
@@ -670,13 +925,16 @@
             // Register device via HTTP (for controller to see it)
             const deviceId = `${deviceConfig.type}_${Date.now()}`;
             deviceConfig.deviceId = deviceId;
+            deviceConfig.protocolEndpoints = buildProtocolEndpoints(deviceId);
             const deviceInfo = {
                 device_id: deviceId,
                 device_name: deviceConfig.name,
                 device_type: deviceConfig.type,
                 capabilities: deviceConfig.capabilities,
                 protocols: [protocol],
-                connection_mode: 'isolated'
+                connection_mode: 'isolated',
+                protocol_endpoints: deviceConfig.protocolEndpoints,
+                metadata: { protocol_endpoints: deviceConfig.protocolEndpoints }
             };
             
             // Start protocol-specific listener
@@ -690,25 +948,93 @@
             }
         }
         
-        // Protocol-specific listeners (stubs for now - implement as needed)
-        function startMQTTListener() {
-            console.log('[MQTT] Listener started - effects will arrive via MQTT broker');
-            // In real implementation, connect to MQTT broker and subscribe
+        // Protocol-specific listeners (minimal implementations)
+        let mqttClient = null;
+        async function startMQTTListener() {
+            const cfg = deviceConfig.protocolEndpoints.mqtt;
+            if (!cfg) return;
+            if (!window.pahoMqtt) {
+                console.warn('[MQTT] paho-mqtt JS not loaded; skipping');
+                return;
+            }
+            const clientId = `recv_${Math.random().toString(16).slice(2)}`;
+            const host = cfg.host || 'localhost';
+            const port = parseInt(cfg.ws_port || cfg.port || 9001, 10); // prefer WebSocket port if provided
+            const path = cfg.ws_path || 'mqtt'; // amqtt default path
+            const primaryTopic = cfg.topic || deviceConfig.deviceId || 'effects';
+            const topics = new Set([primaryTopic]);
+            if (!primaryTopic.includes('/')) {
+                topics.add(`effects/${primaryTopic}`); // subscribe to both bare id and effects/<id>
+            }
+            console.log(`[MQTT] Connecting to ws://${host}:${port}/${path}, topics ${Array.from(topics).join(', ')}`);
+            mqttClient = new window.pahoMqtt.Client(host, port, path, clientId);
+            mqttClient.onMessageArrived = (msg) => {
+                try {
+                    const payload = JSON.parse(msg.payloadString);
+                    console.log('[MQTT] Effect received', payload);
+                    handleEffect({
+                        type: 'effect',
+                        effect_type: payload.effect_type || payload.type,
+                        intensity: payload.intensity,
+                        duration: payload.duration,
+                        protocol: 'mqtt',
+                        device_id: deviceConfig.deviceId,
+                    });
+                } catch (e) {
+                    console.warn('[MQTT] Parse error', e);
+                }
+            };
+            mqttClient.connect({
+                timeout: 5,
+                onSuccess: () => {
+                    console.log('[MQTT] Connected, subscribing to', Array.from(topics));
+                    topics.forEach(t => mqttClient.subscribe(t));
+                },
+                onFailure: (err) => console.warn('[MQTT] Connect failed', err),
+                userName: cfg.username,
+                password: cfg.password,
+                useSSL: !!cfg.use_ssl,
+            });
         }
-        
+
+        let httpPollTimer = null;
+        async function startHTTPPolling() {
+            const cfg = deviceConfig.protocolEndpoints.http;
+            if (!cfg || !cfg.poll_url) {
+                console.log('[HTTP] No poll_url configured; skipping');
+                return;
+            }
+            const pollUrl = cfg.poll_url;
+            console.log('[HTTP] Polling', pollUrl);
+            if (httpPollTimer) clearInterval(httpPollTimer);
+            httpPollTimer = setInterval(async () => {
+                try {
+                    const res = await fetch(pollUrl);
+                    if (!res.ok) return;
+                    const effects = await res.json();
+                    if (Array.isArray(effects)) {
+                        effects.forEach(e => handleEffect({
+                            type: 'effect',
+                            effect_type: e.effect_type || e.type,
+                            intensity: e.intensity,
+                            duration: e.duration,
+                            protocol: 'http',
+                            device_id: deviceConfig.deviceId,
+                        }));
+                    }
+                } catch (err) {
+                    console.warn('[HTTP] Poll error', err);
+                }
+            }, cfg.poll_interval_ms || 2000);
+        }
+
+        // CoAP and UPnP listeners are non-trivial in-browser; keep placeholders
         function startCoAPListener() {
-            console.log('[CoAP] Listener started - effects will arrive via CoAP');
-            // In real implementation, start CoAP client
+            console.log('[CoAP] Listener not implemented in browser; rely on WS fallback or external bridge');
         }
-        
-        function startHTTPPolling() {
-            console.log('[HTTP] Polling started - checking for effects via HTTP');
-            // In real implementation, poll HTTP endpoint
-        }
-        
+
         function startUPnPListener() {
-            console.log('[UPnP] Listener started - effects will arrive via UPnP');
-            // In real implementation, start UPnP service
+            console.log('[UPnP] Listener not implemented in browser; rely on WS fallback or external bridge');
         }
         
         // WebSocket connection
@@ -723,6 +1049,7 @@
                 // Register as a discoverable device with configured settings
                 const deviceId = `${deviceConfig.type}_${Date.now()}`;
                 deviceConfig.deviceId = deviceId;
+                deviceConfig.protocolEndpoints = buildProtocolEndpoints(deviceId);
                 const deviceInfo = {
                     type: 'register_device',
                     device_id: deviceId,
@@ -730,7 +1057,9 @@
                     device_type: deviceConfig.type,
                     capabilities: deviceConfig.capabilities,
                     protocols: deviceConfig.protocols,
-                    connection_mode: deviceConfig.connectionMode
+                    connection_mode: deviceConfig.connectionMode,
+                    protocol_endpoints: deviceConfig.protocolEndpoints,
+                    metadata: { protocol_endpoints: deviceConfig.protocolEndpoints }
                 };
                 
                 console.log('[REGISTER] Device config:', deviceInfo);
@@ -951,7 +1280,13 @@
         // Initialize - Show config modal on page load
         document.addEventListener('DOMContentLoaded', () => {
             console.log('Super Receiver initialized');
-            document.getElementById('configModal').classList.remove('hidden');
+            console.log('Showing setup modal...');
+            const modal = document.getElementById('configModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                console.log('Modal visible:', modal.style.display);
+            }
+            loadDeviceTemplates();
         });
     </script>
 </body>

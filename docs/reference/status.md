@@ -53,18 +53,12 @@ Last Updated: December 9, 2025
 1. **RuntimeError: no running event loop** ✅
    - **Issue**: GUI crashed when trying to connect
    - **Cause**: Qt main thread had no asyncio event loop
-   - **Fix**: Integrated qasync library for proper async/Qt integration
    - **Commit**: `3221bb8`
 
 2. **HTTP Protocol 404 Error** ✅
    - **Issue**: HTTP connection failed with "HTTP server returned 404"
    - **Cause**: Endpoint was `/api/devices`, not `/api`
    - **Fix**: Updated HTTP protocol to correct endpoint
-   - **Commit**: `ea51aa7`
-
-3. **Event Loop Mismatch on Close** ✅
-   - **Issue**: "Task got Future attached to a different loop" on window close
-   - **Cause**: Tried to use blocking asyncio calls from different event loop
    - **Fix**: Simplified to non-blocking async task scheduling
    - **Commit**: `ea51aa7`
 
@@ -75,9 +69,6 @@ Last Updated: December 9, 2025
    - **Commit**: `3221bb8`
 
 ---
-
-## 🆕 New Features (Today)
-
 ### MQTT Protocol with Auto-Start ✅
 
 **What's New**:

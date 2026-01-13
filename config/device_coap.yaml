@@ -1,0 +1,23 @@
+# CoAP Device Configuration
+# This device communicates via CoAP protocol
+# Server will start embedded CoAP server on demand when this device is loaded
+
+device:
+  id: coap_vibration_device
+  name: "CoAP Vibration Device"
+  type: vibration
+  description: "Vibration device controlled via CoAP protocol"
+  
+  capabilities:
+    - vibration
+    - intensity_control
+  
+  connection:
+    protocol: coap
+    mode: isolated  # Only reachable via CoAP
+    
+  protocol_endpoints:
+    coap:
+      host: localhost
+      port: 5683
+      path: effects

@@ -757,13 +757,15 @@
                              : 'websocket';
             
             const startTime = Date.now();
-            const effect_type = capEffectType.value || 'vibration';
+            // Prefer device capability selection; if empty, fall back to main modality selector
+            const effect_type = capEffectType.value || modality.value || 'vibration';
             const params = {};
             const inputs = capParams.querySelectorAll('input, select');
             inputs.forEach(el => { params[el.name] = el.value; });
-            
-            const intensity = parseInt(params.intensity ?? 50);
-            const duration = parseInt(params.duration ?? 1000);
+
+            // Fall back to primary sliders if capability params are missing
+            const intensity = parseInt(params.intensity ?? intensityInput.value ?? 50);
+            const duration = parseInt(params.duration ?? durationInput.value ?? 500);
             delete params.intensity;
             delete params.duration;
             

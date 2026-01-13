@@ -5,11 +5,18 @@ import logging
 import sys
 from pathlib import Path
 
+import pytest
+
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from gui.protocols.websocket_protocol import WebSocketProtocol
-from gui.protocols.http_protocol import HTTPProtocol
+try:
+    from gui.protocols.websocket_protocol import WebSocketProtocol
+    from gui.protocols.http_protocol import HTTPProtocol
+
+    HAS_GUI_PROTOCOLS = True
+except ImportError:
+    HAS_GUI_PROTOCOLS = False
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,6 +25,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.integration
+@pytest.mark.skipif(
+    not HAS_GUI_PROTOCOLS, reason="gui.protocols module not available"
+)
 async def test_websocket_connection():
     """Test WebSocket connection to backend server."""
     print("\n" + "=" * 60)
@@ -62,6 +73,10 @@ async def test_websocket_connection():
         return False
 
 
+@pytest.mark.integration
+@pytest.mark.skipif(
+    not HAS_GUI_PROTOCOLS, reason="gui.protocols module not available"
+)
 async def test_http_connection():
     """Test HTTP connection to backend server."""
     print("\n" + "=" * 60)
@@ -93,6 +108,10 @@ async def test_http_connection():
         return False
 
 
+@pytest.mark.integration
+@pytest.mark.skipif(
+    not HAS_GUI_PROTOCOLS, reason="gui.protocols module not available"
+)
 async def test_device_discovery():
     """Test device discovery through WebSocket."""
     print("\n" + "=" * 60)

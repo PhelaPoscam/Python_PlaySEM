@@ -1,0 +1,24 @@
+# MQTT Device Configuration
+# This device communicates via MQTT protocol
+# Server will start embedded MQTT broker on demand when this device is loaded
+
+device:
+  id: mqtt_light_device
+  name: "MQTT Light Device"
+  type: light
+  description: "Light device controlled via MQTT protocol"
+  
+  capabilities:
+    - light
+    - color
+  
+  connection:
+    protocol: mqtt
+    mode: isolated  # Only reachable via MQTT
+    
+  protocol_endpoints:
+    mqtt:
+      host: localhost
+      port: 1883
+      ws_port: 9001  # WebSocket support for browser clients
+      topic: effects/mqtt_light_device

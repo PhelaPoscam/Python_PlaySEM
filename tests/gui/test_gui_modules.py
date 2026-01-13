@@ -2,6 +2,7 @@
 
 import sys
 from pathlib import Path
+import asyncio
 
 import pytest
 
@@ -10,11 +11,12 @@ root_dir = Path(__file__).resolve().parent.parent.parent
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
-import asyncio
+
 
 try:
     from gui.protocols import ProtocolFactory
-    from gui.app_controller import AppController, ConnectionConfig
+    from gui.app_controller import AppController
+
     HAS_GUI_PROTOCOLS = True
 except ImportError:
     HAS_GUI_PROTOCOLS = False
@@ -28,16 +30,16 @@ async def test_websocket_protocol():
     print("\n=== Testing WebSocket Protocol ===")
     protocol = ProtocolFactory.create("websocket", "localhost", 8090)
     if not protocol:
-        print("✗ Failed to create WebSocket protocol")
+        print("[X] Failed to create WebSocket protocol")
         return False
 
-    print(f"✓ WebSocket protocol created: {protocol.get_connection_info()}")
-    print(f'✓ Protocol has send method: {hasattr(protocol, "send")}')
-    print(f'✓ Protocol has connect method: {hasattr(protocol, "connect")}')
+    print(f"[OK] WebSocket protocol created: {protocol.get_connection_info()}")
+    print(f'[OK] Protocol has send method: {hasattr(protocol, "send")}')
+    print(f'[OK] Protocol has connect method: {hasattr(protocol, "connect")}')
     print(
-        f'✓ Protocol has disconnect method: {hasattr(protocol, "disconnect")}'
+        f'[OK] Protocol has disconnect method: {hasattr(protocol, "disconnect")}'
     )
-    print(f'✓ Protocol has listen method: {hasattr(protocol, "listen")}')
+    print(f'[OK] Protocol has listen method: {hasattr(protocol, "listen")}')
     return True
 
 
@@ -49,11 +51,11 @@ async def test_http_protocol():
     print("\n=== Testing HTTP Protocol ===")
     protocol = ProtocolFactory.create("http", "localhost", 8090)
     if not protocol:
-        print("✗ Failed to create HTTP protocol")
+        print("[X] Failed to create HTTP protocol")
         return False
 
-    print(f"✓ HTTP protocol created: {protocol.get_connection_info()}")
-    print(f'✓ Protocol has send method: {hasattr(protocol, "send")}')
+    print(f"[OK] HTTP protocol created: {protocol.get_connection_info()}")
+    print(f'[OK] Protocol has send method: {hasattr(protocol, "send")}')
     return True
 
 
@@ -64,9 +66,9 @@ async def test_app_controller():
     """Test AppController."""
     print("\n=== Testing AppController ===")
     controller = AppController()
-    print(f"✓ AppController created")
-    print(f"✓ Initial state: connected={controller.is_running}")
-    print(f"✓ Protocol: {controller.protocol}")
+    print(f"[OK] AppController created")
+    print(f"[OK] Initial state: connected={controller.is_running}")
+    print(f"[OK] Protocol: {controller.protocol}")
     return True
 
 
@@ -77,12 +79,12 @@ async def test_protocol_factory():
     """Test ProtocolFactory."""
     print("\n=== Testing ProtocolFactory ===")
     protocols = ProtocolFactory.available_protocols()
-    print(f"✓ Available protocols: {protocols}")
+    print(f"[OK] Available protocols: {protocols}")
     if "websocket" not in protocols:
-        print("✗ WebSocket protocol not registered")
+        print("[X] WebSocket protocol not registered")
         return False
     if "http" not in protocols:
-        print("✗ HTTP protocol not registered")
+        print("[X] HTTP protocol not registered")
         return False
     return True
 
@@ -117,16 +119,16 @@ async def main():
     total = len(results)
 
     for name, result in results:
-        status = "✓ PASS" if result else "✗ FAIL"
+        status = "[OK] PASS" if result else "[X] FAIL"
         print(f"{status}: {name}")
 
     print(f"\nTotal: {passed}/{total} tests passed")
 
     if passed == total:
-        print("\n✓ All tests passed! Ready for integration testing.")
+        print("\n[OK] All tests passed! Ready for integration testing.")
         return 0
     else:
-        print(f"\n✗ {total - passed} test(s) failed.")
+        print(f"\n[X] {total - passed} test(s) failed.")
         return 1
 
 

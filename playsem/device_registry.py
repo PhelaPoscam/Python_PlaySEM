@@ -30,9 +30,8 @@ Usage:
     mqtt_devices = registry.get_devices_by_protocol("mqtt")
 """
 
-import asyncio
 import logging
-from typing import Dict, List, Optional, Set, Callable, Any
+from typing import Dict, List, Optional, Callable, Any
 from dataclasses import dataclass, field
 from datetime import datetime
 import threading

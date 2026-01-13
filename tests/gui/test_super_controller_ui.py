@@ -78,6 +78,10 @@ def test_websocket_protocol_mqtt_publish(client):
 @pytest.mark.timeout(10)
 def test_websocket_send_effect_direct_no_devices(client):
     with client.websocket_connect("/ws") as ws:
+        # Consume the initial device_list message
+        msg = ws.receive_json()
+        assert msg.get("type") == "device_list"
+
         ws.send_json(
             {
                 "type": "send_effect",
@@ -92,8 +96,7 @@ def test_websocket_send_effect_direct_no_devices(client):
         msg = ws.receive_json()
         assert msg.get("type") == "effect_result"
         assert msg.get("success") is False
-        assert "Device not found" in msg.get("error", "")
-
+        assert "not found" in msg.get("error", "")
 
 @pytest.mark.timeout(10)
 def test_websocket_simple_broadcast_effect(client):

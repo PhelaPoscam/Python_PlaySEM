@@ -1,0 +1,23 @@
+# HTTP Device Configuration
+# This device communicates via HTTP with a local inbox for observation
+# Server provides inbox endpoints for effect delivery observation
+
+device:
+  id: http_wind_device
+  name: "HTTP Wind Device"
+  type: wind
+  description: "Wind device receiving effects via HTTP"
+  
+  capabilities:
+    - wind
+    - speed_control
+  
+  connection:
+    protocol: http
+    mode: isolated  # Only reachable via HTTP
+    
+  protocol_endpoints:
+    http:
+      url: http://localhost:8090/api/effects/inbox
+      poll_url: http://localhost:8090/api/effects/inbox
+      poll_interval_ms: 2000

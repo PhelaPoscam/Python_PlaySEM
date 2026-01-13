@@ -19,7 +19,6 @@ class MockDispatcher:
         pass
 
 
-
 def test_http_handler_import():
     """Test HTTP handler can be imported."""
     assert HTTPHandler is not None
@@ -65,7 +64,7 @@ def test_http_handler_instantiation():
     dispatcher = MockDispatcher()
     config = HTTPConfig(host="127.0.0.1", port=8080)
     handler = HTTPHandler(global_dispatcher=dispatcher, config=config)
-    
+
     assert handler is not None
     assert handler.config.host == "127.0.0.1"
     assert handler.config.port == 8080
@@ -78,7 +77,7 @@ def test_coap_handler_instantiation():
     dispatcher = MockDispatcher()
     config = CoAPConfig(host="127.0.0.1", port=5683)
     handler = CoAPHandler(global_dispatcher=dispatcher, config=config)
-    
+
     assert handler is not None
     assert handler.config.host == "127.0.0.1"
     assert handler.config.port == 5683
@@ -91,8 +90,7 @@ def test_upnp_handler_instantiation():
     dispatcher = MockDispatcher()
 
     config = UPnPConfig(
-        device_name="Test Device",
-        device_type="urn:test:device:1"
+        device_name="Test Device", device_type="urn:test:device:1"
     )
     handler = UPnPHandler(global_dispatcher=dispatcher, config=config)
 
@@ -119,7 +117,7 @@ def test_websocket_handler_instantiation():
     dispatcher = MockDispatcher()
     # WebSocketHandler in test_server uses old pattern without config
     handler = WebSocketHandler()
-    
+
     assert handler is not None
 
 
@@ -127,14 +125,14 @@ def test_modular_architecture_complete():
     """Test that modular extraction is complete with all 5 handlers."""
     # All handlers should be importable from single module
     from tools.test_server import handlers
-    
+
     # Verify all handlers are available
     assert hasattr(handlers, "HTTPHandler")
     assert hasattr(handlers, "CoAPHandler")
     assert hasattr(handlers, "UPnPHandler")
     assert hasattr(handlers, "MQTTHandler")
     assert hasattr(handlers, "WebSocketHandler")
-    
+
     # All should be Handler classes
     assert callable(handlers.HTTPHandler)
     assert callable(handlers.CoAPHandler)

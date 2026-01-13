@@ -3,9 +3,8 @@ HTTP server for receiving sensory effect requests.
 """
 
 import asyncio
-import json
 import logging
-import threading
+import time
 from typing import Optional, Callable, Dict, Any
 
 from fastapi import (
@@ -249,8 +248,6 @@ class HTTPServer:
             description="Get server health and statistics",
         )
         async def get_status():
-            import time
-
             uptime = (
                 time.time() - self._start_time if self._start_time else 0.0
             )
@@ -400,8 +397,6 @@ class HTTPServer:
 
         Runs the FastAPI application with uvicorn.
         """
-        import time
-
         self._start_time = time.time()
 
         logger.info(f"Starting HTTP server at http://{self.host}:{self.port}")

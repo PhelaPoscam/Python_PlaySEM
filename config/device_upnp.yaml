@@ -1,0 +1,21 @@
+# UPnP Device Configuration
+# This device is discoverable and controllable via UPnP
+# Server will start embedded UPnP server on demand when this device is loaded
+
+device:
+  id: upnp_heat_device
+  name: "UPnP Heat Device"
+  type: heat
+  description: "Heat device discoverable via UPnP"
+  
+  capabilities:
+    - heat
+    - temperature_control
+  
+  connection:
+    protocol: upnp
+    mode: isolated  # Only reachable via UPnP
+    
+  protocol_endpoints:
+    upnp:
+      control_url: http://localhost:8008/control

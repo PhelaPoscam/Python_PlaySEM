@@ -37,19 +37,31 @@ pip install -e .
 ### Basic Usage
 
 ```python
+import asyncio
 from playsem import DeviceManager, EffectMetadata
+from playsem.config import ConfigLoader
 
-# Initialize
-manager = DeviceManager()
-await manager.initialize("config/devices.yaml")
+async def main():
+    # Create config loader (required!)
+    config_loader = ConfigLoader(
+        devices_path="config/devices.yaml",
+        effects_path="config/effects.yaml",
+        protocols_path="config/protocols.yaml"
+    )
+    
+    # Initialize manager
+    manager = DeviceManager(config_loader=config_loader)
+    
+    # Send effect
+    effect = EffectMetadata(
+        effect_type="vibration",
+        intensity=80,
+        duration=1000
+    )
+    await manager.send_effect("device_id", effect)
 
-# Send effect
-effect = EffectMetadata(
-    effect_type="vibration",
-    intensity=80,
-    duration=1000
-)
-await manager.send_effect("device_id", effect)
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
 ### Device Registry (Multi-Protocol)
@@ -78,11 +90,28 @@ all_devices = registry.get_all_devices()
 # Enable isolation (like Super Controller Device Simulator)
 registry = DeviceRegistry(enable_protocol_isolation=True)
 
+# Register devices for different protocols
+registry.register_device({
+    "id": "mqtt_light",
+    "name": "MQTT Light",
+    "type": "light"
+}, source_protocol="mqtt")
+
+registry.register_device({
+    "id": "ws_haptic",
+    "name": "WebSocket Haptic",
+    "type": "haptic"
+}, source_protocol="websocket")
+
 # MQTT devices only visible to MQTT clients
 mqtt_devices = registry.get_all_devices(requesting_protocol="mqtt")
+for device in mqtt_devices:
+    print(f"MQTT sees: {device.name} (ID: {device.id})")
 
 # WebSocket devices only visible to WebSocket clients
 ws_devices = registry.get_all_devices(requesting_protocol="websocket")
+for device in ws_devices:
+    print(f"WebSocket sees: {device.name} (ID: {device.id})")
 ```
 
 ---
@@ -144,8 +173,8 @@ from playsem import DeviceManager, DeviceRegistry
 ### As a Platform
 
 ```bash
-# Run the included platform server
-python tools/test_server/main.py
+# Run the included platform server (modular)
+python examples/platform/basic_server.py
 
 # Or use the GUI
 python -m gui.app

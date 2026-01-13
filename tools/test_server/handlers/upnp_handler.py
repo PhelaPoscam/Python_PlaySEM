@@ -1,158 +1,62 @@
-"""
-UPnP Handler - UPnP/SSDP protocol handler.
+import dataclasses
+import textwrap
+from typing import Optional, Dict, Any
 
-Manages UPnP server lifecycle and device discovery.
-Uses dependency injection to receive global_dispatcher.
-"""
-
-from typing import Optional
-
-from pydantic import BaseModel, Field, ConfigDict
-
-from playsem import EffectDispatcher
+import requests
 
 
-class UPnPConfig(BaseModel):
-    """UPnP server configuration."""
+type JSON = Dict[str, Any]
 
-    model_config = ConfigDict(frozen=True)
 
-    host: str = Field(default="0.0.0.0", description="UPnP server host")
-    port: int = Field(default=1900, description="UPnP/SSDP port (multicast 239.255.255.250:1900)")
-    device_name: str = Field(default="PlaySEM Device", description="UPnP device friendly name")
-    device_type: str = Field(default="urn:schemas-upnp-org:device:HapticDevice:1", description="UPnP device type")
+@dataclasses.dataclass
+class UPnPConfig:
+    device_name: str = "PlaySEM Device"
+    device_type: str = "urn:schemas-upnp-org:device:PlaySEM:1"
+    control_url: Optional[str] = None
 
 
 class UPnPHandler:
-    """Handler for UPnP/SSDP (Universal Plug and Play) integration.
-
-    Manages:
-    - UPnP server lifecycle (start/stop)
-    - SSDP device discovery and advertisement
-    - Effect distribution from UPnP control points
-    """
-
-    def __init__(
-        self,
-        global_dispatcher: EffectDispatcher,
-        config: Optional[UPnPConfig] = None,
-    ):
-        """Initialize UPnP handler.
-
-        Args:
-            global_dispatcher: Global effect dispatcher for all devices
-            config: UPnP configuration (uses defaults if None)
-        """
-        self.global_dispatcher = global_dispatcher
+    def __init__(self, global_dispatcher=None, config: Optional[UPnPConfig] = None):
+        self.dispatcher = global_dispatcher
         self.config = config or UPnPConfig()
 
-        # Server state
-        self.server = None
-        self.is_running = False
-        self.discovered_devices = set()
-
-        print(
-            f"[*] UPnPHandler initialized "
-            f"(device={self.config.device_name}, port={self.config.port})"
-        )
-
-    async def start(self) -> None:
-        """Start UPnP server and SSDP advertisement.
-
-        Raises:
-            RuntimeError: If server fails to start
-        """
-        if self.is_running:
-            raise RuntimeError("UPnP server already running")
-
-        try:
-            print(
-                f"[*] Starting UPnP server ({self.config.device_name})..."
-            )
-
-            from playsem.protocol_servers import UPnPServer
-
-            self.server = UPnPServer(
-                host=self.config.host,
-                port=self.config.port,
-                dispatcher=self.global_dispatcher,
-                device_name=self.config.device_name,
-                device_type=self.config.device_type,
-            )
-
-            # Start in background
-            await self.server.start()
-            self.is_running = True
-
-            print(
-                f"[OK] UPnP server started - advertising as '{self.config.device_name}'"
-            )
-            print(f"     SSDP multicast: 239.255.255.250:{self.config.port}")
-            print(f"     Device type: {self.config.device_type}")
-
-        except Exception as e:
-            print(f"[ERROR] Failed to start UPnP server: {e}")
-            raise RuntimeError(f"UPnP server failed: {e}") from e
-
-    async def stop(self) -> None:
-        """Stop UPnP server and SSDP advertisement.
-
-        Raises:
-            RuntimeError: If server fails to stop
-        """
-        if not self.is_running:
-            print("[WARNING] UPnP server not running")
-            return
-
-        try:
-            print("[*] Stopping UPnP server...")
-
-            if self.server:
-                await self.server.stop()
-
-            self.is_running = False
-            self.discovered_devices.clear()
-            print("[OK] UPnP server stopped")
-
-        except Exception as e:
-            print(f"[ERROR] Failed to stop UPnP server: {e}")
-            raise RuntimeError(f"UPnP server stop failed: {e}") from e
-
-    async def send_effect(self, device_id: str, effect_name: str, **parameters) -> bool:
-        """
-        Send effect via UPnP handler (delegates to dispatcher).
-
-        Args:
-            device_id: Target device ID
-            effect_name: Effect name
-            **parameters: Effect parameters
-
-        Returns:
-            True if effect sent successfully
-        """
-        try:
-            await self.global_dispatcher.dispatch_effect(
-                device_id=device_id,
-                effect_name=effect_name,
-                parameters=parameters,
-            )
-            return True
-        except Exception as e:
-            print(f"[ERROR] UPnP handler failed to send effect: {e}")
+    async def send(self, effect: JSON) -> bool:
+        if not self.config.control_url:
+            print("[UPnPHandler] control_url not set; skipping send")
             return False
 
-    def get_status(self) -> dict:
-        """Get UPnP handler status.
+        effect_type = str(effect.get("effect_type") or effect.get("type") or "unknown")
+        duration = str(effect.get("duration", 1000))
+        intensity = str(effect.get("intensity", 50))
+        location = str(effect.get("location", ""))
+        parameters = effect.get("parameters", {})
 
-        Returns:
-            Status dictionary with server info
-        """
-        return {
-            "protocol": "upnp",
-            "running": self.is_running,
-            "host": self.config.host,
-            "port": self.config.port,
-            "device_name": self.config.device_name,
-            "device_type": self.config.device_type,
-            "discovered_devices": len(self.discovered_devices),
+        envelope = textwrap.dedent(
+            f"""
+            <?xml version="1.0"?>
+            <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+              <s:Body>
+                <u:SendEffect xmlns:u="urn:schemas-playsem:service:Effects:1">
+                  <EffectType>{effect_type}</EffectType>
+                  <Duration>{duration}</Duration>
+                  <Intensity>{intensity}</Intensity>
+                  <Location>{location}</Location>
+                  <Parameters>{requests.utils.requote_uri(str(parameters))}</Parameters>
+                </u:SendEffect>
+              </s:Body>
+            </s:Envelope>
+            """
+        ).strip()
+
+        headers = {
+            "Content-Type": "text/xml; charset=utf-8",
+            "SOAPAction": '"urn:schemas-playsem:service:Effects:1#SendEffect"',
         }
+
+        try:
+            resp = requests.post(self.config.control_url, data=envelope.encode("utf-8"), headers=headers, timeout=5)
+            resp.raise_for_status()
+            return True
+        except Exception as e:  # pragma: no cover - network/UPnP failures are runtime
+            print(f"[UPnPHandler] send failed: {e}")
+            return False

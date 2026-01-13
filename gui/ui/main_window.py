@@ -4,7 +4,6 @@ Main application window for PythonPlaySEM GUI.
 
 import asyncio
 import logging
-from typing import Optional
 
 from PyQt6.QtWidgets import (
     QMainWindow,
@@ -205,21 +204,6 @@ class MainWindow(QMainWindow):
         self.status_widget.set_status("Error", "orange")
         logger.error(f"Application error: {error_msg}")
         QMessageBox.warning(self, "Error", error_msg)
-
-    @asyncSlot(str, int)
-    async def on_start_mqtt_broker(self, host: str, ws_port: int):
-        """Handle request to start backend MQTT broker via WebSocket control plane."""
-        self.connection_panel.set_mqtt_status(
-            "Starting MQTT broker...", "orange"
-        )
-        ok = await self.controller.start_mqtt_broker(host, ws_port)
-        if ok:
-            self.connection_panel.set_mqtt_status(
-                "MQTT broker running", "green"
-            )
-            self.status_widget.update_info("MQTT broker started")
-        else:
-            self.connection_panel.set_mqtt_status("MQTT broker failed", "red")
 
     @asyncSlot(str, str, str)
     async def on_protocol_server_requested(

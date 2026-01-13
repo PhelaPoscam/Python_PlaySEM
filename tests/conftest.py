@@ -31,8 +31,8 @@ def live_server():
     server_port = 8090
     server_url = f"http://{server_host}:{server_port}"
 
-    # Run the server as a module to pick up package imports; use new main_new entrypoint
-    command = [sys.executable, "-m", "tools.test_server.main_new"]
+    # Run the server as a module to pick up package imports
+    command = [sys.executable, "-m", "tools.test_server.main"]
     process = subprocess.Popen(command, cwd=root_dir)
 
     # Wait for the server to be ready

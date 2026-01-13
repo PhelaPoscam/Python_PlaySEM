@@ -70,7 +70,7 @@ def test_gui():
         from gui.ui.main_window import MainWindow
 
         # Create QApplication
-        app = QApplication.instance() or QApplication(sys.argv)
+        app = QApplication.instance() or QApplication(sys.argv)  # noqa: F841
 
         # Create main window
         print("[1] Creating MainWindow...")
@@ -113,7 +113,7 @@ def test_gui():
         logger.error(f"[X] GUI test failed: {e}", exc_info=True)
         try:
             window.close()
-        except:
+        except Exception:
             pass
         return False
 

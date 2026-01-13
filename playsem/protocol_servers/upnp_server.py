@@ -544,7 +544,8 @@ class UPnPServer:
 
     def _get_soap_fault(self, fault_code: str, fault_string: str) -> str:
         """Generates a UPnP SOAP Fault message."""
-        return f"""<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+        return f"""<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+        s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
     <s:Body>
         <s:Fault>
             <faultcode>s:Client</faultcode>

@@ -1,6 +1,10 @@
 import sys
 from pathlib import Path
 import pytest
+import asyncio
+from fastapi.testclient import TestClient
+from fastapi.websockets import WebSocket
+from unittest.mock import AsyncMock, call
 
 # Note: playsem is installed as a package, direct imports work
 
@@ -65,15 +69,6 @@ async def test_bluetooth_driver_smoke(monkeypatch):
     await driver._client.disconnect()
     assert driver._client.is_connected is False
 
-
-import asyncio
-import json
-import pytest
-from fastapi.testclient import TestClient
-from fastapi.websockets import WebSocket
-from unittest.mock import AsyncMock
-from pathlib import Path
-import sys
 
 # Add project root to path so tools.test_server.main can be found
 sys.path.insert(0, str(Path(__file__).parent.parent))

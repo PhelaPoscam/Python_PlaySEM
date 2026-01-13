@@ -356,7 +356,7 @@ When connecting via MQTT protocol in the GUI:
 ### GUI MQTT Testing
 
 **Prerequisites**:
-- Backend server running: `python tools/test_server/main.py`
+- Backend server running: `python examples/platform/basic_server.py`
 - GUI application running: `python -m gui.app`
 
 **Testing Steps**:
@@ -435,7 +435,7 @@ The GUI uses these MQTT topics for communication:
 **Issue**: "Connection refused" even after auto-start
 
 **Solutions**:
-1. Ensure backend is running: `python tools/test_server/main.py`
+1. Ensure backend is running: `python examples/platform/basic_server.py`
 2. Check WebSocket port: `netstat -an | findstr 8090` (Windows)
 3. Review logs for auto-start errors
 4. Verify amqtt is installed: `pip install amqtt`

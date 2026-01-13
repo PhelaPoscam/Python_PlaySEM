@@ -92,12 +92,16 @@ class MQTTServer:
         """
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
-        self.loop.run_until_complete(self._start_broker())
-        self.loop.run_until_complete(
-            self._broker_main_loop_with_shutdown()
-        )  # Run main loop until stop event
-
-        self.loop.close()  # Close the loop cleanly
+        try:
+            self.loop.run_until_complete(self._start_broker())
+            self.loop.run_until_complete(
+                self._broker_main_loop_with_shutdown()
+            )  # Run main loop until stop event
+        except Exception as e:
+            logger.error(f"MQTT broker failed to start or run: {e}")
+            self._is_running = False
+        finally:
+            self.loop.close()  # Close the loop cleanly
 
     async def _start_broker(self):
         """
@@ -109,54 +113,69 @@ class MQTTServer:
             )
             return
 
-        config = {
-            "listeners": {
-                "default": {
-                    "bind": f"{self.host}:{self.port}",
-                    "type": "tcp",
+        try:
+            config = {
+                "listeners": {
+                    "default": {
+                        "bind": f"{self.host}:{self.port}",
+                        "type": "tcp",
+                    },
+                    "ws": {
+                        "bind": f"{self.host}:9001",
+                        "type": "ws",
+                        "max_connections": 10,
+                    },
+                },
+                "auth": {"allow-anonymous": True},
+                "plugins": {
+                    # Disable problematic sys plugin entirely
                 },
             }
-        }
-        self.broker = Broker(config)
-        logger.debug("amqtt Broker instance created.")
-        await self.broker.start()
-        logger.info(
-            f"amqtt Broker started and listening on {self.host}:{self.port}"
-        )
+            self.broker = Broker(config)
+            logger.debug("amqtt Broker instance created.")
+            await self.broker.start()
+            logger.info(
+                f"amqtt Broker started and listening on {self.host}:{self.port}"
+            )
 
-        # Create an internal client to subscribe to topics and dispatch messages
-        self.internal_client = mqtt.Client()
-        self.internal_client.on_message = self._on_internal_message
+            # Create an internal client to subscribe to topics and dispatch messages
+            self.internal_client = mqtt.Client()
+            self.internal_client.on_message = self._on_internal_message
 
-        # Subscribe upon successful connection to avoid duplicate or missed subs
-        def _on_connect(client, userdata, flags, rc):
-            try:
-                client.subscribe(self.subscribe_topic, qos=0)
-                logger.debug(
-                    f"Internal MQTT client subscribed to {self.subscribe_topic} (qos=0)"
-                )
-                # Signal readiness after successful subscribe
-                if self.loop is not None:
-                    try:
+            # Subscribe upon successful connection to avoid duplicate or missed subs
+            def _on_connect(client, userdata, flags, rc):
+                try:
+                    client.subscribe(self.subscribe_topic, qos=0)
+                    logger.debug(
+                        f"Internal MQTT client subscribed to {self.subscribe_topic} (qos=0)"
+                    )
+                    # Signal readiness after successful subscribe
+                    if self.loop is not None:
+                        try:
+                            self.loop.call_soon_threadsafe(self._ready_event.set)
+                        except Exception:
+                            pass
+                except Exception as e:
+                    logger.error(f"Internal MQTT subscribe error: {e}")
+
+            self.internal_client.on_connect = _on_connect
+
+            def _on_subscribe(client, userdata, mid, granted_qos):
+                try:
+                    self._subscribed.set()
+                    if self.loop is not None:
                         self.loop.call_soon_threadsafe(self._ready_event.set)
-                    except Exception:
-                        pass
-            except Exception as e:
-                logger.error(f"Internal MQTT subscribe error: {e}")
+                except Exception as e:
+                    logger.error(f"Internal MQTT on_subscribe error: {e}")
 
-        self.internal_client.on_connect = _on_connect
-
-        def _on_subscribe(client, userdata, mid, granted_qos):
-            try:
-                self._subscribed.set()
-                if self.loop is not None:
-                    self.loop.call_soon_threadsafe(self._ready_event.set)
-            except Exception as e:
-                logger.error(f"Internal MQTT on_subscribe error: {e}")
-
-        self.internal_client.on_subscribe = _on_subscribe
-        self.internal_client.connect(self.host, self.port, 60)
-        self.internal_client.loop_start()
+            self.internal_client.on_subscribe = _on_subscribe
+            # Use localhost for client connection instead of 0.0.0.0 (server binding address)
+            connect_host = "localhost" if self.host == "0.0.0.0" else self.host
+            self.internal_client.connect(connect_host, self.port, 60)
+            self.internal_client.loop_start()
+        except Exception as e:
+            logger.error(f"Failed to start MQTT broker: {e}")
+            self.broker = None
 
     def _on_internal_message(self, client, userdata, msg):
         """
