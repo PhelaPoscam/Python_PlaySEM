@@ -11,7 +11,7 @@ except ImportError:
     media_types_rev = None
 
 
-type JSON = Dict[str, Any]
+JSON = Dict[str, Any]
 
 
 @dataclasses.dataclass
