@@ -7,7 +7,7 @@ except ImportError:
     requests = None
 
 
-type JSON = Dict[str, Any]
+JSON = Dict[str, Any]
 
 
 @dataclasses.dataclass

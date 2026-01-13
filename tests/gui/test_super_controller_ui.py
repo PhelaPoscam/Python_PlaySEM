@@ -98,6 +98,7 @@ def test_websocket_send_effect_direct_no_devices(client):
         assert msg.get("success") is False
         assert "not found" in msg.get("error", "")
 
+
 @pytest.mark.timeout(10)
 def test_websocket_simple_broadcast_effect(client):
     with client.websocket_connect("/ws") as ws:

@@ -152,7 +152,9 @@ class MQTTServer:
                     # Signal readiness after successful subscribe
                     if self.loop is not None:
                         try:
-                            self.loop.call_soon_threadsafe(self._ready_event.set)
+                            self.loop.call_soon_threadsafe(
+                                self._ready_event.set
+                            )
                         except Exception:
                             pass
                 except Exception as e:
