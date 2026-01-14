@@ -14,12 +14,12 @@ websocket_server:
   use_ssl: false
 
 mqtt_server:
-  enabled: false # Set to true if you want to test MQTT
+  enabled: true # Set to true if you want to test MQTT
   broker_address: "localhost"
   port: 1883
 
 coap_server:
-  enabled: false # Set to true if you want to test CoAP
+  enabled: true # Set to true if you want to test CoAP
   host: "127.0.0.1"
   port: 5683
 
