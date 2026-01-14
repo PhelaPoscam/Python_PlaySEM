@@ -25,7 +25,9 @@ class HTTPConfig:
 
 
 class HTTPHandler:
-    def __init__(self, global_dispatcher=None, config: Optional[HTTPConfig] = None):
+    def __init__(
+        self, global_dispatcher=None, config: Optional[HTTPConfig] = None
+    ):
         self.dispatcher = global_dispatcher
         self.config = config or HTTPConfig()
 
@@ -38,12 +40,15 @@ class HTTPHandler:
             headers["X-API-Key"] = self.config.api_key
 
         def _post():
-            resp = requests.post(self.config.url, json=effect, headers=headers, timeout=5)
+            resp = requests.post(
+                self.config.url, json=effect, headers=headers, timeout=5
+            )
             resp.raise_for_status()
             return True
 
         try:
             import asyncio
+
             return await asyncio.to_thread(_post)
         except Exception as e:
             print(f"[HTTPHandler] send failed: {e}")

@@ -1,6 +1,7 @@
 """
 Demonstration of the MockConnectivityDriver for testing without hardware.
 """
+
 import sys
 from pathlib import Path
 import logging
@@ -16,6 +17,7 @@ logging.basicConfig(
     format="%(asctime)s - [%(levelname)s] %(name)s - %(message)s",
     datefmt="%H:%M:%S",
 )
+
 
 def main():
     """
@@ -41,7 +43,9 @@ def main():
     # 3. Register the mock device with the driver
     # This tells the driver to forward commands for this ID to our mock light object.
     print(f"\n3. Registering '{light_device_id}' with the driver...")
-    mock_driver.register_device(device_id=light_device_id, device_obj=mock_light)
+    mock_driver.register_device(
+        device_id=light_device_id, device_obj=mock_light
+    )
 
     # 4. Check the initial state of the mock light
     print("\n4. Checking initial state of the light...")
@@ -53,9 +57,7 @@ def main():
     print("\n5. Sending 'set_color' command to the light...")
     command_params = {"r": 255, "g": 0, "b": 0}
     mock_driver.send_command(
-        device_id=light_device_id,
-        command="set_color",
-        params=command_params
+        device_id=light_device_id, command="set_color", params=command_params
     )
 
     # 6. Check the final state of the mock light
@@ -64,7 +66,11 @@ def main():
     final_state = mock_light.get_state()
     print(f"   - Final state: {final_state}")
 
-    if final_state["r"] == 255 and final_state["g"] == 0 and final_state["b"] == 0:
+    if (
+        final_state["r"] == 255
+        and final_state["g"] == 0
+        and final_state["b"] == 0
+    ):
         print("\n✅ Success! The mock light state was updated correctly.")
     else:
         print("\n❌ Failure! The mock light state was not updated correctly.")

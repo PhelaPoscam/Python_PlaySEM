@@ -29,7 +29,7 @@ from tools.test_server.config import ServerConfig
 
 def main():
     """Create and run the basic server."""
-    
+
     print("=" * 60)
     print("PlaySEM Basic Modular Server Example")
     print("=" * 60)
@@ -49,22 +49,22 @@ def main():
     print()
     print("-" * 60)
     print()
-    
+
     # Configure server
     config = ServerConfig(
         host="127.0.0.1",
         port=8090,
         debug=False,  # Set True for development
     )
-    
+
     # Create app using factory
     app = create_app(config)
-    
+
     # Run server
     print(f"Starting server on http://{config.host}:{config.port}")
     print("Press Ctrl+C to stop")
     print()
-    
+
     uvicorn.run(
         app,
         host=config.host,

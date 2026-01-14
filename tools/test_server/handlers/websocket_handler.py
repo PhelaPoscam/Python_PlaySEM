@@ -7,7 +7,7 @@ except ImportError:
     websockets = None
 
 
-type JSON = Dict[str, Any]
+JSON = Dict[str, Any]
 
 
 @dataclasses.dataclass
@@ -16,7 +16,9 @@ class WebSocketConfig:
 
 
 class WebSocketHandler:
-    def __init__(self, global_dispatcher=None, config: Optional[WebSocketConfig] = None):
+    def __init__(
+        self, global_dispatcher=None, config: Optional[WebSocketConfig] = None
+    ):
         self.dispatcher = global_dispatcher
         self.config = config or WebSocketConfig()
 
@@ -27,6 +29,7 @@ class WebSocketHandler:
         try:
             async with websockets.connect(self.config.url) as ws:
                 import json
+
                 await ws.send(json.dumps(effect))
                 return True
         except Exception as e:

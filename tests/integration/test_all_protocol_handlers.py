@@ -62,12 +62,12 @@ def test_http_handler_instantiation():
     from tools.test_server.handlers.http_handler import HTTPConfig
 
     dispatcher = MockDispatcher()
-    config = HTTPConfig(host="127.0.0.1", port=8080)
+    config = HTTPConfig(host="127.0.0.1", port=0)
     handler = HTTPHandler(global_dispatcher=dispatcher, config=config)
 
     assert handler is not None
     assert handler.config.host == "127.0.0.1"
-    assert handler.config.port == 8080
+    assert handler.config.port == 0  # Port 0 for dynamic allocation
 
 
 def test_coap_handler_instantiation():
@@ -75,12 +75,12 @@ def test_coap_handler_instantiation():
     from tools.test_server.handlers.coap_handler import CoAPConfig
 
     dispatcher = MockDispatcher()
-    config = CoAPConfig(host="127.0.0.1", port=5683)
+    config = CoAPConfig(host="127.0.0.1", port=0)
     handler = CoAPHandler(global_dispatcher=dispatcher, config=config)
 
     assert handler is not None
     assert handler.config.host == "127.0.0.1"
-    assert handler.config.port == 5683
+    assert handler.config.port == 0  # Port 0 for dynamic allocation
 
 
 def test_upnp_handler_instantiation():
@@ -104,18 +104,17 @@ def test_mqtt_handler_instantiation():
     from tools.test_server.handlers.mqtt_handler import MQTTConfig
 
     dispatcher = MockDispatcher()
-    config = MQTTConfig(host="127.0.0.1", port=1883)
+    config = MQTTConfig(host="127.0.0.1", port=0)
     handler = MQTTHandler(global_dispatcher=dispatcher, config=config)
 
     assert handler is not None
     assert handler.config.host == "127.0.0.1"
-    assert handler.config.port == 1883
+    assert handler.config.port == 0  # Port 0 for dynamic allocation
 
 
 def test_websocket_handler_instantiation():
     """Test WebSocket handler can be instantiated."""
     dispatcher = MockDispatcher()
-    # WebSocketHandler in test_server uses old pattern without config
     handler = WebSocketHandler()
 
     assert handler is not None

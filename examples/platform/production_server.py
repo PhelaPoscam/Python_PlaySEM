@@ -65,20 +65,20 @@ def handle_shutdown(signum, frame):
 
 def main():
     """Run production server."""
-    
+
     # Setup signal handlers
     signal.signal(signal.SIGTERM, handle_shutdown)
     signal.signal(signal.SIGINT, handle_shutdown)
-    
+
     # Configure logging
     log_level = os.getenv("PLAYSEM_LOG_LEVEL", "INFO")
     setup_logging(log_level)
-    
+
     logger = logging.getLogger(__name__)
-    
+
     # Load configuration
     config = get_config_from_env()
-    
+
     logger.info("=" * 60)
     logger.info("PlaySEM Production Server")
     logger.info("=" * 60)
@@ -87,7 +87,7 @@ def main():
     logger.info(f"Debug: {config.debug}")
     logger.info(f"Log Level: {log_level}")
     logger.info("=" * 60)
-    
+
     # Create app
     try:
         app = create_app(config)
@@ -95,7 +95,7 @@ def main():
     except Exception as e:
         logger.error(f"Failed to create application: {e}")
         sys.exit(1)
-    
+
     # Run server
     try:
         uvicorn.run(

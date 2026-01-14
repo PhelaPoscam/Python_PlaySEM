@@ -113,7 +113,10 @@ def main():
 
     try:
         # Create client
-        client = mqtt.Client(client_id="effect_sender", callback_api_version=CallbackAPIVersion.VERSION2)
+        client = mqtt.Client(
+            client_id="effect_sender",
+            callback_api_version=CallbackAPIVersion.VERSION2,
+        )
         client.on_connect = on_connect
         client.on_message = on_message
 

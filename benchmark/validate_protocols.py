@@ -2,6 +2,9 @@
 """
 Comprehensive Protocol Validation
 Tests all 5 protocol handlers can be instantiated and managed.
+
+This is a standalone validation script and NOT a pytest-compatible test file.
+It is intended for manual execution or specific validation jobs.
 """
 
 import sys
@@ -10,7 +13,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tools.test_server.handlers import (
+from tools.test_server.handlers import (  # noqa: E402
     HTTPHandler,
     CoAPHandler,
     UPnPHandler,
@@ -18,16 +21,18 @@ from tools.test_server.handlers import (
     WebSocketHandler,
 )
 
-from tools.test_server.handlers.http_handler import HTTPConfig
-from tools.test_server.handlers.coap_handler import CoAPConfig
-from tools.test_server.handlers.upnp_handler import UPnPConfig
-from tools.test_server.handlers.mqtt_handler import MQTTConfig
-from tools.test_server.handlers.websocket_handler import WebSocketConfig
+from tools.test_server.handlers.http_handler import HTTPConfig  # noqa: E402
+from tools.test_server.handlers.coap_handler import CoAPConfig  # noqa: E402
+from tools.test_server.handlers.upnp_handler import UPnPConfig  # noqa: E402
+from tools.test_server.handlers.mqtt_handler import MQTTConfig  # noqa: E402
+from tools.test_server.handlers.websocket_handler import (  # noqa: E402
+    WebSocketConfig,
+)
 
 
 class MockEffectDispatcher:
     """Mock dispatcher for testing protocol handlers."""
-    
+
     async def dispatch_effect(self, device_id: str, effect_data: dict):
         """Mock effect dispatch."""
         pass
@@ -38,10 +43,10 @@ def test_all_protocol_handlers():
     print("\n" + "=" * 60)
     print("PROTOCOL HANDLER VALIDATION")
     print("=" * 60)
-    
+
     dispatcher = MockEffectDispatcher()
     results = {}
-    
+
     # Test HTTP Handler
     print("\n[Testing] HTTP Handler...")
     try:
@@ -57,7 +62,7 @@ def test_all_protocol_handlers():
     except Exception as e:
         results["HTTP"] = {"passed": False, "error": str(e)}
         print(f"[FAIL] HTTP Handler error: {e}")
-    
+
     # Test CoAP Handler
     print("[Testing] CoAP Handler...")
     try:
@@ -73,13 +78,12 @@ def test_all_protocol_handlers():
     except Exception as e:
         results["CoAP"] = {"passed": False, "error": str(e)}
         print(f"[FAIL] CoAP Handler error: {e}")
-    
+
     # Test UPnP Handler
     print("[Testing] UPnP Handler...")
     try:
         config = UPnPConfig(
-            device_name="PlaySEM Test",
-            device_type="urn:test:device:Haptic:1"
+            device_name="PlaySEM Test", device_type="urn:test:device:Haptic:1"
         )
         handler = UPnPHandler(global_dispatcher=dispatcher, config=config)
         status = handler.get_status()
@@ -95,11 +99,13 @@ def test_all_protocol_handlers():
     except Exception as e:
         results["UPnP"] = {"passed": False, "error": str(e)}
         print(f"[FAIL] UPnP Handler error: {e}")
-    
+
     # Test MQTT Handler
     print("[Testing] MQTT Handler...")
     try:
-        config = MQTTConfig(host="127.0.0.1", port=11883, broker_id="test_broker")
+        config = MQTTConfig(
+            host="127.0.0.1", port=11883, broker_id="test_broker"
+        )
         handler = MQTTHandler(global_dispatcher=dispatcher, config=config)
         status = handler.get_status()
         results["MQTT"] = {
@@ -111,7 +117,7 @@ def test_all_protocol_handlers():
     except Exception as e:
         results["MQTT"] = {"passed": False, "error": str(e)}
         print(f"[FAIL] MQTT Handler error: {e}")
-    
+
     # Test WebSocket Handler
     print("[Testing] WebSocket Handler...")
     try:
@@ -127,30 +133,30 @@ def test_all_protocol_handlers():
     except Exception as e:
         results["WebSocket"] = {"passed": False, "error": str(e)}
         print(f"[FAIL] WebSocket Handler error: {e}")
-    
+
     # Print summary
     print("\n" + "=" * 60)
     print("VALIDATION SUMMARY")
     print("=" * 60)
-    
+
     passed = sum(1 for r in results.values() if r["passed"])
     total = len(results)
-    
+
     print(f"\nProtocols Validated: {passed}/{total}\n")
-    
+
     for protocol, result in results.items():
         status = "[OK]" if result["passed"] else "[FAIL]"
         print(f"{status} {protocol}")
-        
+
         if result["passed"]:
             print(f"    Status: {result['status']}")
             print(f"    Config: {result['config']}")
         else:
             print(f"    Error: {result['error']}")
         print()
-    
+
     print("=" * 60)
-    
+
     if passed == total:
         print("\n[OK] All protocols validated successfully!")
         print("\nArchitecture Status: MODULAR EXTRACTION COMPLETE")

@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any
 import requests
 
 
-type JSON = Dict[str, Any]
+JSON = Dict[str, Any]
 
 
 @dataclasses.dataclass
@@ -16,7 +16,9 @@ class UPnPConfig:
 
 
 class UPnPHandler:
-    def __init__(self, global_dispatcher=None, config: Optional[UPnPConfig] = None):
+    def __init__(
+        self, global_dispatcher=None, config: Optional[UPnPConfig] = None
+    ):
         self.dispatcher = global_dispatcher
         self.config = config or UPnPConfig()
 
@@ -25,7 +27,9 @@ class UPnPHandler:
             print("[UPnPHandler] control_url not set; skipping send")
             return False
 
-        effect_type = str(effect.get("effect_type") or effect.get("type") or "unknown")
+        effect_type = str(
+            effect.get("effect_type") or effect.get("type") or "unknown"
+        )
         duration = str(effect.get("duration", 1000))
         intensity = str(effect.get("intensity", 50))
         location = str(effect.get("location", ""))
@@ -54,9 +58,16 @@ class UPnPHandler:
         }
 
         try:
-            resp = requests.post(self.config.control_url, data=envelope.encode("utf-8"), headers=headers, timeout=5)
+            resp = requests.post(
+                self.config.control_url,
+                data=envelope.encode("utf-8"),
+                headers=headers,
+                timeout=5,
+            )
             resp.raise_for_status()
             return True
-        except Exception as e:  # pragma: no cover - network/UPnP failures are runtime
+        except (
+            Exception
+        ) as e:  # pragma: no cover - network/UPnP failures are runtime
             print(f"[UPnPHandler] send failed: {e}")
             return False

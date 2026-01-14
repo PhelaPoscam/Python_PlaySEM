@@ -33,7 +33,7 @@ from tools.test_server.app.handlers import MQTTHandler
 def create_app_with_mqtt(config: ServerConfig) -> FastAPI:
     """
     Create app with MQTT handler integration.
-    
+
     This demonstrates the extensibility pattern:
     1. Create base app with create_app()
     2. Get services from app.state
@@ -41,30 +41,30 @@ def create_app_with_mqtt(config: ServerConfig) -> FastAPI:
     """
     # Create base app
     app = create_app(config)
-    
+
     # Get protocol service from app state
     protocol_service = app.state.protocol_service
-    
+
     # Create and register MQTT handler
     mqtt_handler = MQTTHandler(
         broker_host="localhost",
         broker_port=1883,
         topic_prefix="playsem",
     )
-    
+
     # Register with protocol service
     protocol_service.register_handler("mqtt", mqtt_handler)
-    
+
     print("[OK] MQTT handler registered")
     print(f"  Broker: {mqtt_handler.broker_host}:{mqtt_handler.broker_port}")
     print(f"  Topic: {mqtt_handler.topic_prefix}/#")
-    
+
     return app
 
 
 def main():
     """Create and run server with custom MQTT handler."""
-    
+
     print("=" * 60)
     print("PlaySEM Custom Handler Server Example")
     print("=" * 60)
@@ -84,17 +84,17 @@ def main():
     print()
     print("-" * 60)
     print()
-    
+
     # Configure server
     config = ServerConfig(
         host="127.0.0.1",
         port=8090,
         debug=False,
     )
-    
+
     # Create app with MQTT handler
     app = create_app_with_mqtt(config)
-    
+
     # Run server
     print(f"Starting server on http://{config.host}:{config.port}")
     print()
@@ -105,7 +105,7 @@ def main():
     print()
     print("Press Ctrl+C to stop")
     print()
-    
+
     uvicorn.run(
         app,
         host=config.host,

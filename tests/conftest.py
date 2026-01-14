@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-# Ensure project root (and gui package) are on sys.path before imports/collection
+# Ensure project root is on sys.path before imports/collection
 root_dir = Path(__file__).resolve().parent.parent
 gui_dir = root_dir / "gui"
 for path in (root_dir, gui_dir):
