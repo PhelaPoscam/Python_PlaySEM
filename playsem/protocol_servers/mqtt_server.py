@@ -135,19 +135,28 @@ class MQTTServer:
             logger.debug("amqtt Broker instance created.")
             await self.broker.start()
             logger.info(
-                f"amqtt Broker started and listening on {self.host}:{self.port}"
+                "amqtt Broker started and listening on "
+                f"{self.host}:{self.port}"
             )
 
-            # Create an internal client to subscribe to topics and dispatch messages
-            self.internal_client = mqtt.Client()
+            # Prefer callback API v2 when available to avoid
+            # deprecation warnings.
+            try:
+                self.internal_client = mqtt.Client(
+                    callback_api_version=mqtt.CallbackAPIVersion.VERSION2
+                )
+            except Exception:
+                self.internal_client = mqtt.Client()
             self.internal_client.on_message = self._on_internal_message
 
-            # Subscribe upon successful connection to avoid duplicate or missed subs
+            # Subscribe upon successful connection to avoid duplicate
+            # or missed subscriptions.
             def _on_connect(client, userdata, flags, rc):
                 try:
                     client.subscribe(self.subscribe_topic, qos=0)
                     logger.debug(
-                        f"Internal MQTT client subscribed to {self.subscribe_topic} (qos=0)"
+                        "Internal MQTT client subscribed to "
+                        f"{self.subscribe_topic} (qos=0)"
                     )
                     # Signal readiness after successful subscribe
                     if self.loop is not None:
@@ -171,7 +180,8 @@ class MQTTServer:
                     logger.error(f"Internal MQTT on_subscribe error: {e}")
 
             self.internal_client.on_subscribe = _on_subscribe
-            # Use localhost for client connection instead of 0.0.0.0 (server binding address)
+            # Use localhost for client connection instead of
+            # 0.0.0.0 (server binding address).
             connect_host = "localhost" if self.host == "0.0.0.0" else self.host
             self.internal_client.connect(connect_host, self.port, 60)
             self.internal_client.loop_start()
@@ -191,7 +201,8 @@ class MQTTServer:
                 f"Broker received message on topic '{topic}': {payload_str}"
             )
 
-            # Deduplicate quick successive identical messages observed on some setups
+            # Deduplicate quick successive identical messages observed
+            # on some setups.
             import time
 
             sig = (topic, payload_str)
@@ -208,7 +219,9 @@ class MQTTServer:
             if effect:
                 self.dispatcher.dispatch_effect_metadata(effect)
                 logger.info(
-                    f"Effect '{effect.effect_type}' executed successfully via MQTT"
+                    "Effect "
+                    f"'{effect.effect_type}' "
+                    "executed successfully via MQTT"
                 )
                 if self.on_effect_broadcast:
                     # Run async callback in the broker's event loop
@@ -236,7 +249,8 @@ class MQTTServer:
 
     async def wait_until_ready(self):
         """
-        Wait until the embedded MQTT Broker is fully started and ready to accept connections.
+        Wait until the embedded MQTT Broker is fully started
+        and ready to accept connections.
         """
         await self._ready_event.wait()
 
@@ -256,7 +270,8 @@ class MQTTServer:
 
             self._stop_event.set()  # Signal the broker main loop to stop
 
-            # Wait for the thread to finish. It should now exit cleanly after broker shutdown.
+            # Wait for the thread to finish.
+            # It should now exit cleanly after broker shutdown.
             self.thread.join(timeout=15)  # Increased timeout just in case
 
             self._is_running = False

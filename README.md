@@ -304,7 +304,7 @@ MIT License - see [LICENSE](LICENSE) for details
 | Serial Driver | ✅ Working |
 | MQTT Driver | ✅ Working |
 | Bluetooth Driver | ⚠️ Experimental |
-| Platform Server | ⚠️ Refactoring (Phase 3) |
+| Platform Server | ✅ Modular runtime restored (compat mode) |
 | GUI | ✅ Working |
 | Documentation | ✅ Complete |
 

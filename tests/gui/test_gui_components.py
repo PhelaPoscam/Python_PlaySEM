@@ -48,11 +48,12 @@ def test_controller():
         print("[+] Device dict initialized (empty)")
 
         print("\n[+] AppController tests PASSED\n")
-        return True
 
+    except ModuleNotFoundError as e:
+        pytest.skip(f"GUI components not available: {e}")
     except Exception as e:
         logger.error(f"[X] AppController test failed: {e}", exc_info=True)
-        return False
+        pytest.fail(f"AppController test failed: {e}")
 
 
 @pytest.mark.skipif(
@@ -107,15 +108,16 @@ def test_gui():
         window.close()
 
         print("\n[+] GUI component tests PASSED\n")
-        return True
 
+    except ModuleNotFoundError as e:
+        pytest.skip(f"GUI components not available: {e}")
     except Exception as e:
         logger.error(f"[X] GUI test failed: {e}", exc_info=True)
         try:
             window.close()
         except Exception:
             pass
-        return False
+        pytest.fail(f"GUI test failed: {e}")
 
 
 def main():

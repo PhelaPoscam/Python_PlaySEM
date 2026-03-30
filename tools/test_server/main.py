@@ -35,6 +35,8 @@ from tools.test_server.handlers import (
     UPnPHandler,
     UPnPConfig,
 )
+from tools.test_server.app import create_app
+from tools.test_server.config import ServerConfig
 from playsem.protocol_servers import MQTTServer, CoAPServer, UPnPServer
 
 
@@ -1161,9 +1163,22 @@ class ControlPanelServer:
             os._exit(0)
 
 
-# Create server instance
+# Keep legacy server object for tests that instantiate or patch
+# ControlPanelServer internals directly.
 server = ControlPanelServer()
-app = server.app
+legacy_app = server.app
+
+
+def create_compat_app():
+    """Return modular app for runtime entrypoint compatibility."""
+
+    return create_app(
+        ServerConfig(host="0.0.0.0", port=DEFAULT_SERVER_PORT, debug=False)
+    )
+
+
+# Runtime app now comes from modular architecture.
+app = create_compat_app()
 
 
 if __name__ == "__main__":
