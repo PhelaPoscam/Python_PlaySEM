@@ -430,44 +430,6 @@ gui/                       # PyQt6 GUI (optional)
 
 ---
 
-## Migration from Old Structure
-
-### Old Imports (Deprecated)
-```python
-from src.device_manager import DeviceManager  # ❌
-from src.device_driver.mock_driver import MockDriver  # ❌
-```
-
-### New Imports
-```python
-from playsem import DeviceManager, DeviceRegistry  # ✅
-from playsem.drivers import MockConnectivityDriver  # ✅
-from playsem.config import ConfigLoader  # ✅
-```
-
----
-
-## Refactoring Status
-
-### ✅ Phase 1: Library Extraction (COMPLETE)
-- Core modules moved to `playsem/`
-- Clean import structure
-- Simple examples created
-
-### ✅ Phase 2: Device Registry (COMPLETE)
-- Central device storage implemented
-- Protocol isolation option added
-- Cross-protocol device visibility
-- Thread-safe operations
-- Event notifications
-
-### ⏳ Phase 3: Platform Refactoring (PLANNED)
-- Split monolithic server into modules
-- Integrate Device Registry
-- Clean architecture
-
----
-
 ## API Reference
 
 ### DeviceManager Methods

@@ -36,9 +36,8 @@ See [LIBRARY.md](LIBRARY.md) for complete documentation
 - [guides/multi_protocol_discovery.md](guides/multi_protocol_discovery.md) - Cross-protocol discovery
 - [guides/troubleshooting.md](guides/troubleshooting.md) - Common issues
 
-**API Reference & Architecture**
+**API Reference**
 - [LIBRARY.md](LIBRARY.md) - Complete API documentation
-- [reference/architecture.md](reference/architecture.md) - System design
 
 ---
 
