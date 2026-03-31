@@ -1,7 +1,7 @@
 # Phase 3 Modular Server Restoration Plan
 
 Date: 2026-03-30
-Status: In Progress
+Status: Verification & CI Fixes (Step 8 Complete, pending CI)
 
 ## Progress Log
 
@@ -20,151 +20,89 @@ Status: In Progress
 - [x] Step 7 implemented: verified `examples/platform/basic_server.py` startup and aligned README status to restored modular runtime.
 - [x] Step 8 validation complete: full `pytest -q` passes after restoring WebSocket discovery behavior in modular app.
 
-## 1. Verified Current State
+---
 
-- The modular server structure expected by platform examples is missing.
-- `examples/platform/basic_server.py` imports `tools.test_server.app.create_app` and `tools.test_server.config.ServerConfig`, but those modules do not exist.
-- Current implementation is monolithic in `tools/test_server/main.py` (~1075 lines) with routes and business logic centralized.
-- Full `pytest` currently passes, which means existing tests do not catch this architecture/example drift.
+## 8. Plan Status Analysis (Current State)
 
-## 2. Objectives
+### Summary
 
-1. Restore a clean modular server architecture under `tools/test_server/`.
-2. Keep runtime compatibility while migrating from monolith.
-3. Make `examples/platform/basic_server.py` runnable again.
-4. Add tests that validate `create_app` and core endpoints.
-5. Update status/documentation only after implementation is truly complete.
+All 8 steps of the Phase 3 Modular Server Restoration are marked **complete** in the progress log. The modular architecture has been fully implemented. However, CI is currently failing due to two issues caught after the push.
 
-## 3. Scope
+### Modular Architecture — Implemented Files
 
-### In Scope
+All planned files exist and are properly wired:
 
-- New modular layout:
-  - `tools/test_server/app/__init__.py`
-  - `tools/test_server/app/main.py`
-  - `tools/test_server/services/device_service.py`
-  - `tools/test_server/services/effect_service.py`
-  - `tools/test_server/services/protocol_service.py`
-  - `tools/test_server/routes/devices.py`
-  - `tools/test_server/routes/effects.py`
-  - `tools/test_server/routes/ui.py`
-  - `tools/test_server/dependencies.py`
-  - `tools/test_server/config.py`
-- Compatibility wrapper strategy in `tools/test_server/main.py`.
-- Example fix: `examples/platform/basic_server.py`.
-- Tests for app factory and key endpoints.
+| File | Status | Notes |
+| :--- | :--- | :--- |
+| **config.py** | ✅ Created | `ServerConfig` Pydantic model |
+| **app/`__init__`.py** | ✅ Created | Exports `create_app` |
+| **app/main.py** | ✅ Created | App factory with service wiring |
+| **services/device_service.py** | ✅ Created | Device management logic |
+| **services/effect_service.py** | ⚠️ Modified locally | Fixed `datetime.UTC` → `timezone.utc` (uncommitted) |
+| **services/protocol_service.py** | ✅ Created | Protocol discovery tracking |
+| **routes/devices.py** | ✅ Created | Device API routes |
+| **routes/effects.py** | ✅ Created | Effect API routes |
+| **routes/ui.py** | ✅ Created | UI serving routes |
+| **dependencies.py** | ✅ Created | FastAPI `Depends` providers |
+| **main.py** | ✅ Updated | Compatibility wrapper + legacy `ControlPanelServer` |
+| **basic_server.py** | ✅ Updated | Now uses `create_app` + `ServerConfig` |
 
-### Out of Scope (for now)
+### Test Files Created
 
-- Deep behavior redesign of protocol handlers.
-- Large API contract changes unrelated to modularization.
-- Unrelated docs cleanup beyond touched architecture/status docs.
+| File | Notes |
+| :--- | :--- |
+| **test_modular_app_factory.py** | Factory + endpoint integration tests |
+| **test_modular_services.py** | Service unit tests |
 
-## 4. Execution Strategy (One by One)
+### CI Failures — 2 Issues Found
 
-### Step 1 - Baseline + Safety Net
+The CI run (#61) failed on both macOS 3.10 and Windows 3.10 matrices.
 
-- Add new integration tests for:
-  - app factory creation (`create_app`)
-  - `GET /health`
-  - `GET /api/devices` (empty list baseline)
-  - WebSocket connect to `/ws`
-- Keep these tests initially xfail/guarded only if imports are unavailable, then make them pass as we implement.
+#### Issue 1: `datetime.UTC` not available in Python 3.10
 
-Exit criteria:
-- New tests exist and are wired into suite.
-- Failure mode clearly indicates missing modular architecture.
+> [!IMPORTANT]
+> `datetime.UTC` was introduced in Python 3.11. The project targets `>=3.10`.
 
-### Step 2 - Config + Factory Skeleton
 
-- Implement `tools/test_server/config.py` with `ServerConfig` (Pydantic).
-- Implement `tools/test_server/app/main.py` with `create_app(config: ServerConfig | None = None)`.
-- Export from `tools/test_server/app/__init__.py`.
+- **Root cause**: `tools/test_server/services/effect_service.py` used `from datetime import UTC, datetime`
+- **Status**: ✅ **Fixed locally** (changed to `from datetime import datetime, timezone` + `timezone.utc`), but **not yet committed/pushed**.
 
-Exit criteria:
-- `create_app()` returns a FastAPI app.
-- Startup does not crash.
+The fix is in git diff — 2 uncommitted files:
+- **plan.md** — updated progress log
+- **tools/test_server/services/effect_service.py** — UTC fix
 
-### Step 3 - Service Layer Extraction
+#### Issue 2: `black` formatting violations in 6 files
 
-- Create `DeviceService`, `EffectService`, `ProtocolService`.
-- Move business logic from monolith into services incrementally.
+> [!WARNING]
+> CI reported 6 files would be reformatted by `black`.
 
-Exit criteria:
-- Services are independently importable and unit-testable.
-- No route directly contains heavy business logic.
+The 6 files flagged:
+1. `playsem/protocol_servers/coap_server.py`
+2. `playsem/protocol_servers/http_server.py`
+3. `playsem/protocol_servers/mqtt_server.py`
+4. `playsem/protocol_servers/websocket_server.py`
+5. `playsem/protocol_servers/upnp_server.py`
+6. `tests/protocols/test_upnp_server.py`
 
-### Step 4 - Dependency Injection Layer
+**Status**: ✅ **All 6 files pass `black --check` locally now** (58 files unchanged, 0 would be reformatted). This suggests the formatting was fixed in a commit after the CI failure, or the CI was running a different `black` version.
 
-- Create `tools/test_server/dependencies.py`.
-- Provide dependency providers (config + services).
+### What Needs To Happen Next
 
-Exit criteria:
-- Routes receive dependencies via FastAPI `Depends`.
-- Minimal global state in route modules.
+> [!CAUTION]
+> The `effect_service.py` fix is **uncommitted**. CI will keep failing until it's pushed.
 
-### Step 5 - Route Modularization
+1. **Commit and push** the 2 modified files (`effect_service.py` + `plan.md`)
+2. **Verify CI passes** on all matrix targets (ubuntu, macos, windows × Python 3.10, 3.11, 3.12)
+3. If `black` still fails in CI, check for version mismatch between local and CI `black` versions
 
-- Build route modules:
-  - `routes/devices.py`
-  - `routes/effects.py`
-  - `routes/ui.py`
-- Include routers in `create_app`.
+### Quick Status
 
-Exit criteria:
-- Existing endpoint behavior preserved for key APIs.
-- `/health`, `/api/devices`, `/ws` function from modular app.
+| Area | Local | CI (Remote) |
+| :--- | :--- | :--- |
+| **Modular architecture** | ✅ Complete | ✅ Complete |
+| **`datetime.UTC` fix** | ✅ Fixed | ❌ Not pushed |
+| **`black` formatting** | ✅ Passes | ❓ Needs re-run |
+| **Full `pytest`** | ✅ Passes (step 8) | ❌ Blocked by import error |
 
-### Step 6 - Compatibility Wrapper in main.py
 
-- Replace monolithic logic with thin compatibility entrypoint:
-  - imports `create_app`
-  - keeps current launch ergonomics where possible
-- Optionally keep a temporary legacy module snapshot (non-default runtime path) until stabilization.
 
-Exit criteria:
-- Existing run paths do not break unexpectedly.
-- Monolith is no longer source of truth.
-
-### Step 7 - Example + Docs Alignment
-
-- Verify/fix `examples/platform/basic_server.py` against restored architecture.
-- Update README status table only once implementation and tests are green.
-
-Exit criteria:
-- Example runs successfully.
-- Documentation reflects actual state (no false-complete claims).
-
-### Step 8 - Final Validation
-
-Automated:
-- Run full `pytest` and ensure no regressions.
-
-Manual:
-- Start example server.
-- Verify:
-  - `GET /health` returns OK.
-  - `GET /api/devices` returns empty list by default.
-  - WebSocket connection to `/ws` succeeds.
-
-Exit criteria:
-- Automated + manual checks pass.
-
-## 5. Risk Controls
-
-- Migrate in small, reviewable commits by step.
-- Keep compatibility wrapper while moving logic.
-- Avoid problematic naming (`modules.py`), use explicit `services/` and `routes/`.
-- Keep ASCII-safe file content and deterministic imports.
-
-## 6. Definition of Done
-
-- Modular architecture exists and is the runtime source of truth.
-- Platform examples run without import errors.
-- New factory/endpoint tests pass.
-- Full test suite passes.
-- README status is accurate.
-
-## 7. Immediate Next Action
-
-Proceed with Step 1 now: add modular app integration tests (factory + `/health` + `/api/devices` + `/ws`) and run targeted tests first.

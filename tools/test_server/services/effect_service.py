@@ -1,6 +1,6 @@
 """Effect orchestration service extracted from the monolithic server."""
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 
@@ -31,7 +31,7 @@ class EffectService:
 
     def store_inbox_effect(self, effect: Dict[str, Any]) -> Dict[str, Any]:
         record = {
-            "received_at": datetime.now(UTC)
+            "received_at": datetime.now(timezone.utc)
             .isoformat()
             .replace("+00:00", "Z"),
             "effect": effect,
