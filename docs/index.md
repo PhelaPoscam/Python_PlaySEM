@@ -22,28 +22,23 @@ See [LIBRARY.md](LIBRARY.md) for complete documentation
 |----------|---------|
 | [README.md](../README.md) | Project overview & features |
 | **[LIBRARY.md](LIBRARY.md)** | **Complete API reference** ← START HERE |
-| [REFACTORING.md](REFACTORING.md) | Migration guide for legacy code |
 
 ---
 
 ## 📖 Documentation Sections
 
-**User Guides**
+**User Guides & Testing**
 - [guides/quick-start.md](guides/quick-start.md) - Getting started
 - [guides/devices.md](guides/devices.md) - Device management
-- [guides/testing.md](guides/testing.md) - Testing guide
+- [guides/testing.md](guides/testing.md) - General testing guide
+- [guides/protocol_testing.md](guides/protocol_testing.md) - Protocol testing and clients
+- [guides/serial_testing.md](guides/serial_testing.md) - Virtual serial device simulator
+- [guides/multi_protocol_discovery.md](guides/multi_protocol_discovery.md) - Cross-protocol discovery
 - [guides/troubleshooting.md](guides/troubleshooting.md) - Common issues
 
-**API Reference**
+**API Reference & Architecture**
 - [LIBRARY.md](LIBRARY.md) - Complete API documentation
 - [reference/architecture.md](reference/architecture.md) - System design
-- [reference/status.md](reference/status.md) - Feature status
-
-**Development**
-- [development/README.md](development/README.md) - Developer documentation
-- [development/PROTOCOL_TESTING.md](development/PROTOCOL_TESTING.md) - Protocol testing
-- [development/SERIAL_TESTING_GUIDE.md](development/SERIAL_TESTING_GUIDE.md) - Serial testing
-- [development/MULTI_PROTOCOL_DISCOVERY.md](development/MULTI_PROTOCOL_DISCOVERY.md) - Discovery mechanisms
 
 ---
 

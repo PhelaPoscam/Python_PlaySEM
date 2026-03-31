@@ -116,7 +116,7 @@ For testing without real hardware:
 - Auto-start feature automatically starts the backend MQTT broker
 - You'll see "MQTT requested: Auto-starting backend MQTT broker..." in logs
 - Connection proceeds automatically - no manual broker setup needed!
-- See `../development/PROTOCOL_TESTING.md` → "GUI MQTT Connection" for details
+- See `protocol_testing.md` → "GUI MQTT Connection" for details
 
 ### Task 2: Send Multiple Effects
 
@@ -205,7 +205,7 @@ python -m gui.app 2>&1
 1. **Complete Manual Testing**: See `TESTING.md`
 2. **Create Real Devices**: See `DEVICES.md`
 3. **Understand Architecture**: See `../README.md`
-4. **Advanced Configuration**: See `development/` folder
+4. **Advanced Configuration**: See the `guides/` folder
 
 ---
 
