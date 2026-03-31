@@ -41,7 +41,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e .[dev,server]
+        pip install -e .[dev,server,gui]
 
     - name: Install Playwright Browsers
       run: |
@@ -71,7 +71,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e .[dev,server]
+        pip install -e .[dev,server,gui]
 
     - name: Install Playwright Browsers
       run: |
@@ -104,7 +104,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e .[dev,server]
+        pip install -e .[dev,server,gui]
 
     - name: Lint with flake8
       run: |
