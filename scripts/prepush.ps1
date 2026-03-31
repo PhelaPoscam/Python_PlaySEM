@@ -7,7 +7,8 @@ param(
 
 Write-Host "Running pre-push checks..." -ForegroundColor Cyan
 
-$python = "D:/TUNI/Python/Python_PlaySEM/.venv/Scripts/python.exe"
+$baseDir = Split-Path -Parent $PSScriptRoot
+$python = Join-Path $baseDir ".venv\Scripts\python.exe"
 if (-not (Test-Path $python)) {
     Write-Host "Python venv not found. Please activate venv first." -ForegroundColor Red
     exit 1
