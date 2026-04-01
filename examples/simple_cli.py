@@ -10,6 +10,13 @@ Usage:
 import asyncio
 import logging
 from pathlib import Path
+import sys
+
+# Add project root to path
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 import cmd
 
 # Import from the playsem library
@@ -113,31 +120,33 @@ async def initialize_manager():
     """Initialize the device manager."""
     from playsem.config import ConfigLoader
 
-    # Load configuration
-    config_path = Path(__file__).parent.parent / "config" / "devices.yaml"
+    # Load configuration relative to project root
+    project_root = Path(__file__).parent.parent
+    config_path = project_root / "config" / "devices.yaml"
     logger.info(f"📄 Loading config: {config_path}")
 
     try:
         # Create config loader
         config_loader = ConfigLoader(
             devices_path=str(config_path),
-            effects_path=str(config_path.parent / "effects.yaml"),
-            protocols_path=str(config_path.parent / "protocols.yaml"),
+            effects_path=str(project_root / "config" / "effects.yaml"),
+            protocols_path=str(project_root / "config" / "protocols.yaml"),
         )
 
-        # Initialize manager
+        # Initialize manager (connect_all is called automatically in __init__)
         manager = DeviceManager(config_loader=config_loader)
-        manager.connect_all()
+        
         devices_config = config_loader.load_devices_config()
         num_devices = len(devices_config.get("devices", []))
         logger.info(f"✅ Loaded {num_devices} devices\n")
     except FileNotFoundError:
         logger.warning(
-            f"⚠️  Config not found: {config_path}\n"
+            f"⚠️  Config not found at {config_path}\n"
             "   Using mock devices for demonstration..."
         )
         # Fallback to mock devices
         manager = DeviceManager()
+        from playsem.drivers import MockLightDevice
         mock_device = MockLightDevice("mock_light_1", "Demo Light")
         await manager.add_device(mock_device)
     return manager

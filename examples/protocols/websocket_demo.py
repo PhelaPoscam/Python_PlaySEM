@@ -13,7 +13,7 @@ Prerequisites:
 - Install: pip install websockets qrcode[pil]
 
 To test:
-1. Run this script: python examples/websocket_server_demo.py
+1. Run this script: python examples/protocols/websocket_demo.py
 2. Scan the generated QR code with your phone
 3. Send effects through the web interface
 """
@@ -78,9 +78,14 @@ async def main():
     # Create components
     logger.info("Initializing components...")
 
-    # Use mock client for demo (in production, use real DeviceManager)
-    mock_client = type("MockClient", (), {"publish": lambda *args: None})()
-    device_manager = DeviceManager(client=mock_client)  # type: ignore
+    # Initialize DeviceManager with mock devices (Non-Legacy Mode)
+    from playsem.drivers import MockLightDevice
+    device_manager = DeviceManager()
+    
+    # Add a mock device for the demo to target
+    mock_light = MockLightDevice("light_001", "Office Light")
+    await device_manager.add_device(mock_light)
+    logger.info(f"Added mock device: {mock_light.name} ({mock_light.id})")
 
     # Create dispatcher
     dispatcher = EffectDispatcher(device_manager)

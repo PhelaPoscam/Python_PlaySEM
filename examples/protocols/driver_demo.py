@@ -10,8 +10,16 @@ Prerequisites:
 - Connect USB device (Arduino, ESP32, etc.)
 
 Usage:
-  python examples/demos/serial_driver_demo.py
+  python examples/protocols/driver_demo.py
 """
+
+import sys
+from pathlib import Path
+
+# Add project root to path
+project_root = Path(__file__).resolve().parent.parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 import time
 import logging

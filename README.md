@@ -51,7 +51,6 @@ For detailed guides and API references, check out:
 - 📘 **[Library Documentation](docs/LIBRARY.md)** — Complete API reference.
 - ⚙️ **[Device Configuration](docs/guides/devices.md)** — YAML/JSON setup.
 - 🧪 **[Platform Server Guide](docs/guides/quick-start.md)** — REST/WS setup.
-- 🔄 **[Migration Guide](docs/REFACTORING.md)** — For legacy users.
 
 ---
 
