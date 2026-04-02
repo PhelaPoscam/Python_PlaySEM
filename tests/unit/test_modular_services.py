@@ -1,5 +1,7 @@
 """Unit tests for modular test server service layer."""
 
+import pytest
+
 from tools.test_server.services import (
     DeviceService,
     EffectService,
@@ -25,10 +27,11 @@ def test_device_service_register_and_list():
     assert devices[0]["protocols"] == ["http"]
 
 
-def test_effect_service_send_and_inbox():
+@pytest.mark.asyncio
+async def test_effect_service_send_and_inbox():
     service = EffectService()
 
-    result = service.send_effect(
+    result = await service.send_effect(
         device_exists=True,
         device_id="device_1",
         effect={"effect_type": "vibration"},

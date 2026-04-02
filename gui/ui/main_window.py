@@ -11,9 +11,9 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QMessageBox,
     QTabWidget,
-    QListWidget,
+    QTextEdit,
 )
-from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtCore import pyqtSignal, QObject, QDateTime
 from qasync import asyncSlot
 
 from ..app_controller import AppController, ConnectionConfig
@@ -21,6 +21,7 @@ from .connection_panel import ConnectionPanel
 from .device_panel import DevicePanel
 from .effect_panel import EffectPanel
 from .status_bar import StatusBarWidget
+from .styles import DARK_THEME
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,7 @@ class MainWindow(QMainWindow):
 
         # Setup UI
         self.setup_ui()
+        self.setStyleSheet(DARK_THEME)
 
     def setup_ui(self):
         """Set up the main UI layout."""
@@ -83,10 +85,15 @@ class MainWindow(QMainWindow):
         self.effect_panel.effect_sent.connect(self.on_send_effect)
         tabs.addTab(self.effect_panel, "Effects")
 
-        # Effect history
-        self.effect_history = QListWidget()
-        self.effect_history.setMinimumHeight(120)
-        layout.addWidget(self.effect_history)
+        # Event Console
+        self.event_console = QTextEdit()
+        self.event_console.setObjectName("consoleView")
+        self.event_console.setReadOnly(True)
+        self.event_console.setMinimumHeight(150)
+        self.event_console.setPlaceholderText(
+            "System initialized. Awaiting connection..."
+        )
+        layout.addWidget(self.event_console)
 
         layout.addWidget(tabs)
 
@@ -172,10 +179,33 @@ class MainWindow(QMainWindow):
             )
 
     # Callbacks from controller
+    def _log_event(self, message: str, level: str = "INFO"):
+        """Log event to the internal console."""
+        timestamp = QDateTime.currentDateTime().toString("HH:mm:ss")
+        color = "#E2E2E6"
+        if level == "SEND":
+            color = "#A8C7FA"
+        elif level == "ERROR":
+            color = "#F2B8B5"
+        elif level == "SUCCESS":
+            color = "#C4EED0"
+
+        html = (
+            f'<span style="color: #666;">[{timestamp}]</span> '
+            f'<span style="color: {color}; font-weight: bold;">[{level}]</span> '
+            f'<span style="color: {color};">{message}</span>'
+        )
+        self.event_console.append(html)
+        # Scroll to bottom
+        self.event_console.verticalScrollBar().setValue(
+            self.event_console.verticalScrollBar().maximum()
+        )
+
     def on_connected(self):
         """Connection established."""
         self.connection_panel.set_connected(True)
         self.status_widget.set_status("Connected", "green")
+        self._log_event("Connected to backend server", "SUCCESS")
         logger.info("Connected to backend")
 
     def on_disconnected(self):
@@ -183,6 +213,7 @@ class MainWindow(QMainWindow):
         self.connection_panel.set_connected(False)
         self.status_widget.set_status("Disconnected", "red")
         self.device_panel.clear_devices()
+        self._log_event("Disconnected from backend", "INFO")
         logger.info("Disconnected from backend")
 
     def on_device_list_updated(self, devices: list):
@@ -190,18 +221,24 @@ class MainWindow(QMainWindow):
         self.device_panel.update_devices(devices)
         count = len(devices)
         self.status_widget.update_info(f"{count} device(s) connected")
+        self._log_event(
+            f"Registry updated: {count} devices discovered", "INFO"
+        )
 
     def on_effect_sent(self, effect_data: dict):
         """Effect sent successfully."""
         effect_type = effect_data.get("effect_type", "unknown")
+        device_id = effect_data.get("device_id", "unknown")
         self.status_widget.update_info(f"Sent: {effect_type}")
         logger.info(f"Effect sent: {effect_type}")
-        summary = f"{effect_type} -> {effect_data.get('device_id', 'unknown')}"
-        self.effect_history.addItem(summary)
+
+        summary = f"Dispatched {effect_type.upper()} to {device_id}"
+        self._log_event(summary, "SEND")
 
     def on_error(self, error_msg: str):
         """Error occurred."""
         self.status_widget.set_status("Error", "orange")
+        self._log_event(error_msg, "ERROR")
         logger.error(f"Application error: {error_msg}")
         QMessageBox.warning(self, "Error", error_msg)
 

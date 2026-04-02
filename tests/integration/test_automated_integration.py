@@ -7,7 +7,7 @@ import json
 import asyncio
 
 # All tests in this file will use the asyncio event loop
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
 
 async def test_http_health_check(live_server):
@@ -39,7 +39,8 @@ async def test_websocket_connection(live_server):
     ws_url = live_server.replace("http", "ws") + "/ws"
     async with websockets.connect(ws_url) as websocket:
         # Connection is implicitly tested by the context manager
-        # In newer websockets library, check connection state instead of .open attribute
+        # In newer websockets versions, use connection state
+        # instead of the old `.open` attribute.
         assert websocket.state.name == "OPEN"
         # Send a ping and expect a pong (or at least no error)
         await websocket.send(json.dumps({"type": "ping"}))

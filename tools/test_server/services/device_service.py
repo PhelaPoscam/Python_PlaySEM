@@ -35,6 +35,7 @@ class DeviceService:
         connection_mode: str = "direct",
         metadata: Dict[str, Any] | None = None,
     ) -> ConnectedDevice:
+        connection_mode = self._normalize_connection_mode(connection_mode)
         device = ConnectedDevice(
             device_id=device_id,
             device_name=device_name,
@@ -88,3 +89,10 @@ class DeviceService:
                 "protocol_endpoints", {}
             ),
         }
+
+    @staticmethod
+    def _normalize_connection_mode(connection_mode: str) -> str:
+        value = (connection_mode or "direct").strip().lower()
+        if value not in {"direct", "isolated", "hub"}:
+            return "direct"
+        return value

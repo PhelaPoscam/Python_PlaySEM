@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QColorDialog,
     QMessageBox,
+    QGroupBox,
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QColor
@@ -121,6 +122,36 @@ class EffectPanel(QWidget):
         self.send_button.setEnabled(False)
         layout.addWidget(self.send_button)
 
+        # Presets Section
+        layout.addSpacing(20)
+        presets_group = QGroupBox("Effect Presets")
+        presets_layout = QVBoxLayout()
+
+        grid = QHBoxLayout()
+        presets = [
+            ("Full Bright", "light", 100, 2000, "#FFFFFF"),
+            ("Dim Red", "light", 20, 1000, "#FF0000"),
+            ("Haptic Pulse", "vibration", 80, 500, None),
+            ("Strong Wind", "wind", 90, 3000, None),
+        ]
+
+        for name, etype, intensity, duration, color in presets:
+            btn = QPushButton(name)
+            btn.setToolTip(f"Quick {name}")
+            btn.clicked.connect(
+                lambda checked,
+                n=name,
+                t=etype,
+                i=intensity,
+                d=duration,
+                c=color: self.send_preset(t, i, d, c)
+            )
+            grid.addWidget(btn)
+
+        presets_layout.addLayout(grid)
+        presets_group.setLayout(presets_layout)
+        layout.addWidget(presets_group)
+
         layout.addStretch()
         self.setLayout(layout)
 
@@ -167,6 +198,31 @@ class EffectPanel(QWidget):
         # Add custom parameter if set
         if self.param_input.value() > 0:
             effect_data["custom_param"] = self.param_input.value()
+
+        self.effect_sent.emit(effect_data)
+
+    def send_preset(
+        self,
+        effect_type: str,
+        intensity: int,
+        duration: int,
+        color: Optional[str] = None,
+    ):
+        """Send a predefined effect preset."""
+        if not self.target_device:
+            QMessageBox.warning(
+                self, "No Device", "Please select a device first"
+            )
+            return
+
+        effect_data = {
+            "effect_type": effect_type,
+            "intensity": intensity,
+            "duration": duration,
+            "device_id": self.target_device.get("id"),
+        }
+        if color:
+            effect_data["color"] = color
 
         self.effect_sent.emit(effect_data)
 

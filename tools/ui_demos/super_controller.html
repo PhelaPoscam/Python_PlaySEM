@@ -253,6 +253,16 @@
         
         .range-value { display: inline-block; background: #e5e7eb; color: #111827; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; margin-left: 10px; }
         
+        .preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 10px; }
+        .preset-btn { padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fafafa; cursor: pointer; font-size: 0.85em; font-weight: 600; text-align: center; transition: all 0.15s; color: #111827; }
+        .preset-btn:hover { background: #111827; color: #fff; border-color: #111827; transform: translateY(-1px); }
+        .preset-btn .preset-icon { font-size: 1.4em; display: block; margin-bottom: 4px; }
+        .preset-btn .preset-label { font-size: 0.8em; color: #6b7280; font-weight: 400; }
+        .preset-btn:hover .preset-label { color: #d1d5db; }
+        
+        .device-search { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9em; margin-bottom: 8px; background: #fff; color: #111827; }
+        .device-search:focus { outline: none; border-color: #111827; }
+        
         @media (max-width: 768px) {
             .content {
                 grid-template-columns: 1fr;
@@ -286,6 +296,7 @@
                 <div class="form-group">
                     <label>Connected Devices</label>
                     <button style="float: right; padding: 4px 12px; font-size: 0.85em;" id="scanSerial">🔍 Scan Serial</button>
+                    <input type="text" class="device-search" id="deviceSearch" placeholder="Filter devices..." oninput="filterDevices()">
                     <div class="device-list" id="deviceList">
                         <div style="text-align: center; color: #999; padding: 20px;">No devices connected</div>
                     </div>
@@ -331,6 +342,38 @@
                     <span id="sendEffectTarget" style="font-size: 0.85em; color: #777; align-self: center; margin-left: 10px;"></span>
                 </div>
                 
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+                
+                <div class="form-group">
+                    <label>⚡ Quick Presets</label>
+                    <div class="preset-grid">
+                        <button class="preset-btn" onclick="sendPreset('light', 100, 2000)">
+                            <span class="preset-icon">💡</span>Full Bright
+                            <span class="preset-label">100% · 2s</span>
+                        </button>
+                        <button class="preset-btn" onclick="sendPreset('light', 20, 1000)">
+                            <span class="preset-icon">🔴</span>Dim Red
+                            <span class="preset-label">20% · 1s</span>
+                        </button>
+                        <button class="preset-btn" onclick="sendPreset('vibration', 80, 500)">
+                            <span class="preset-icon">📳</span>Haptic Pulse
+                            <span class="preset-label">80% · 0.5s</span>
+                        </button>
+                        <button class="preset-btn" onclick="sendPreset('wind', 90, 3000)">
+                            <span class="preset-icon">💨</span>Strong Wind
+                            <span class="preset-label">90% · 3s</span>
+                        </button>
+                        <button class="preset-btn" onclick="sendPreset('heat', 60, 2000)">
+                            <span class="preset-icon">🔥</span>Warm Glow
+                            <span class="preset-label">60% · 2s</span>
+                        </button>
+                        <button class="preset-btn" onclick="sendPreset('scent', 40, 1500)">
+                            <span class="preset-icon">🌸</span>Gentle Scent
+                            <span class="preset-label">40% · 1.5s</span>
+                        </button>
+                    </div>
+                </div>
+
                 <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
 
                 <div class="form-group">
@@ -882,6 +925,27 @@
                 cold: '❄️'
             };
             return icons[effectType] || '⚡';
+        }
+        
+        // Filter devices
+        function filterDevices() {
+            const filter = document.getElementById('deviceSearch').value.toLowerCase();
+            const items = document.querySelectorAll('.device-item');
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(filter) ? '' : 'none';
+            });
+        }
+        
+        // Quick Presets
+        function sendPreset(effectType, intensity, duration) {
+            document.getElementById('modality').value = effectType;
+            document.getElementById('intensity').value = intensity;
+            document.getElementById('intensityValue').textContent = intensity;
+            document.getElementById('duration').value = duration;
+            document.getElementById('durationValue').textContent = duration;
+            
+            document.getElementById('sendEffect').click();
         }
         
         // Initialize

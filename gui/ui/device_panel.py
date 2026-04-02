@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QLabel,
     QGroupBox,
+    QLineEdit,
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 
@@ -34,6 +35,17 @@ class DevicePanel(QWidget):
     def setup_ui(self):
         """Set up the UI layout."""
         layout = QVBoxLayout()
+
+        # Search field
+        search_layout = QHBoxLayout()
+        search_layout.addWidget(QLabel("Filter:"))
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText(
+            "Search by name, type or protocol..."
+        )
+        self.search_input.textChanged.connect(self.on_filter_changed)
+        search_layout.addWidget(self.search_input)
+        layout.addLayout(search_layout)
 
         # Devices group
         group = QGroupBox("Connected Devices")
@@ -105,3 +117,14 @@ class DevicePanel(QWidget):
         if current_item:
             device_id = current_item.data(Qt.ItemDataRole.UserRole)
             self.device_selected.emit(device_id)
+
+    def on_filter_changed(self, text: str):
+        """Filter the device list items."""
+        search_text = text.lower()
+        for i in range(self.device_list.count()):
+            item = self.device_list.item(i)
+            # Match against item text or tooltip (which has ID/Type)
+            match = (search_text in item.text().lower()) or (
+                search_text in item.toolTip().lower()
+            )
+            item.setHidden(not match)

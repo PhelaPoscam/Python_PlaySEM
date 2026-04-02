@@ -317,11 +317,20 @@ class AppController:
             if not self.protocol or not self.protocol.is_connected:
                 raise ConnectionError("Not connected")
 
-            message = {"type": "effect", "payload": effect_data}
+            message = {
+                "type": "send_effect",
+                "device_id": effect_data.get("device_id"),
+                "effect": {
+                    "effect_type": effect_data.get("effect_type", "unknown"),
+                    "intensity": effect_data.get("intensity", 50),
+                    "duration": effect_data.get("duration", 500),
+                },
+            }
 
             if await self.protocol.send(message):
                 logger.info(
-                    f"Effect sent: {effect_data.get('effect_type', 'unknown')}"
+                    "Effect sent: %s",
+                    effect_data.get("effect_type", "unknown"),
                 )
                 if self.on_effect_sent:
                     self.on_effect_sent(effect_data)
@@ -393,27 +402,83 @@ class AppController:
 
             if msg_type == "device_list":
                 devices = data.get("devices", [])
-                self.devices = {d["id"]: d for d in devices}
+                self.devices = {
+                    d.get("id", d.get("device_id")): d for d in devices
+                }
                 if self.on_device_list_updated:
                     self.on_device_list_updated(devices)
 
-            elif msg_type == "devices":
-                # Legacy support for different format
-                self.devices = {d["id"]: d for d in data.get("payload", [])}
-                if self.on_device_list_updated:
-                    self.on_device_list_updated(data.get("payload", []))
+            elif msg_type == "effect_result":
+                success = data.get("success", False)
+                device_id = data.get("device_id", "")
+                if success:
+                    logger.info("Effect delivered to %s", device_id)
+                else:
+                    error = data.get("error", "Unknown")
+                    logger.warning(
+                        "Effect failed for %s: %s",
+                        device_id,
+                        error,
+                    )
+                    if self.on_error:
+                        self.on_error(f"Effect failed: {error}")
+
+            elif msg_type == "effect_protocol_result":
+                protocol = data.get("protocol", "")
+                if data.get("success"):
+                    logger.info(
+                        "Effect sent via %s",
+                        protocol.upper(),
+                    )
+                else:
+                    error = data.get("error", "Unknown")
+                    logger.warning(
+                        "%s error: %s",
+                        protocol.upper(),
+                        error,
+                    )
+
+            elif msg_type == "serial_scan_result":
+                scan_devices = data.get("devices", [])
+                logger.info(
+                    "Serial scan: %d devices found",
+                    len(scan_devices),
+                )
+
+            elif msg_type == "protocol_status":
+                protocol = data.get("protocol", "")
+                running = data.get("running", False)
+                logger.info(
+                    "Protocol %s: %s",
+                    protocol.upper(),
+                    "running" if running else "stopped",
+                )
+                if self.on_server_status_changed:
+                    self.on_server_status_changed(protocol, running)
+
+            elif msg_type == "device_registered":
+                logger.info(
+                    "Device registered: %s",
+                    data.get("device_id"),
+                )
 
             elif msg_type == "effect":
-                logger.info(f"Effect status: {data.get('payload', {})}")
+                logger.info(
+                    "Effect broadcast: %s",
+                    data.get("effect_type", "unknown"),
+                )
 
             elif msg_type == "error":
-                error_msg = data.get("payload", "Unknown error")
-                logger.error(f"Backend error: {error_msg}")
+                error_msg = data.get("message", data.get("payload", "Unknown"))
+                logger.error("Backend error: %s", error_msg)
                 if self.on_error:
                     self.on_error(error_msg)
 
+            elif msg_type == "pong":
+                pass  # keepalive response
+
             else:
-                logger.debug(f"Received message: {msg_type}")
+                logger.debug("Received message: %s", msg_type)
         except Exception as e:
             logger.error(f"Error handling message: {e}")
 

@@ -28,7 +28,7 @@ async def send_effect(
 
     effect_payload = body.get("effect", body)
     try:
-        return effect_service.send_effect(
+        return await effect_service.send_effect(
             device_exists=device_service.has_device(device_id),
             device_id=device_id,
             effect=effect_payload,

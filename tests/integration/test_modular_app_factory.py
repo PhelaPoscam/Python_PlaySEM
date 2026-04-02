@@ -72,3 +72,57 @@ def test_devices_and_effects_routes_are_wired(client):
     effect_response = client.post("/api/effects/send", json=effect_payload)
     assert effect_response.status_code == 200
     assert effect_response.json().get("success") is True
+
+
+@pytest.mark.asyncio
+async def test_protocol_bridge_tags_broadcast_payload():
+    create_app, ServerConfig = _load_modular_api()
+    app = create_app(ServerConfig())
+
+    captured = {}
+
+    async def capture(message):
+        captured.update(message)
+
+    app.state.protocol_service.set_effect_callback(capture)
+    await app.state.protocol_service._dispatch_bridge(
+        type("Effect", (), {"effect_type": "light", "intensity": 80})(),
+        "mqtt",
+    )
+
+    assert captured["device_id"] == "broadcast"
+    assert captured["broadcast"] is True
+    assert captured["source"] == "mqtt"
+
+
+def test_broadcast_eligibility_blocks_anonymous_and_isolated():
+    create_app, ServerConfig = _load_modular_api()
+    app = create_app(ServerConfig())
+    device_service = app.state.device_service
+
+    device_service.register_device(
+        device_id="direct_node",
+        device_name="Direct Node",
+        device_type="web",
+        capabilities=[],
+        protocols=["websocket"],
+        connection_mode="Direct",
+    )
+    device_service.register_device(
+        device_id="isolated_node",
+        device_name="Isolated Node",
+        device_type="web",
+        capabilities=[],
+        protocols=["websocket"],
+        connection_mode="IsOlAtEd",
+    )
+
+    from tools.test_server.app.main import _can_receive_broadcast
+
+    assert _can_receive_broadcast(device_service, "") is False
+    assert _can_receive_broadcast(device_service, "direct_node") is True
+    assert _can_receive_broadcast(device_service, "isolated_node") is False
+    assert (
+        device_service.get_device("isolated_node").connection_mode
+        == "isolated"
+    )

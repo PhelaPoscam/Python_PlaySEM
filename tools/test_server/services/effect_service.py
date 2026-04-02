@@ -1,7 +1,15 @@
-"""Effect orchestration service extracted from the monolithic server."""
-
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+import logging
+from typing import Any, Dict, List, Optional
+
+from tools.test_server.handlers import (
+    HTTPHandler, HTTPConfig,
+    CoAPHandler, CoAPConfig,
+    MQTTHandler, MQTTConfig,
+    UPnPHandler, UPnPConfig
+)
+
+logger = logging.getLogger(__name__)
 
 
 class EffectService:
@@ -15,18 +23,46 @@ class EffectService:
     def effects_sent(self) -> int:
         return self._effects_sent
 
-    def send_effect(
-        self, *, device_exists: bool, device_id: str, effect: Dict[str, Any]
+    async def send_effect(
+        self,
+        *,
+        device_exists: bool,
+        device_id: str,
+        effect: Dict[str, Any],
+        protocol: Optional[str] = None,
+        endpoint: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
+        """Dispatch an effect via a specific protocol or default (WS)."""
         if not device_exists:
             raise KeyError(device_id)
 
         self._effects_sent += 1
+        protocol = (protocol or "websocket").lower()
+        success = True
+        
+        if protocol == "mqtt":
+            cfg = MQTTConfig(**endpoint) if endpoint else MQTTConfig()
+            handler = MQTTHandler(config=cfg)
+            success = await handler.send(effect)
+        elif protocol == "coap":
+            cfg = CoAPConfig(**endpoint) if endpoint else CoAPConfig()
+            handler = CoAPHandler(config=cfg)
+            success = await handler.send(effect)
+        elif protocol == "http":
+            cfg = HTTPConfig(**endpoint) if endpoint else HTTPConfig()
+            handler = HTTPHandler(config=cfg)
+            success = await handler.send(effect)
+        elif protocol == "upnp":
+            cfg = UPnPConfig(**endpoint) if endpoint else UPnPConfig()
+            handler = UPnPHandler(config=cfg)
+            success = await handler.send(effect)
+        
         return {
-            "success": True,
+            "success": success,
             "device_id": device_id,
             "effect_type": effect.get("effect_type", "unknown"),
-            "message": "Effect sent successfully",
+            "protocol": protocol,
+            "message": "Effect dispatched" if success else "Dispatch failed",
         }
 
     def store_inbox_effect(self, effect: Dict[str, Any]) -> Dict[str, Any]:

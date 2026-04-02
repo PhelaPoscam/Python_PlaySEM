@@ -5,138 +5,257 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mobile Sensory Device</title>
     <style>
+        :root {
+            --bg-deep: #0f172a;
+            --primary: #6366f1;
+            --secondary: #9333ea;
+            --accent: #f43f5e;
+            --text: #f8fafc;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            background: #1a1a2e;
-            color: #eee;
-            overflow: hidden;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-deep);
+            background: radial-gradient(circle at top right, #1e1b4b, #0f172a);
+            color: var(--text);
             height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
+
         #header {
-            background: #16213e;
-            padding: 15px;
+            padding: 20px;
             text-align: center;
-            border-bottom: 2px solid #0f3460;
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--glass-border);
+            z-index: 10;
         }
+
         #header h1 {
-            font-size: 20px;
-            margin-bottom: 8px;
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
+
         #status {
-            font-size: 13px;
-            color: #ff6b6b;
+            font-size: 0.75rem;
+            margin-top: 4px;
             font-weight: 500;
-        }
-        #status.connected {
-            color: #51cf66;
-        }
-        #display {
-            flex: 1;
+            color: #94a3b8;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
-            position: relative;
+            gap: 6px;
         }
-        #effectName {
+
+        #status.connected { color: #4ade80; }
+        #status.connected::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: currentColor;
+            border-radius: 50%;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        #display {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+            padding: 20px;
+        }
+
+        .viz-container {
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .viz-container::after {
+            content: '';
             position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 24px;
-            font-weight: bold;
+            inset: -10px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--primary), transparent 70%);
             opacity: 0;
             transition: opacity 0.3s;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            z-index: -1;
         }
+
+        .viz-container.active::after {
+            opacity: 0.2;
+        }
+
+        #effectIcon {
+            font-size: 5rem;
+            filter: drop-shadow(0 0 20px rgba(255,255,255,0.2));
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .viz-container.active #effectIcon {
+            transform: scale(1.2);
+        }
+
+        #effectName {
+            margin-top: 30px;
+            font-size: 1.5rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            opacity: 0.3;
+            transition: all 0.3s;
+        }
+
         #effectName.show {
             opacity: 1;
+            background: linear-gradient(to bottom, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
+
         #controls {
-            background: #16213e;
-            padding: 20px;
-            border-top: 2px solid #0f3460;
+            padding: 24px;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--glass-border);
+            border-radius: 24px 24px 0 0;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.3);
+            z-index: 10;
         }
-        .control-group {
-            margin-bottom: 15px;
+
+        .input-group {
+            margin-bottom: 16px;
         }
-        label {
+
+        .input-group label {
             display: block;
-            font-size: 13px;
-            margin-bottom: 5px;
-            color: #aaa;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 6px;
+            margin-left: 4px;
         }
+
         input[type="text"] {
             width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            background: #0f3460;
-            border: 1px solid #1a4d7a;
-            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            padding: 14px 16px;
+            border-radius: 12px;
             color: #fff;
-        }
-        button {
-            width: 100%;
-            padding: 15px;
-            font-size: 16px;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
+            font-size: 0.95rem;
             transition: all 0.2s;
         }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: rgba(0, 0, 0, 0.4);
+        }
+
         #connectBtn {
-            background: #51cf66;
-            color: #1a1a2e;
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
         }
+
         #connectBtn:active {
-            transform: scale(0.98);
+            transform: scale(0.97);
         }
+
         #connectBtn.connected {
-            background: #ff6b6b;
+            background: var(--accent);
+            box-shadow: 0 4px 12px rgba(244, 63, 94, 0.3);
         }
+
         #log {
-            font-size: 11px;
-            color: #888;
-            margin-top: 10px;
-            max-height: 60px;
+            margin-top: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: #64748b;
+            max-height: 50px;
             overflow-y: auto;
-            background: #0f1419;
             padding: 8px;
-            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
         }
-        .log-entry {
-            margin-bottom: 3px;
+
+        .log-entry { margin-bottom: 2px; }
+
+        /* Wave animations */
+        @keyframes ripple {
+            from { transform: scale(0.8); opacity: 0.5; }
+            to { transform: scale(2); opacity: 0; }
+        }
+
+        .ripple {
+            position: absolute;
+            border: 2px solid var(--primary);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: ripple 1s ease-out;
         }
     </style>
 </head>
 <body>
     <div id="header">
-        <h1>📱 Mobile Sensory Device</h1>
+        <h1>SENSORY DEVICE</h1>
         <div id="status">Disconnected</div>
     </div>
 
     <div id="display">
-        <div id="effectName"></div>
+        <div class="viz-container" id="vizContainer">
+            <div id="effectIcon">📱</div>
+        </div>
+        <div id="effectName">READY</div>
     </div>
 
     <div id="controls">
-        <div class="control-group">
-            <label for="deviceName">Device Name</label>
-            <input type="text" id="deviceName" placeholder="My Phone" value="">
+        <div class="input-group">
+            <label>Device Identity</label>
+            <input type="text" id="deviceName" placeholder="Mobile Node">
         </div>
-        <div class="control-group">
-            <label for="serverUrl">Server WebSocket URL</label>
-            <input type="text" id="serverUrl" placeholder="ws://192.168.1.100:8080/ws" value="">
+        <div class="input-group">
+            <label>Server Endpoint</label>
+            <input type="text" id="serverUrl" placeholder="ws://...">
         </div>
-        <button id="connectBtn">Connect</button>
+        <button id="connectBtn">INITIALIZE</button>
         <div id="log"></div>
     </div>
 
@@ -169,54 +288,88 @@
         const defaultWsUrl = `${protocol}//${hostname}:${port}/ws`;
         serverUrlInput.value = defaultWsUrl;
 
+        function updateStatus(connected) {
+            isConnected = connected;
+            statusEl.textContent = connected ? `Connected as ${deviceId}` : 'Disconnected';
+            statusEl.className = connected ? 'connected' : '';
+            connectBtn.textContent = connected ? 'REBOOT' : 'INITIALIZE';
+            connectBtn.className = connected ? 'connected' : '';
+            
+            if (connected) {
+                connectBtn.style.background = 'var(--secondary)';
+                connectBtn.style.boxShadow = '0 4px 12px rgba(147, 51, 234, 0.3)';
+            } else {
+                connectBtn.style.background = '';
+                connectBtn.style.boxShadow = '';
+            }
+        }
+
+        const vizContainer = document.getElementById('vizContainer');
+        const effectIcon = document.getElementById('effectIcon');
+
         function log(msg) {
             const entry = document.createElement('div');
             entry.className = 'log-entry';
             entry.textContent = `${new Date().toLocaleTimeString()}: ${msg}`;
             logEl.insertBefore(entry, logEl.firstChild);
-            // Keep only last 10 entries
             while (logEl.children.length > 10) {
                 logEl.removeChild(logEl.lastChild);
             }
         }
 
-        function updateStatus(connected) {
-            isConnected = connected;
-            statusEl.textContent = connected ? `Connected as ${deviceId}` : 'Disconnected';
-            statusEl.className = connected ? 'connected' : '';
-            connectBtn.textContent = connected ? 'Disconnect' : 'Connect';
-            connectBtn.className = connected ? 'connected' : '';
+        function createRipple() {
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple';
+            const size = Math.random() * 100 + 100;
+            ripple.style.width = ripple.style.height = `${size}px`;
+            ripple.style.left = `calc(50% - ${size/2}px)`;
+            ripple.style.top = `calc(50% - ${size/2}px)`;
+            displayEl.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 1000);
         }
 
         function showEffect(effectType, intensity, duration, parameters) {
+            const icons = {
+                light: '💡',
+                vibration: '📳',
+                wind: '💨',
+                scent: '🌸',
+                heat: '🔥',
+                cold: '❄️'
+            };
+
+            effectIcon.textContent = icons[effectType] || '⚡';
             effectNameEl.textContent = effectType.toUpperCase();
             effectNameEl.classList.add('show');
+            vizContainer.classList.add('active');
 
-            // Visual feedback based on effect type
-            if (effectType === 'light' || effectType.includes('light')) {
+            // Apply theme colors
+            const colors = {
+                light: '#fbbf24',
+                vibration: '#f43f5e',
+                wind: '#38bdf8',
+                scent: '#c084fc',
+                heat: '#f97316',
+                cold: '#60a5fa'
+            };
+            const themeColor = colors[effectType] || '#6366f1';
+            vizContainer.style.borderColor = themeColor;
+            vizContainer.style.boxShadow = `0 0 40px ${themeColor}44`;
+
+            if (effectType === 'light') {
                 const color = parameters?.color || '#ffffff';
-                displayEl.style.backgroundColor = color;
-                displayEl.style.opacity = (intensity / 255).toFixed(2);
-            } else if (effectType === 'vibration' || effectType.includes('vibr')) {
-                displayEl.style.backgroundColor = '#ff6b6b';
-                displayEl.style.opacity = (intensity / 255 * 0.8 + 0.2).toFixed(2);
-                // Trigger vibration if supported
-                if ('vibrate' in navigator) {
-                    navigator.vibrate(duration || 200);
-                }
-            } else if (effectType.includes('wind')) {
-                displayEl.style.backgroundColor = '#74c0fc';
-                displayEl.style.opacity = (intensity / 255 * 0.7 + 0.3).toFixed(2);
-            } else {
-                displayEl.style.backgroundColor = '#adb5bd';
-                displayEl.style.opacity = (intensity / 255 * 0.6 + 0.4).toFixed(2);
+                displayEl.style.background = `radial-gradient(circle, ${color}33, transparent 70%)`;
+            } else if (effectType === 'vibration') {
+                if ('vibrate' in navigator) navigator.vibrate(duration || 200);
+                createRipple();
             }
 
-            // Clear after duration
             setTimeout(() => {
-                displayEl.style.backgroundColor = '#1a1a2e';
-                displayEl.style.opacity = '1';
+                vizContainer.classList.remove('active');
                 effectNameEl.classList.remove('show');
+                displayEl.style.background = '';
+                vizContainer.style.borderColor = '';
+                vizContainer.style.boxShadow = '';
             }, duration || 1000);
         }
 
@@ -229,92 +382,65 @@
 
             try {
                 ws = new WebSocket(serverUrl);
-
                 ws.onopen = () => {
-                    log('WebSocket connected');
-                    // Register as a device
+                    log('Connected to cluster');
                     ws.send(JSON.stringify({
                         type: 'register_device',
                         device_id: deviceId,
-                        device_name: deviceNameInput.value || 'Mobile Device',
-                        device_type: 'web_client',
-                        capabilities: ['light', 'vibration']
+                        device_name: deviceNameInput.value || 'Mobile Node',
+                        device_type: 'mobile_client',
+                        capabilities: ['light', 'vibration', 'scent'],
+                        protocols: ['websocket'],
+                        connection_mode: 'direct'
                     }));
                 };
 
                 ws.onmessage = (event) => {
                     try {
                         const data = JSON.parse(event.data);
-                        log(`Received: ${data.type}`);
-
                         if (data.type === 'device_registered') {
                             updateStatus(true);
-                            log(`Registered as ${data.device_id}`);
+                            log('Authorized & Registered');
                         } else if (data.type === 'effect') {
-                            // Execute effect
                             showEffect(
                                 data.effect_type,
                                 data.intensity || 100,
                                 data.duration || 1000,
                                 data.parameters || {}
                             );
-                            log(`Effect: ${data.effect_type} (${data.intensity}/${data.duration}ms)`);
-                            
-                            // Send acknowledgment
-                            ws.send(JSON.stringify({
-                                type: 'effect_ack',
-                                device_id: deviceId,
-                                effect_type: data.effect_type,
-                                timestamp: Date.now()
-                            }));
+                            log(`Effect: ${data.effect_type.toUpperCase()}`);
                         }
                     } catch (e) {
-                        log(`Parse error: ${e.message}`);
+                        log(`Protocol Error: ${e.message}`);
                     }
                 };
 
-                ws.onerror = (error) => {
-                    log(`WebSocket error`);
-                    updateStatus(false);
-                };
-
                 ws.onclose = () => {
-                    log('WebSocket closed');
+                    log('Link severed');
                     updateStatus(false);
                     ws = null;
                 };
 
+                ws.onerror = () => log('Connection failed');
+
             } catch (e) {
-                log(`Connection error: ${e.message}`);
+                log(`Fault: ${e.message}`);
             }
         }
 
         function disconnect() {
-            if (ws) {
-                ws.close();
-                ws = null;
-            }
+            if (ws) ws.close();
             updateStatus(false);
         }
 
-        connectBtn.onclick = () => {
-            if (isConnected) {
-                disconnect();
-            } else {
-                connect();
-            }
-        };
+        connectBtn.onclick = () => isConnected ? disconnect() : connect();
 
-        // Prevent screen sleep on mobile
-        let wakeLock = null;
+        // Screen lock
         if ('wakeLock' in navigator) {
-            navigator.wakeLock.request('screen').then(lock => {
-                wakeLock = lock;
-                log('Screen wake lock active');
-            }).catch(() => {});
+            navigator.wakeLock.request('screen').catch(() => {});
         }
 
-        log('Ready to connect');
+        log('System online');
     </script>
 </body>
 </html>
