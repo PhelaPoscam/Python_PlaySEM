@@ -49,8 +49,7 @@ if __name__ == "__main__":
 For detailed guides and API references, check out:
 
 - 📘 **[Library Documentation](docs/LIBRARY.md)** — Complete API reference.
-- ⚙️ **[Device Configuration](docs/guides/devices.md)** — YAML/JSON setup.
-- 🧪 **[Platform Server Guide](docs/guides/quick-start.md)** — REST/WS setup.
+- ⚙️ **[Core Usage Guide](docs/guides/core_guide.md)** — Setup, testing, and protocol notes.
 
 ---
 
@@ -67,6 +66,4 @@ For detailed guides and API references, check out:
 - **License**: MIT
 - **Origins**: Based on the original Java PlaySEM by [Estevão Bissoli](https://github.com/estevaobissoli).
 
-<p align="center">
-  <strong>Immersive sensory experiences, simplified. 🌍✨</strong>
-</p>
+Immersive sensory experiences, simplified. 🌍✨

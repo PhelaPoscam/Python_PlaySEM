@@ -31,6 +31,62 @@ def websocket_server(effect_dispatcher):
     )
 
 
+@pytest.mark.asyncio
+async def test_websocket_server_managed_queue_processing_enabled(
+    websocket_server,
+):
+    """Managed queue is processed when flag is enabled."""
+    mock_websocket = AsyncMock()
+    websocket_server.process_managed_queue = True
+    websocket_server.dispatcher.managed_mode = True
+    websocket_server.dispatcher.dispatch_effect_metadata = Mock()
+    websocket_server.dispatcher.process_all_pending = Mock()
+
+    message = json.dumps(
+        {
+            "type": "effect",
+            "effect_type": "light",
+            "timestamp": 0,
+            "duration": 1000,
+            "intensity": 100,
+        }
+    )
+
+    await websocket_server._process_message(
+        mock_websocket, message, "test_client"
+    )
+
+    websocket_server.dispatcher.process_all_pending.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_websocket_server_managed_queue_processing_disabled(
+    websocket_server,
+):
+    """Managed queue is not processed when server flag is disabled."""
+    mock_websocket = AsyncMock()
+    websocket_server.process_managed_queue = False
+    websocket_server.dispatcher.managed_mode = True
+    websocket_server.dispatcher.dispatch_effect_metadata = Mock()
+    websocket_server.dispatcher.process_all_pending = Mock()
+
+    message = json.dumps(
+        {
+            "type": "effect",
+            "effect_type": "wind",
+            "timestamp": 0,
+            "duration": 1000,
+            "intensity": 80,
+        }
+    )
+
+    await websocket_server._process_message(
+        mock_websocket, message, "test_client"
+    )
+
+    websocket_server.dispatcher.process_all_pending.assert_not_called()
+
+
 def test_websocket_server_initialization(effect_dispatcher):
     """Test WebSocket server initializes correctly."""
     server = WebSocketServer(

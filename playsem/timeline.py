@@ -35,6 +35,7 @@ class Timeline:
         self,
         effect_dispatcher: EffectDispatcher,
         tick_interval: float = 0.01,  # 10ms precision
+        process_managed_queue: bool = False,
     ):
         """
         Initialize timeline scheduler.
@@ -42,9 +43,12 @@ class Timeline:
         Args:
             effect_dispatcher: EffectDispatcher for executing effects
             tick_interval: Timer tick interval in seconds (default 10ms)
+            process_managed_queue: If True, process queued effects when
+                dispatcher is in managed mode.
         """
         self.dispatcher = effect_dispatcher
         self.tick_interval = tick_interval
+        self.process_managed_queue = process_managed_queue
 
         self.timeline: Optional[EffectTimeline] = None
         self.scheduled_effects: List[ScheduledEffect] = []
@@ -276,6 +280,13 @@ class Timeline:
         """
         try:
             self.dispatcher.dispatch_effect_metadata(effect)
+
+            if (
+                self.process_managed_queue
+                and getattr(self.dispatcher, "managed_mode", False)
+                and hasattr(self.dispatcher, "process_all_pending")
+            ):
+                self.dispatcher.process_all_pending()
 
             if self.on_effect_callback:
                 self.on_effect_callback(effect)

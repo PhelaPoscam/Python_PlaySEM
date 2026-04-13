@@ -203,10 +203,12 @@ registry.clear()
 #### Protocol Isolation
 
 **Shared Mode** (default):
+
 - Devices from ANY protocol are visible to ALL protocols
 - Use case: Unified device control across protocols
 
 **Isolated Mode**:
+
 - Devices only visible to their source protocol
 - MQTT devices → MQTT clients only
 - WebSocket devices → WebSocket clients only
@@ -295,147 +297,12 @@ devices = config["devices"]
 
 ---
 
-## Examples
-
-### Simple CLI Application
-
-```python
-# examples/simple_cli.py
-from playsem import DeviceManager, EffectMetadata
-from playsem.config import ConfigLoader
-
-async def main():
-    manager = DeviceManager()
-    
-    try:
-        config = ConfigLoader.load("config/devices.yaml")
-        await manager.initialize(config)
-    except FileNotFoundError:
-        # Fallback to mock devices
-        await manager.add_mock_devices()
-    
-    # Send test effect
-    effect = EffectMetadata(effect_type="vibration", intensity=80)
-    await manager.send_effect("device_001", effect)
-
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
-```
-
-### Device Registry Demo
-
-```python
-# examples/device_registry_demo.py
-from playsem import DeviceRegistry
-
-registry = DeviceRegistry()
-
-# Register MQTT device
-registry.register_device({
-    "id": "mqtt_light_001",
-    "name": "MQTT Light",
-    "type": "light",
-    "protocols": ["mqtt"]
-}, source_protocol="mqtt")
-
-# Register WebSocket device
-registry.register_device({
-    "id": "ws_vibration_001",
-    "name": "WS Haptic",
-    "type": "vibration",
-    "protocols": ["websocket"]
-}, source_protocol="websocket")
-
-# Query all devices (cross-protocol visibility!)
-all_devices = registry.get_all_devices()
-print(f"Total devices: {len(all_devices)}")
-```
-
-Run examples:
-```bash
-python examples/simple_cli.py
-python examples/device_registry_demo.py
-```
-
----
-
-## Testing
-
-### Run Tests
-
-```bash
-# All tests
-pytest
-
-# Specific module
-pytest tests/test_device_registry.py
-
-# With coverage
-pytest --cov=playsem
-
-# Verbose
-pytest -v
-```
-
-### Test Structure
-
-```
-tests/
-├── test_device_manager.py
-├── test_effect_dispatcher.py
-├── test_effect_metadata.py
-├── test_device_registry.py
-└── test_config_loader.py
-```
-
----
-
-## Architecture
-
-### Library Structure
-
-```
-playsem/                    # Core library (import this)
-├── __init__.py            # Exports: DeviceManager, EffectMetadata, DeviceRegistry
-├── device_manager.py      # Device lifecycle management
-├── effect_dispatcher.py   # Effect routing
-├── effect_metadata.py     # Effect data structure
-├── device_registry.py     # Central device registry
-├── config/
-│   ├── __init__.py
-│   └── loader.py         # Configuration loading
-└── drivers/
-    ├── __init__.py
-    ├── base_driver.py    # Driver interface
-    ├── serial_driver.py  # Serial/USB communication
-    ├── mqtt_driver.py    # MQTT protocol
-    ├── bluetooth_driver.py
-    └── mock_driver.py    # Testing/development
-```
-
-### Platform Components (Optional)
-
-```
-examples/                   # Reference implementations
-├── simple_cli.py          # Basic usage example
-└── device_registry_demo.py
-
-tools/                     # Platform server (optional)
-└── test_server/          # Multi-protocol backend server
-
-gui/                       # PyQt6 GUI (optional)
-└── app.py                # Graphical interface
-```
-
----
-
 ## API Reference
 
 ### DeviceManager Methods
 
 | Method | Description |
-|--------|-------------|
+| :-- | :-- |
 | `initialize(config)` | Load devices from configuration |
 | `send_effect(device_id, effect)` | Send effect to specific device |
 | `broadcast_effect(device_type, effect)` | Send effect to all devices of type |
@@ -446,7 +313,7 @@ gui/                       # PyQt6 GUI (optional)
 ### DeviceRegistry Methods
 
 | Method | Description |
-|--------|-------------|
+| :-- | :-- |
 | `register_device(data, protocol)` | Register device from protocol |
 | `unregister_device(device_id)` | Remove device |
 | `get_device(device_id, protocol?)` | Get device by ID |
@@ -462,7 +329,7 @@ gui/                       # PyQt6 GUI (optional)
 ### EffectMetadata Properties
 
 | Property | Type | Description |
-|----------|------|-------------|
+| :-- | :-- | :-- |
 | `effect_type` | str | Type (light, vibration, wind, etc.) |
 | `intensity` | int | 0-100 |
 | `duration` | int | Milliseconds |
@@ -470,71 +337,4 @@ gui/                       # PyQt6 GUI (optional)
 
 ---
 
-## Troubleshooting
-
-### Import Errors
-
-**Problem**: `ModuleNotFoundError: No module named 'playsem'`
-
-**Solution**: Install in editable mode:
-```bash
-pip install -e .
-```
-
-### Protocol Isolation Not Working
-
-**Problem**: All devices visible when isolation is enabled
-
-**Solution**: Pass `requesting_protocol` parameter:
-```python
-devices = registry.get_all_devices(requesting_protocol="mqtt")
-```
-
-### Device Not Connecting
-
-**Problem**: Device fails to connect
-
-**Solution**:
-1. Check device configuration in YAML
-2. Verify driver is correct (serial, mqtt, etc.)
-3. Check address/port
-4. Enable debug logging
-
----
-
-## Contributing
-
-### Development Setup
-
-```bash
-git clone https://github.com/PhelaPoscam/Python_PlaySEM.git
-cd Python_PlaySEM
-python -m venv .venv
-.venv\Scripts\activate  # Windows
-pip install -e ".[dev]"
-```
-
-### Running Tests
-
-```bash
-pytest
-pytest --cov=playsem
-pytest -v
-```
-
-### Code Style
-
-- Black formatting (line length: 79)
-- Type hints where applicable
-- Docstrings for public APIs
-
----
-
-## License
-
-MIT License - see LICENSE file for details
-
-## Links
-
-- **Repository**: https://github.com/PhelaPoscam/Python_PlaySEM
-- **Issues**: https://github.com/PhelaPoscam/Python_PlaySEM/issues
+For runnable examples, see [examples/README.md](../examples/README.md).

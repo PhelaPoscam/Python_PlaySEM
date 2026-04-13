@@ -31,6 +31,7 @@ except ImportError:
     BleakGATTCharacteristic = None
 
 from .base_driver import AsyncBaseDriver
+from .retry_policy import RetryPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,8 @@ class BluetoothDriver(AsyncBaseDriver):
         address: Optional[str] = None,
         device_name: Optional[str] = None,
         on_disconnect: Optional[Callable[[BleakClient], None]] = None,
+        retry_policy: Optional[RetryPolicy] = None,
+        auto_reconnect: bool = True,
     ):
         """
         Initialize Bluetooth driver.
@@ -85,11 +88,17 @@ class BluetoothDriver(AsyncBaseDriver):
         self.address = address
         self.device_name = device_name
         self.on_disconnect = on_disconnect
+        self.retry_policy = retry_policy or RetryPolicy()
+        self.auto_reconnect = auto_reconnect
 
         self._client: Optional[BleakClient] = None
         self._is_connected = False
         self._services: Dict[str, Any] = {}
         self._notification_callbacks: Dict[str, Callable] = {}
+        self._reconnect_task: Optional[asyncio.Task] = None
+        self._last_connect_timeout: float = 10.0
+        self._reconnect_attempts = 0
+        self._last_reconnect_error: Optional[str] = None
 
         logger.info(
             f"BluetoothDriver initialized - "
@@ -248,42 +257,67 @@ class BluetoothDriver(AsyncBaseDriver):
             logger.error("No address specified")
             return False
 
-        try:
-            logger.info(f"Connecting to {target_address}...")
+        self._last_connect_timeout = timeout
+        delays = self.retry_policy.delays()
+        max_attempts = max(1, self.retry_policy.max_attempts)
 
-            # Create client with disconnect callback
-            self._client = BleakClient(
-                target_address,
-                disconnected_callback=self._handle_disconnect,
-                timeout=timeout,
-            )
+        for attempt in range(1, max_attempts + 1):
+            self._reconnect_attempts = attempt
+            try:
+                logger.info(
+                    f"Connecting to {target_address} "
+                    f"(attempt {attempt}/{max_attempts})..."
+                )
 
-            # Connect
-            await self._client.connect()
+                # Create client with disconnect callback
+                self._client = BleakClient(
+                    target_address,
+                    disconnected_callback=self._handle_disconnect,
+                    timeout=timeout,
+                )
 
-            # Verify connection
-            if not self._client.is_connected:
-                logger.error("Connection failed")
-                return False
+                # Connect
+                await self._client.connect()
 
-            self.address = target_address
-            self._is_connected = True
+                # Verify connection
+                if not self._client.is_connected:
+                    raise RuntimeError("Connection failed")
 
-            # Discover services
-            await self._discover_services()
+                self.address = target_address
+                self._is_connected = True
 
-            logger.info(
-                f"Connected to {target_address} "
-                f"({len(self._services)} services)"
-            )
-            return True
+                # Discover services
+                await self._discover_services()
 
-        except asyncio.TimeoutError:
-            logger.error(f"Connection timeout to {target_address}")
-            return False
-        except Exception as e:
-            logger.error(f"Connection failed: {e}")
-            return False
+                self._last_reconnect_error = None
+                logger.info(
+                    f"Connected to {target_address} "
+                    f"({len(self._services)} services)"
+                )
+                return True
+
+            except asyncio.TimeoutError:
+                self._last_reconnect_error = (
+                    f"Connection timeout to {target_address}"
+                )
+                logger.error(
+                    f"Connection timeout to {target_address} "
+                    f"(attempt {attempt}/{max_attempts})"
+                )
+            except Exception as e:
+                self._last_reconnect_error = str(e)
+                logger.error(
+                    f"Connection attempt {attempt}/{max_attempts} failed: {e}"
+                )
+
+            self._is_connected = False
+            self._client = None
+            if attempt < max_attempts:
+                delay = delays[attempt - 1] if attempt - 1 < len(delays) else 0
+                if delay > 0:
+                    await asyncio.sleep(delay)
+
+        return False
 
     async def disconnect(self):
         """
@@ -519,6 +553,44 @@ class BluetoothDriver(AsyncBaseDriver):
                 self.on_disconnect(client)
             except Exception as e:
                 logger.error(f"Disconnect callback error: {e}")
+
+        if self.auto_reconnect and self.address:
+            try:
+                loop = asyncio.get_running_loop()
+                if self._reconnect_task is None or self._reconnect_task.done():
+                    self._reconnect_task = loop.create_task(
+                        self._attempt_reconnect()
+                    )
+            except RuntimeError:
+                logger.warning(
+                    "No running event loop available for BLE reconnect"
+                )
+
+    async def _attempt_reconnect(self):
+        """Attempt reconnect using the configured retry policy."""
+        if not self.address:
+            return
+
+        success = await self.connect(
+            address=self.address,
+            timeout=self._last_connect_timeout,
+        )
+        if not success:
+            logger.error("BLE reconnect exhausted retry budget")
+
+    def get_driver_info(self) -> Dict[str, Any]:
+        """Get Bluetooth driver configuration and reconnect status."""
+        info = super().get_driver_info()
+        info.update(
+            {
+                "address": self.address,
+                "name": self.device_name,
+                "auto_reconnect": self.auto_reconnect,
+                "reconnect_attempts": self._reconnect_attempts,
+                "last_reconnect_error": self._last_reconnect_error,
+            }
+        )
+        return info
 
     async def is_connected(self) -> bool:
         """Check if device is connected (AsyncBaseDriver interface)."""

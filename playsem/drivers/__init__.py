@@ -9,6 +9,8 @@ Available Drivers:
 """
 
 from playsem.drivers.base_driver import BaseDriver
+from playsem.drivers.retry_policy import RetryPolicy
+from playsem.drivers.rgb_light_driver import RGBLightDriver
 from playsem.drivers.serial_driver import SerialDriver
 from playsem.drivers.mqtt_driver import MQTTDriver
 from playsem.drivers.bluetooth_driver import BluetoothDriver
@@ -22,6 +24,8 @@ from playsem.drivers.mock_driver import (
 
 __all__ = [
     "BaseDriver",
+    "RetryPolicy",
+    "RGBLightDriver",
     "SerialDriver",
     "MQTTDriver",
     "BluetoothDriver",

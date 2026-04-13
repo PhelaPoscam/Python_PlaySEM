@@ -29,6 +29,7 @@ except ImportError:
     serial = None
 
 from .base_driver import BaseDriver
+from .retry_policy import RetryPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,8 @@ class SerialDriver(BaseDriver):
         stopbits: int = 1,
         on_data_received: Optional[Callable[[bytes], None]] = None,
         data_format: str = "json",
+        retry_policy: Optional[RetryPolicy] = None,
+        auto_reconnect: bool = True,
     ):
         """
         Initialize serial driver.
@@ -105,11 +108,15 @@ class SerialDriver(BaseDriver):
         self.stopbits = stopbits
         self.on_data_received = on_data_received
         self.data_format = data_format.lower()
+        self.retry_policy = retry_policy or RetryPolicy()
+        self.auto_reconnect = auto_reconnect
 
         self._serial: Optional[serial.Serial] = None
         self._is_connected = False
         self._read_thread: Optional[threading.Thread] = None
         self._stop_reading = threading.Event()
+        self._reconnect_attempts = 0
+        self._last_reconnect_error: Optional[str] = None
 
         logger.info(
             f"SerialDriver '{interface_name}' initialized - port: {port}, "
@@ -387,6 +394,9 @@ class SerialDriver(BaseDriver):
         Returns:
             bool: True if command sent successfully
         """
+        if not self.is_connected() and self.auto_reconnect:
+            self.connect()
+
         if not self.is_connected():
             logger.warning("Cannot send command: not connected")
             return False
@@ -576,7 +586,24 @@ class SerialDriver(BaseDriver):
     # BaseDriver additional methods
     def connect(self) -> bool:
         """Connect to serial device (BaseDriver interface)."""
-        return self.open_connection()
+        delays = self.retry_policy.delays()
+        max_attempts = max(1, self.retry_policy.max_attempts)
+
+        for attempt in range(1, max_attempts + 1):
+            self._reconnect_attempts = attempt
+            if self.open_connection():
+                self._last_reconnect_error = None
+                return True
+
+            self._last_reconnect_error = (
+                f"open_connection failed on attempt {attempt}/{max_attempts}"
+            )
+            if attempt < max_attempts:
+                delay = delays[attempt - 1] if attempt - 1 < len(delays) else 0
+                if delay > 0:
+                    time.sleep(delay)
+
+        return False
 
     def disconnect(self) -> bool:
         """Disconnect from serial device (BaseDriver interface)."""
@@ -595,6 +622,9 @@ class SerialDriver(BaseDriver):
                 "port": self.port,
                 "baudrate": self.baudrate,
                 "timeout": self.timeout,
+                "auto_reconnect": self.auto_reconnect,
+                "reconnect_attempts": self._reconnect_attempts,
+                "last_reconnect_error": self._last_reconnect_error,
             }
         )
         return info

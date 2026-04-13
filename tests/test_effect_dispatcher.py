@@ -154,7 +154,7 @@ def test_get_supported_effects(dispatcher, sample_effects_config):
 
 
 def test_fallback_to_default_mappings(mock_device_manager):
-    """Test that the dispatcher uses default mappings if config fails to load."""
+    """Test fallback to default mappings when config loading fails."""
     # Patch load_effects_yaml to simulate it failing
     with patch("playsem.effect_dispatcher.load_effects_yaml") as mock_load:
         mock_load.side_effect = FileNotFoundError
@@ -165,3 +165,92 @@ def test_fallback_to_default_mappings(mock_device_manager):
     mock_device_manager.send_command.assert_called_once_with(
         "light_device", "set_brightness", {"intensity": 123}
     )
+
+
+def test_managed_mode_priority_order(
+    mock_device_manager, sample_effects_config
+):
+    """Managed mode dispatches lower numeric priorities first."""
+    with patch("playsem.effect_dispatcher.load_effects_yaml") as mock_load:
+        mock_load.return_value = sample_effects_config
+        managed = EffectDispatcher(
+            mock_device_manager,
+            "dummy/path.yaml",
+            managed_mode=True,
+            failure_policy="drop",
+        )
+
+    managed.dispatch_effect("fan_on", {"speed": 1}, priority=9)
+    managed.dispatch_effect("fan_on", {"speed": 2}, priority=1)
+    managed.dispatch_effect("fan_on", {"speed": 3}, priority=5)
+
+    outcomes = managed.process_all_pending()
+
+    assert [o["status"] for o in outcomes] == [
+        "dispatched",
+        "dispatched",
+        "dispatched",
+    ]
+    sent_params = [
+        call.args[2]
+        for call in mock_device_manager.send_command.call_args_list
+    ]
+    assert sent_params == [{"speed": 2}, {"speed": 3}, {"speed": 1}]
+
+
+def test_managed_mode_retry_policy(mock_device_manager, sample_effects_config):
+    """Retry policy requeues failed effects up to configured budget."""
+    with patch("playsem.effect_dispatcher.load_effects_yaml") as mock_load:
+        mock_load.return_value = sample_effects_config
+        managed = EffectDispatcher(
+            mock_device_manager,
+            "dummy/path.yaml",
+            managed_mode=True,
+            failure_policy="retry",
+            max_dispatch_retries=1,
+        )
+
+    mock_device_manager.send_command.side_effect = [False, True]
+    managed.dispatch_effect("fan_on", {"speed": 10}, priority=3)
+
+    first = managed.process_next_effect()
+    second = managed.process_next_effect()
+
+    assert first["status"] == "requeued"
+    assert second["status"] == "dispatched"
+    assert mock_device_manager.send_command.call_count == 2
+
+
+def test_managed_mode_dead_letter_policy(
+    mock_device_manager, sample_effects_config
+):
+    """Dead-letter policy stores failed items for inspection."""
+    with patch("playsem.effect_dispatcher.load_effects_yaml") as mock_load:
+        mock_load.return_value = sample_effects_config
+        managed = EffectDispatcher(
+            mock_device_manager,
+            "dummy/path.yaml",
+            managed_mode=True,
+            failure_policy="dead_letter",
+            max_dispatch_retries=0,
+        )
+
+    mock_device_manager.send_command.return_value = False
+    managed.dispatch_effect("fan_on", {"speed": 15}, priority=7)
+
+    outcome = managed.process_next_effect()
+
+    assert outcome["status"] == "dead_lettered"
+    assert managed.get_queue_size() == 0
+    assert len(managed.dead_letter_queue) == 1
+    assert managed.dead_letter_queue[0]["effect"] == "fan_on"
+
+
+def test_invalid_failure_policy_raises(mock_device_manager):
+    """Invalid failure policy should fail fast at initialization."""
+    with pytest.raises(ValueError, match="failure_policy"):
+        EffectDispatcher(
+            mock_device_manager,
+            managed_mode=True,
+            failure_policy="invalid",
+        )

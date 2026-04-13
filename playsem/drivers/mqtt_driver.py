@@ -8,10 +8,13 @@ Wraps paho-mqtt client for integration with DeviceManager.
 
 import logging
 import json
+import threading
+import time
 from typing import Dict, Any, Optional
 import paho.mqtt.client as mqtt
 
 from .base_driver import BaseDriver
+from .retry_policy import RetryPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +54,8 @@ class MQTTDriver(BaseDriver):
         qos: int = 1,
         retain: bool = False,
         data_format: str = "json",
+        retry_policy: Optional[RetryPolicy] = None,
+        auto_reconnect: bool = True,
     ):
         """
         Initialize MQTT driver.
@@ -74,6 +79,12 @@ class MQTTDriver(BaseDriver):
         self.retain = retain
         self.data_format = data_format.lower()
         self._is_connected = False
+        self.retry_policy = retry_policy or RetryPolicy()
+        self.auto_reconnect = auto_reconnect
+        self._reconnect_lock = threading.Lock()
+        self._reconnect_in_progress = False
+        self._reconnect_attempts = 0
+        self._last_reconnect_error: Optional[str] = None
 
         # Create MQTT client
         self.client = mqtt.Client(client_id=client_id)
@@ -90,8 +101,10 @@ class MQTTDriver(BaseDriver):
         self.client.on_connect = self._on_connect
         self.client.on_disconnect = self._on_disconnect
 
+        broker_desc = f"{broker}:{port}"
         logger.info(
-            f"MQTTDriver '{interface_name}' initialized - broker: {broker}:{port}, "
+            f"MQTTDriver '{interface_name}' initialized - "
+            f"broker: {broker_desc}, "
             f"tls: {use_tls}, qos: {qos}, format: {self.data_format}"
         )
 
@@ -107,14 +120,30 @@ class MQTTDriver(BaseDriver):
             >>> driver.connect()
             True
         """
-        try:
-            logger.info(f"Connecting to MQTT broker {self.broker}:{self.port}")
-            self.client.connect(self.broker, self.port)
-            self.client.loop_start()  # Start background thread
-            return True
-        except Exception as e:
-            logger.error(f"MQTT connection failed: {e}")
-            return False
+        delays = self.retry_policy.delays()
+        max_attempts = max(1, self.retry_policy.max_attempts)
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                logger.info(
+                    f"Connecting to MQTT broker {self.broker}:{self.port} "
+                    f"(attempt {attempt}/{max_attempts})"
+                )
+                self.client.connect(self.broker, self.port)
+                self.client.loop_start()  # Start background thread
+                self._last_reconnect_error = None
+                return True
+            except Exception as e:
+                self._last_reconnect_error = str(e)
+                logger.error(f"MQTT connection attempt {attempt} failed: {e}")
+                if attempt < max_attempts:
+                    delay = (
+                        delays[attempt - 1] if attempt - 1 < len(delays) else 0
+                    )
+                    if delay > 0:
+                        time.sleep(delay)
+
+        return False
 
     def disconnect(self) -> bool:
         """
@@ -219,7 +248,7 @@ class MQTTDriver(BaseDriver):
         return self._is_connected
 
     def get_interface_name(self) -> str:
-        """Get the unique name of the connectivity interface this driver handles."""
+        """Get the unique name of the connectivity interface."""
         return self.interface_name
 
     def get_driver_info(self) -> Dict[str, Any]:
@@ -236,6 +265,9 @@ class MQTTDriver(BaseDriver):
                 "port": self.port,
                 "qos": self.qos,
                 "retain": self.retain,
+                "auto_reconnect": self.auto_reconnect,
+                "reconnect_attempts": self._reconnect_attempts,
+                "last_reconnect_error": self._last_reconnect_error,
             }
         )
         return info
@@ -308,6 +340,55 @@ class MQTTDriver(BaseDriver):
                 f"Unexpected disconnect (code {rc}): "
                 f"{mqtt.error_string(rc)}"
             )
+            if self.auto_reconnect:
+                self._trigger_reconnect()
+
+    def _trigger_reconnect(self):
+        """Start a bounded reconnect attempt in a background thread."""
+        with self._reconnect_lock:
+            if self._reconnect_in_progress:
+                return
+            self._reconnect_in_progress = True
+
+        thread = threading.Thread(
+            target=self._reconnect_loop,
+            name=f"mqtt-reconnect-{self.interface_name}",
+            daemon=True,
+        )
+        thread.start()
+
+    def _reconnect_loop(self):
+        delays = self.retry_policy.delays()
+        max_attempts = max(1, self.retry_policy.max_attempts)
+        try:
+            for attempt in range(1, max_attempts + 1):
+                self._reconnect_attempts = attempt
+                try:
+                    self.client.reconnect()
+                    self._last_reconnect_error = None
+                    logger.info(
+                        f"MQTT reconnect succeeded on attempt {attempt}/"
+                        f"{max_attempts}"
+                    )
+                    return
+                except Exception as e:
+                    self._last_reconnect_error = str(e)
+                    logger.warning(
+                        f"MQTT reconnect attempt {attempt}/{max_attempts} "
+                        f"failed: {e}"
+                    )
+                    if attempt < max_attempts:
+                        delay = (
+                            delays[attempt - 1]
+                            if attempt - 1 < len(delays)
+                            else 0
+                        )
+                        if delay > 0:
+                            time.sleep(delay)
+            logger.error("MQTT reconnect exhausted retry budget")
+        finally:
+            with self._reconnect_lock:
+                self._reconnect_in_progress = False
 
     def __enter__(self):
         """Context manager entry."""

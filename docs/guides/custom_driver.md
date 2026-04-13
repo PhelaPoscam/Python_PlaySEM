@@ -7,6 +7,7 @@ This guide explains how to implement a custom driver for any hardware device tha
 ## 1. Choose Your Base Class
 
 ### Option A: Synchronous Driver (BaseDriver)
+
 Use for drivers that use blocking I/O (e.g., USB Serial, HTTP).
 
 ```python
@@ -14,6 +15,7 @@ from playsem.drivers.base_driver import BaseDriver
 ```
 
 ### Option B: Asynchronous Driver (AsyncBaseDriver)
+
 Use for drivers that need async/await (e.g., BLE, async HTTP).
 
 ```python
@@ -166,7 +168,6 @@ def get_capabilities(self, device_id: str) -> Optional[Dict[str, Any]]:
 
 ## 4. Register in Configuration
 
-
 Add your driver to the device configuration YAML:
 
 ```yaml
@@ -229,7 +230,7 @@ dispatcher.dispatch_effect_metadata(effect)
 ## Quick Reference
 
 | Method | Required | Description |
-|--------|----------|-------------|
+| -------- | -------- | -------- |
 | `connect()` | ✅ | Establish connection |
 | `disconnect()` | ✅ | Close connection |
 | `send_command()` | ✅ | Send device command |
@@ -242,6 +243,121 @@ dispatcher.dispatch_effect_metadata(effect)
 
 ## See Also
 
-- [Device Configuration](../guides/devices.md)
+- [Core Usage Guide](../guides/core_guide.md)
 - [Base Driver Source Code](../../playsem/drivers/base_driver.py)
 - [MQTT Driver Example](../../playsem/drivers/mqtt_driver.py)
+
+---
+
+## 6. Add Resilience Hooks (Recommended)
+
+Production drivers should include retry/reconnect behavior and telemetry.
+
+### For Sync Drivers
+
+Use `RetryPolicy` and retry in `connect()`:
+
+```python
+from playsem.drivers.retry_policy import RetryPolicy
+
+class MyCustomDriver(BaseDriver):
+    def __init__(self, interface_name: str, host: str):
+        self.interface_name = interface_name
+        self.host = host
+        self._connected = False
+        self.retry_policy = RetryPolicy(max_attempts=3, initial_delay=0.5)
+        self._reconnect_attempts = 0
+        self._last_reconnect_error = None
+
+    def connect(self) -> bool:
+        delays = self.retry_policy.delays()
+        max_attempts = max(1, self.retry_policy.max_attempts)
+        for attempt in range(1, max_attempts + 1):
+            self._reconnect_attempts = attempt
+            try:
+                # real connect call
+                self._connected = True
+                self._last_reconnect_error = None
+                return True
+            except Exception as exc:
+                self._last_reconnect_error = str(exc)
+                if attempt < max_attempts and delays:
+                    import time
+                    time.sleep(delays[attempt - 1])
+        return False
+```
+
+### For Async Drivers
+
+Use bounded reconnect loops and avoid unbounded retries:
+
+```python
+async def connect(self) -> bool:
+    delays = self.retry_policy.delays()
+    max_attempts = max(1, self.retry_policy.max_attempts)
+    for attempt in range(1, max_attempts + 1):
+        try:
+            await self._client.connect()
+            return True
+        except Exception:
+            if attempt < max_attempts and delays:
+                await asyncio.sleep(delays[attempt - 1])
+    return False
+```
+
+---
+
+## 7. Capability Contract and Validation
+
+To support safe dispatch validation, return a standard capability payload from
+`get_capabilities()` and keep parameter schemas explicit.
+
+Dispatcher-side validation can be enabled with:
+
+```python
+dispatcher = EffectDispatcher(
+    manager,
+    validate_capabilities=True,
+)
+```
+
+When enabled, invalid parameters are rejected before `send_command()`.
+
+Recommended rules:
+
+1. Include `device_id`, `device_type`, `driver_type`, and `effects` keys.
+2. For each effect, define `effect_type` and explicit `parameters`.
+3. Define `required`, `min_value`, `max_value`, and `enum_values` where needed.
+
+---
+
+## 8. Async Bridge Compatibility
+
+`DeviceManager` is synchronous but supports async drivers via an internal bridge.
+
+For single-driver mode:
+
+```python
+manager = DeviceManager(
+    connectivity_driver=my_async_driver,
+    async_bridge_timeout=5.0,
+)
+```
+
+For mapped multi-driver mode, async `is_connected()`, `connect()`,
+`disconnect()`, and `send_command()` are bridged automatically.
+
+If your async driver has long operations, set a suitable
+`async_bridge_timeout` and fail fast on hangs.
+
+---
+
+## 9. Managed Queue Integration (Optional)
+
+If using queued effect dispatch (`managed_mode=True`), make sure one runtime
+path drains the queue:
+
+1. `Timeline(..., process_managed_queue=True)`
+2. `WebSocketServer(..., process_managed_queue=True)`
+
+Without queue processing, effects will be enqueued but not dispatched.

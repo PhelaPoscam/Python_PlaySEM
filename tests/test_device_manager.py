@@ -1,7 +1,9 @@
 # tests/test_device_manager.py
 
+import asyncio
 import pytest
-from unittest.mock import MagicMock, patch
+from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import MagicMock
 
 from playsem.device_manager import DeviceManager
 from playsem.drivers.base_driver import BaseDriver
@@ -60,7 +62,7 @@ def mock_mqtt_driver():
 def test_initialization_and_mapping(
     mock_config_loader, mock_serial_driver, mock_mqtt_driver
 ):
-    """Test that DeviceManager initializes and maps devices to drivers correctly."""
+    """Test DeviceManager initialization and driver/device mapping."""
     drivers = [mock_serial_driver, mock_mqtt_driver]
     manager = DeviceManager(drivers=drivers, config_loader=mock_config_loader)
 
@@ -179,3 +181,249 @@ def test_single_driver_mode():
     mock_connectivity_driver.send_command.assert_called_once_with(
         "any_device", "set_power", params
     )
+
+
+@pytest.mark.asyncio
+async def test_single_driver_mode_async_send_command_bridge():
+    """Single-driver mode should execute async send_command safely."""
+
+    class AsyncConnectivityDriver:
+        async def send_command(self, device_id, command, params):
+            return True
+
+    manager = DeviceManager(connectivity_driver=AsyncConnectivityDriver())
+    assert manager.send_command("device_async", "pulse", {"a": 1}) is True
+
+
+@pytest.mark.asyncio
+async def test_single_driver_mode_async_connect_disconnect_bridge():
+    """Single-driver mode should execute async connect/disconnect."""
+
+    state = {"connected": False}
+
+    class AsyncConnectivityDriver:
+        async def connect(self):
+            state["connected"] = True
+            return True
+
+        async def disconnect(self):
+            state["connected"] = False
+            return True
+
+        async def send_command(self, device_id, command, params):
+            return state["connected"]
+
+    manager = DeviceManager(connectivity_driver=AsyncConnectivityDriver())
+    manager.connect()
+    assert state["connected"] is True
+
+    manager.disconnect()
+    assert state["connected"] is False
+
+
+@pytest.mark.asyncio
+async def test_mapped_mode_async_driver_connect_and_send_bridge():
+    """Mapped mode resolves async driver connect/is_connected/send paths."""
+
+    class AsyncMappedDriver:
+        def __init__(self):
+            self.connected = False
+            self.send_calls = 0
+
+        def get_interface_name(self):
+            return "async_if"
+
+        def get_driver_type(self):
+            return "asyncmapped"
+
+        async def connect(self):
+            self.connected = True
+            return True
+
+        async def disconnect(self):
+            self.connected = False
+            return True
+
+        async def is_connected(self):
+            return self.connected
+
+        async def send_command(self, device_id, command, params):
+            self.send_calls += 1
+            return self.connected
+
+    loader = MagicMock(spec=ConfigLoader)
+    loader.load_devices_config.return_value = {
+        "devices": [
+            {
+                "deviceId": "async_device_1",
+                "connectivityInterface": "async_if",
+            }
+        ]
+    }
+
+    driver = AsyncMappedDriver()
+    manager = DeviceManager(drivers=[driver], config_loader=loader)
+
+    assert driver.connected is True
+    assert manager.send_command("async_device_1", "pulse", {"x": 1}) is True
+    assert driver.send_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_mapped_mode_async_driver_disconnect_all_bridge():
+    """Mapped mode resolves async disconnect and updates connection state."""
+
+    class AsyncMappedDriver:
+        def __init__(self):
+            self.connected = False
+
+        def get_interface_name(self):
+            return "async_if"
+
+        def get_driver_type(self):
+            return "asyncmapped"
+
+        async def connect(self):
+            self.connected = True
+            return True
+
+        async def disconnect(self):
+            self.connected = False
+            return True
+
+        async def is_connected(self):
+            return self.connected
+
+        async def send_command(self, device_id, command, params):
+            return self.connected
+
+    loader = MagicMock(spec=ConfigLoader)
+    loader.load_devices_config.return_value = {
+        "devices": [
+            {
+                "deviceId": "async_device_1",
+                "connectivityInterface": "async_if",
+            }
+        ]
+    }
+
+    driver = AsyncMappedDriver()
+    manager = DeviceManager(drivers=[driver], config_loader=loader)
+    assert driver.connected is True
+
+    manager.disconnect_all()
+    assert driver.connected is False
+
+
+@pytest.mark.asyncio
+async def test_single_driver_async_bridge_timeout_returns_false():
+    """Timeout guard should fail fast for hanging async driver sends."""
+
+    class SlowAsyncDriver:
+        async def send_command(self, device_id, command, params):
+            await asyncio.sleep(0.2)
+            return True
+
+    manager = DeviceManager(
+        connectivity_driver=SlowAsyncDriver(),
+        async_bridge_timeout=0.05,
+    )
+
+    assert manager.send_command("slow", "pulse", {}) is False
+
+
+@pytest.mark.asyncio
+async def test_mapped_mode_mixed_sync_async_burst_dispatch():
+    """Mixed sync/async mapped drivers should handle burst dispatch."""
+
+    class SyncDriver:
+        def __init__(self):
+            self.count = 0
+            self.connected = False
+
+        def get_interface_name(self):
+            return "sync_if"
+
+        def get_driver_type(self):
+            return "sync"
+
+        def connect(self):
+            self.connected = True
+            return True
+
+        def disconnect(self):
+            self.connected = False
+            return True
+
+        def is_connected(self):
+            return self.connected
+
+        def send_command(self, device_id, command, params):
+            self.count += 1
+            return self.connected
+
+    class AsyncDriver:
+        def __init__(self):
+            self.count = 0
+            self.connected = False
+
+        def get_interface_name(self):
+            return "async_if"
+
+        def get_driver_type(self):
+            return "async"
+
+        async def connect(self):
+            self.connected = True
+            return True
+
+        async def disconnect(self):
+            self.connected = False
+            return True
+
+        async def is_connected(self):
+            return self.connected
+
+        async def send_command(self, device_id, command, params):
+            self.count += 1
+            return self.connected
+
+    loader = MagicMock(spec=ConfigLoader)
+    loader.load_devices_config.return_value = {
+        "devices": [
+            {
+                "deviceId": "sync_device",
+                "connectivityInterface": "sync_if",
+            },
+            {
+                "deviceId": "async_device",
+                "connectivityInterface": "async_if",
+            },
+        ]
+    }
+
+    sync_driver = SyncDriver()
+    async_driver = AsyncDriver()
+    manager = DeviceManager(
+        drivers=[sync_driver, async_driver],
+        config_loader=loader,
+        async_bridge_timeout=1.0,
+    )
+
+    def _send_sync(i: int) -> bool:
+        return bool(manager.send_command("sync_device", "set", {"i": i}))
+
+    def _send_async(i: int) -> bool:
+        return bool(manager.send_command("async_device", "set", {"i": i}))
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = []
+        for i in range(40):
+            futures.append(executor.submit(_send_sync, i))
+            futures.append(executor.submit(_send_async, i))
+
+        results = [f.result(timeout=2.0) for f in futures]
+
+    assert all(results)
+    assert sync_driver.count == 40
+    assert async_driver.count == 40

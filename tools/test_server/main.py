@@ -940,45 +940,6 @@ class ControlPanelServer:
                 "type": device.device_type,
             }
 
-        @self.app.get("/super_controller")
-        async def super_controller():
-            ui_file = (
-                Path(__file__).parent.parent
-                / "ui_demos"
-                / "super_controller.html"
-            )
-            if ui_file.exists():
-                return FileResponse(str(ui_file), media_type="text/html")
-            return HTMLResponse(
-                "<h1>super_controller.html not found</h1>", status_code=404
-            )
-
-        @self.app.get("/mobile_device")
-        async def mobile_device():
-            ui_file = (
-                Path(__file__).parent.parent
-                / "ui_demos"
-                / "mobile_device.html"
-            )
-            if ui_file.exists():
-                return FileResponse(str(ui_file), media_type="text/html")
-            return HTMLResponse(
-                "<h1>mobile_device.html not found</h1>", status_code=404
-            )
-
-        @self.app.get("/super_receiver")
-        async def super_receiver():
-            ui_file = (
-                Path(__file__).parent.parent
-                / "ui_demos"
-                / "super_receiver.html"
-            )
-            if ui_file.exists():
-                return FileResponse(str(ui_file), media_type="text/html")
-            return HTMLResponse(
-                "<h1>super_receiver.html not found</h1>", status_code=404
-            )
-
     def _device_to_dict(self, device):
         """Serialize device-like object to dict for API/WS responses."""
         return {
@@ -1186,9 +1147,6 @@ if __name__ == "__main__":
     print("PlaySEM Test Server")
     print("=" * 70)
     print("\nUI Demos:")
-    print(f"  http://localhost:{DEFAULT_SERVER_PORT}/super_controller")
-    print(f"  http://localhost:{DEFAULT_SERVER_PORT}/mobile_device")
-    print(f"  http://localhost:{DEFAULT_SERVER_PORT}/super_receiver")
     print("\n" + "=" * 70 + "\n")
 
     uvicorn.run(

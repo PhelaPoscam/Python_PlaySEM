@@ -1,4 +1,7 @@
 # src/device_manager.py
+import asyncio
+import inspect
+import threading
 import logging
 from typing import Dict, List, Any, Optional
 
@@ -20,6 +23,7 @@ class DeviceManager:
         config_loader: Optional[ConfigLoader] = None,
         client: Optional[Any] = None,
         connectivity_driver: Optional[Any] = None,
+        async_bridge_timeout: Optional[float] = 5.0,
     ):
         """
         Initializes the DeviceManager.
@@ -29,10 +33,13 @@ class DeviceManager:
             config_loader: An initialized ConfigLoader instance.
             client: Legacy MQTT client for backwards compatibility in tests.
             connectivity_driver: Optional connectivity driver for single driver mode.
+            async_bridge_timeout: Timeout in seconds for blocking async
+                bridge calls. Set to None to disable timeout.
         """
         # Legacy mode: if a raw client is provided, use a simple publish-based driver
         self._legacy_mode = client is not None
         self._single_driver_mode = connectivity_driver is not None
+        self.async_bridge_timeout = async_bridge_timeout
         self.device_to_driver: Dict[str, BaseDriver] = {}
 
         if self._legacy_mode:
@@ -127,13 +134,12 @@ class DeviceManager:
                 return False
 
         # Single connectivity driver mode
-        if self._single_driver_mode:
+        if self._single_driver_mode and self.connectivity_driver is not None:
             try:
-                return bool(
-                    self.connectivity_driver.send_command(
-                        device_id, command, params
-                    )
+                result = self.connectivity_driver.send_command(
+                    device_id, command, params
                 )
+                return bool(self._resolve_maybe_async(result))
             except Exception as e:
                 logger.error(f"Single-driver send failed: {e}")
                 return False
@@ -149,7 +155,8 @@ class DeviceManager:
             f"Sending command '{command}' to device '{device_id}' via {driver.get_driver_type()} driver."
         )
         try:
-            return driver.send_command(device_id, command, params)
+            result = driver.send_command(device_id, command, params)
+            return bool(self._resolve_maybe_async(result))
         except Exception as e:
             logger.error(
                 f"Failed to send command to device '{device_id}': {e}"
@@ -161,8 +168,9 @@ class DeviceManager:
         logger.info("Connecting all drivers...")
         for interface_name, driver in self.drivers_by_interface.items():
             try:
-                if not driver.is_connected():
-                    driver.connect()
+                if not self._driver_is_connected(driver):
+                    result = driver.connect()
+                    self._resolve_maybe_async(result)
                     logger.info(
                         f"Driver for interface '{interface_name}' connected."
                     )
@@ -176,8 +184,9 @@ class DeviceManager:
         logger.info("Disconnecting all drivers...")
         for interface_name, driver in self.drivers_by_interface.items():
             try:
-                if driver.is_connected():
-                    driver.disconnect()
+                if self._driver_is_connected(driver):
+                    result = driver.disconnect()
+                    self._resolve_maybe_async(result)
                     logger.info(
                         f"Driver for interface '{interface_name}' disconnected."
                     )
@@ -189,28 +198,92 @@ class DeviceManager:
     # --- Backwards compatibility helpers ---
     def connect(self):
         """Connect single connectivity driver (legacy path)."""
-        if self._single_driver_mode:
+        if self._single_driver_mode and self.connectivity_driver is not None:
             try:
                 if hasattr(self.connectivity_driver, "connect"):
-                    self.connectivity_driver.connect()
+                    result = self.connectivity_driver.connect()
+                    self._resolve_maybe_async(result)
             except Exception:
                 pass
 
     def disconnect(self):
         """Disconnect single connectivity driver (legacy path)."""
-        if self._single_driver_mode:
+        if self._single_driver_mode and self.connectivity_driver is not None:
             try:
                 if hasattr(self.connectivity_driver, "disconnect"):
-                    self.connectivity_driver.disconnect()
+                    result = self.connectivity_driver.disconnect()
+                    self._resolve_maybe_async(result)
             except Exception:
                 pass
 
+    def _resolve_maybe_async(self, result: Any) -> Any:
+        """Resolve sync/async driver calls in sync DeviceManager paths."""
+        if not inspect.isawaitable(result):
+            return result
+
+        return self._run_awaitable_blocking(result)
+
+    def _driver_is_connected(self, driver: Any) -> bool:
+        """Resolve sync/async is_connected checks to bool."""
+        status = driver.is_connected()
+        return bool(self._resolve_maybe_async(status))
+
+    def _run_awaitable_blocking(self, awaitable: Any) -> Any:
+        """Run awaitable in current thread or isolated loop thread."""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(awaitable)
+
+        holder: Dict[str, Any] = {}
+
+        def _runner():
+            try:
+                holder["result"] = asyncio.run(awaitable)
+            except Exception as exc:
+                holder["error"] = exc
+
+        thread = threading.Thread(target=_runner, daemon=True)
+        thread.start()
+
+        if self.async_bridge_timeout is None:
+            thread.join()
+        else:
+            thread.join(timeout=self.async_bridge_timeout)
+
+        if thread.is_alive():
+            raise TimeoutError(
+                "Async bridge execution timed out after "
+                f"{self.async_bridge_timeout} second(s)"
+            )
+
+        if "error" in holder:
+            raise holder["error"]
+        return holder.get("result")
+
     def get_all_driver_info(self) -> Dict[str, Any]:
         """Gets status information from all managed drivers."""
-        return {
-            interface_name: driver.get_driver_info()
-            for interface_name, driver in self.drivers_by_interface.items()
-        }
+        info: Dict[str, Any] = {}
+
+        if self._legacy_mode:
+            info["legacy"] = {"connected": True}
+        elif self._single_driver_mode and self.connectivity_driver is not None:
+            if hasattr(self.connectivity_driver, "get_driver_info"):
+                info["single"] = self.connectivity_driver.get_driver_info()
+            else:
+                info["single"] = {
+                    "type": type(self.connectivity_driver).__name__,
+                }
+        else:
+            info.update(
+                {
+                    interface_name: driver.get_driver_info()
+                    for interface_name, driver in self.drivers_by_interface.items()
+                }
+            )
+
+        info["_manager"] = {"async_bridge_timeout": self.async_bridge_timeout}
+        return info
 
     def get_device_info(self, device_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -218,8 +291,40 @@ class DeviceManager:
         """
         devices_config = self.config_loader.load_devices_config()
         for device in devices_config.get("devices", []):
+            if not isinstance(device, dict):
+                continue
             if device.get("deviceId") == device_id:
                 return device
+        return None
+
+    def get_driver_for_device(self, device_id: str) -> Optional[Any]:
+        """Return the concrete driver instance for a device id."""
+        if self._legacy_mode:
+            return None
+
+        if self._single_driver_mode and self.connectivity_driver is not None:
+            return self.connectivity_driver
+
+        return self.device_to_driver.get(device_id)
+
+    def get_device_capabilities(
+        self, device_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Query capabilities for a device from its mapped driver."""
+        driver = self.get_driver_for_device(device_id)
+        if driver is None or not hasattr(driver, "get_capabilities"):
+            return None
+
+        try:
+            caps = driver.get_capabilities(device_id)
+        except Exception as exc:
+            logger.error(
+                f"Failed to get capabilities for device '{device_id}': {exc}"
+            )
+            return None
+
+        if isinstance(caps, dict):
+            return caps
         return None
 
 

@@ -19,7 +19,7 @@ See [LIBRARY.md](LIBRARY.md) for complete documentation
 ## 📚 Main Documents
 
 | Document | Purpose |
-|----------|---------|
+| :-- | :-- |
 | [README.md](../README.md) | Project overview & features |
 | **[LIBRARY.md](LIBRARY.md)** | **Complete API reference** ← START HERE |
 
@@ -27,19 +27,29 @@ See [LIBRARY.md](LIBRARY.md) for complete documentation
 
 ## 📖 Documentation Sections
 
-**User Guides & Testing**
-- [guides/quick-start.md](guides/quick-start.md) - Getting started
-- [guides/devices.md](guides/devices.md) - Device management
-- [guides/testing.md](guides/testing.md) - General testing guide
+### User Guides & Testing
+
+- [guides/core_guide.md](guides/core_guide.md) - Consolidated start, device, testing, and discovery guide
 - [guides/protocol_testing.md](guides/protocol_testing.md) - Protocol testing and clients
-- [guides/serial_testing.md](guides/serial_testing.md) - Virtual serial device simulator
-- [guides/multi_protocol_discovery.md](guides/multi_protocol_discovery.md) - Cross-protocol discovery
 - [guides/troubleshooting.md](guides/troubleshooting.md) - Common issues
 
-**Extensibility**
+### Extensibility
+
 - [guides/custom_driver.md](guides/custom_driver.md) - **How to write a custom driver**
 
-**API Reference**
+### Operations & Hardening
+
+- [guides/production_hardening.md](guides/production_hardening.md) - Production deployment checklist and release gates
+
+### Architecture Decisions & Phase Reports
+
+- [guides/archive/phase1_baseline_report.md](guides/archive/phase1_baseline_report.md) - Baseline test status and risk notes
+- [guides/archive/phase2_scope_lock.md](guides/archive/phase2_scope_lock.md) - Driver resilience scope and acceptance criteria
+- [guides/archive/phase4_async_consistency.md](guides/archive/phase4_async_consistency.md) - Async consistency decision and rollout plan
+- [guides/archive/phase5_hardware_capability_contract.md](guides/archive/phase5_hardware_capability_contract.md) - Capability contract design and rollout
+
+### API Reference
+
 - [LIBRARY.md](LIBRARY.md) - Complete API documentation
 
 ---
@@ -55,7 +65,6 @@ See [LIBRARY.md](LIBRARY.md) for complete documentation
 
 ---
 
-<p align="center">
-  <a href="LIBRARY.md"> Go to API Reference</a><br>
-  <a href="../README.md"> Back to Project README</a>
-</p>
+[Go to API Reference](LIBRARY.md)
+
+[Back to Project README](../README.md)

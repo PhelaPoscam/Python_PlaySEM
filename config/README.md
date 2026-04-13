@@ -11,11 +11,13 @@ This directory contains YAML configuration files for PlaySEM device management a
 ## Usage
 
 These configs are loaded by:
+
 - `playsem.config_loader.ConfigLoader`
 - `playsem.device_manager.DeviceManager`
 - `playsem.effect_dispatcher.EffectDispatcher`
 
 Example:
+
 ```python
 from playsem import DeviceManager
 
@@ -26,6 +28,7 @@ await manager.initialize("config/devices.yaml")
 ## Location
 
 **Kept in root** (`config/`) for:
+
 - Easy discovery
 - Consistent with all documentation
 - Widely referenced in codebase (20+ locations)
@@ -34,5 +37,5 @@ Alternative `.config/` was considered but rejected to maintain backward compatib
 
 ## See Also
 
-- [Device Configuration Guide](../docs/guides/devices.md)
+- [Core Usage Guide](../docs/guides/core_guide.md)
 - [Architecture Reference](../docs/reference/architecture.md)

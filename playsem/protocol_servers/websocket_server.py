@@ -39,6 +39,7 @@ class WebSocketServer:
         host: str,
         port: int,
         dispatcher: EffectDispatcher,
+        process_managed_queue: bool = False,
         auth_token: Optional[str] = None,
         use_ssl: bool = False,
         ssl_certfile: Optional[str] = None,
@@ -55,6 +56,8 @@ class WebSocketServer:
                 (e.g., "0.0.0.0" or "localhost")
             port: Port to listen on (default: 8080)
             dispatcher: EffectDispatcher for executing effects
+            process_managed_queue: If True, process queued effects when
+                dispatcher managed mode is enabled
             auth_token: Optional token for authentication (sent as
                 "token" in connect message)
             use_ssl: Enable WSS (secure WebSocket)
@@ -68,6 +71,7 @@ class WebSocketServer:
         self.host = host
         self.port = port
         self.dispatcher = dispatcher
+        self.process_managed_queue = process_managed_queue
         self.auth_token = auth_token
         self.use_ssl = use_ssl
         self.ssl_certfile = ssl_certfile
@@ -76,7 +80,7 @@ class WebSocketServer:
         self.on_client_connected = on_client_connected
         self.on_client_disconnected = on_client_disconnected
 
-        self.clients = set()  # Connected WebSocket clients
+        self.clients: set = set()  # Connected WebSocket clients
         self._server = None
         self._is_running = False
         self._lock = threading.Lock()
@@ -298,6 +302,12 @@ class WebSocketServer:
 
                     # Dispatch effect
                     self.dispatcher.dispatch_effect_metadata(effect)
+                    if (
+                        self.process_managed_queue
+                        and getattr(self.dispatcher, "managed_mode", False)
+                        and hasattr(self.dispatcher, "process_all_pending")
+                    ):
+                        self.dispatcher.process_all_pending()
 
                     # Send success response
                     await websocket.send(

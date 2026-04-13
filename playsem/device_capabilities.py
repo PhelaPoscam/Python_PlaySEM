@@ -307,3 +307,105 @@ def create_color_param(
         default=default,
         description="Color in hex format (e.g., #FF0000 for red)",
     )
+
+
+def validate_capability_contract(capabilities: Dict[str, Any]) -> bool:
+    """Validate minimal schema for capability dictionaries."""
+    if not isinstance(capabilities, dict):
+        return False
+
+    required = ["device_id", "device_type", "effects", "driver_type"]
+    if any(key not in capabilities for key in required):
+        return False
+
+    effects = capabilities.get("effects")
+    if not isinstance(effects, list):
+        return False
+
+    for effect in effects:
+        if not isinstance(effect, dict):
+            return False
+        if "effect_type" not in effect:
+            return False
+        params = effect.get("parameters", [])
+        if not isinstance(params, list):
+            return False
+        for param in params:
+            if not isinstance(param, dict):
+                return False
+            if "name" not in param or "type" not in param:
+                return False
+
+    return True
+
+
+def validate_effect_parameters(
+    capabilities: Dict[str, Any], effect_type: str, params: Dict[str, Any]
+) -> tuple[bool, List[str]]:
+    """Validate effect parameters against a capabilities dictionary."""
+    if not validate_capability_contract(capabilities):
+        return False, ["Invalid capability contract"]
+
+    effects = capabilities.get("effects", [])
+    matched = None
+    for effect in effects:
+        if str(effect.get("effect_type", "")).lower() == effect_type.lower():
+            matched = effect
+            break
+
+    if matched is None:
+        return False, [f"Effect '{effect_type}' is not supported"]
+
+    param_defs = {p.get("name"): p for p in matched.get("parameters", [])}
+    errors: List[str] = []
+
+    for name, definition in param_defs.items():
+        if definition.get("required") and name not in params:
+            errors.append(f"Required parameter '{name}' is missing")
+
+    for name, value in params.items():
+        definition = param_defs.get(name)
+        if definition is None:
+            errors.append(f"Unknown parameter '{name}'")
+            continue
+
+        ptype = definition.get("type")
+        min_value = definition.get("min_value")
+        max_value = definition.get("max_value")
+        enum_values = definition.get("enum_values")
+
+        if ptype == ParameterType.INTEGER.value and not isinstance(value, int):
+            errors.append(f"Parameter '{name}' must be integer")
+            continue
+        if ptype == ParameterType.FLOAT.value and not isinstance(
+            value, (int, float)
+        ):
+            errors.append(f"Parameter '{name}' must be float")
+            continue
+        if ptype == ParameterType.BOOLEAN.value and not isinstance(
+            value, bool
+        ):
+            errors.append(f"Parameter '{name}' must be boolean")
+            continue
+        if ptype == ParameterType.STRING.value and not isinstance(value, str):
+            errors.append(f"Parameter '{name}' must be string")
+            continue
+        if ptype == ParameterType.ENUM.value and enum_values:
+            if value not in enum_values:
+                errors.append(
+                    f"Parameter '{name}' must be one of {enum_values}"
+                )
+                continue
+
+        if min_value is not None and isinstance(value, (int, float)):
+            if value < min_value:
+                errors.append(
+                    f"Parameter '{name}' below min value {min_value}"
+                )
+        if max_value is not None and isinstance(value, (int, float)):
+            if value > max_value:
+                errors.append(
+                    f"Parameter '{name}' above max value {max_value}"
+                )
+
+    return len(errors) == 0, errors

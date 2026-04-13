@@ -95,3 +95,49 @@ def test_event_effect(timeline_scheduler, mock_dispatcher):
 
     timeline_scheduler.add_event_effect(effect)
     assert mock_dispatcher.dispatch_effect_metadata.called
+
+
+def test_timeline_managed_mode_without_auto_processing():
+    """Managed dispatcher does not send commands without queue processing."""
+    device_manager = MagicMock()
+    device_manager.send_command.return_value = True
+    dispatcher = EffectDispatcher(device_manager, managed_mode=True)
+    timeline = Timeline(
+        dispatcher,
+        tick_interval=0.01,
+        process_managed_queue=False,
+    )
+
+    effect_timeline = create_timeline(
+        create_effect("light", timestamp=0, duration=100)
+    )
+    timeline.load_timeline(effect_timeline)
+    timeline.start()
+    time.sleep(0.15)
+    timeline.stop()
+
+    device_manager.send_command.assert_not_called()
+    assert dispatcher.get_queue_size() >= 1
+
+
+def test_timeline_managed_mode_with_auto_processing():
+    """Managed dispatcher sends commands when queue processing is enabled."""
+    device_manager = MagicMock()
+    device_manager.send_command.return_value = True
+    dispatcher = EffectDispatcher(device_manager, managed_mode=True)
+    timeline = Timeline(
+        dispatcher,
+        tick_interval=0.01,
+        process_managed_queue=True,
+    )
+
+    effect_timeline = create_timeline(
+        create_effect("light", timestamp=0, duration=100)
+    )
+    timeline.load_timeline(effect_timeline)
+    timeline.start()
+    time.sleep(0.15)
+    timeline.stop()
+
+    device_manager.send_command.assert_called()
+    assert dispatcher.get_queue_size() == 0
