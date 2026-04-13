@@ -11,7 +11,6 @@ from tools.test_server.config import ServerConfig
 from tools.test_server.routes import (
     devices_router,
     effects_router,
-    ui_router,
 )
 from tools.test_server.services import (
     DeviceService,
@@ -68,7 +67,6 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
 
     app.include_router(devices_router)
     app.include_router(effects_router)
-    app.include_router(ui_router)
 
     @app.get("/health")
     async def health() -> dict:

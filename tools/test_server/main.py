@@ -3,25 +3,17 @@
 PlaySEM Test Server - for testing and UI demos.
 """
 
-import sys
 import os
-from unittest.mock import call, MagicMock
 from pathlib import Path
-from typing import Dict, List, Optional, Any
-from datetime import datetime
 import asyncio
-import yaml
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-# --- Configurable Ports (can be overridden by environment variables) ---
-DEFAULT_SERVER_PORT = int(os.environ.get("PLAYSEM_SERVER_PORT", 8090))
-DEFAULT_MQTT_PORT = int(os.environ.get("PLAYSEM_MQTT_PORT", 1883))
-DEFAULT_COAP_PORT = int(os.environ.get("PLAYSEM_COAP_PORT", 5683))
-DEFAULT_UPNP_HTTP_PORT = int(os.environ.get("PLAYSEM_UPNP_HTTP_PORT", 8008))
-# --------------------------------------------------------------------
+import yaml  # pyright: ignore[reportMissingTypeStubs]
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 
 from tools.test_server.handlers import (
     HTTPHandler,
@@ -38,6 +30,13 @@ from tools.test_server.handlers import (
 from tools.test_server.app import create_app
 from tools.test_server.config import ServerConfig
 from playsem.protocol_servers import MQTTServer, CoAPServer, UPnPServer
+
+# --- Configurable Ports (can be overridden by environment variables) ---
+DEFAULT_SERVER_PORT = int(os.environ.get("PLAYSEM_SERVER_PORT", 8090))
+DEFAULT_MQTT_PORT = int(os.environ.get("PLAYSEM_MQTT_PORT", 1883))
+DEFAULT_COAP_PORT = int(os.environ.get("PLAYSEM_COAP_PORT", 5683))
+DEFAULT_UPNP_HTTP_PORT = int(os.environ.get("PLAYSEM_UPNP_HTTP_PORT", 8008))
+# --------------------------------------------------------------------
 
 
 class ConnectedDevice:
