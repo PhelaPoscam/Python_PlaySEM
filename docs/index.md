@@ -36,6 +36,9 @@ See [LIBRARY.md](LIBRARY.md) for complete documentation
 - [guides/multi_protocol_discovery.md](guides/multi_protocol_discovery.md) - Cross-protocol discovery
 - [guides/troubleshooting.md](guides/troubleshooting.md) - Common issues
 
+**Extensibility**
+- [guides/custom_driver.md](guides/custom_driver.md) - **How to write a custom driver**
+
 **API Reference**
 - [LIBRARY.md](LIBRARY.md) - Complete API documentation
 
