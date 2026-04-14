@@ -3,30 +3,20 @@
 WebSocket Server demo - demonstrates real-time bidirectional effect
 communication.
 
-This example shows how to:
-1. Start a WebSocket server for web apps and VR applications
-2. Receive effect requests via WebSocket connections
-3. Broadcast effects to all connected clients
-4. Handle real-time bidirectional communication
-
-Prerequisites:
-- Install: pip install websockets qrcode[pil]
-
-To test:
-1. Run this script: python examples/protocols/websocket_demo.py
-2. Scan the generated QR code with your phone
-3. Send effects through the web interface
+This example starts the PlaySEM WebSocket server, connects a local client,
+and exchanges valid effect messages over the socket.
 """
 
 import asyncio
+import json
 import logging
-import qrcode
 import socket
 
 from playsem import DeviceManager, EffectDispatcher
+from playsem.drivers import MockConnectivityDriver
 from playsem.protocol_servers import WebSocketServer
 
-# Configure logging
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - [%(levelname)s] %(name)s - %(message)s",
@@ -36,81 +26,72 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+class RecordingConnectivityDriver(MockConnectivityDriver):
+    def __init__(self):
+        super().__init__(interface_name="recording_mock")
+        self.commands = []
+
+    def send_command(self, device_id, command, params=None):
+        payload = params or {}
+        self.commands.append(
+            {"device_id": device_id, "command": command, "params": payload}
+        )
+        return super().send_command(device_id, command, params)
+
+
 def get_local_ip():
-    """Gets the local IP address of the machine."""
     s = None
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # Doesn't have to be reachable
         s.connect(("8.8.8.8", 1))
-        ip = s.getsockname()[0]
+        return s.getsockname()[0]
     except Exception:
-        ip = "127.0.0.1"
+        return "127.0.0.1"
     finally:
         if s:
             s.close()
-    return ip
 
 
-def on_effect_received(effect):
-    """Callback when effect is received."""
-    logger.info(
-        f"✓ Received effect: {effect.effect_type} "
-        f"(intensity={effect.intensity}, duration={effect.duration}ms)"
-    )
-
-
-def on_client_connected(client_id):
-    """Callback when client connects."""
-    logger.info(f"🔗 Client connected: {client_id}")
-
-
-def on_client_disconnected(client_id):
-    """Callback when client disconnects."""
-    logger.info(f"❌ Client disconnected: {client_id}")
+def build_dispatcher():
+    driver = RecordingConnectivityDriver()
+    device_manager = DeviceManager(connectivity_driver=driver)
+    device_manager.connect()
+    return EffectDispatcher(device_manager), driver
 
 
 async def main():
     print("\n" + "=" * 60)
-    print("PythonPlaySEM WebSocket Server Demo")
+    print("PlaySEM WebSocket Server Demo")
     print("=" * 60)
 
-    # Create components
-    logger.info("Initializing components...")
-
-    # Initialize DeviceManager with mock devices (Non-Legacy Mode)
-    from playsem.drivers import MockLightDevice
-    device_manager = DeviceManager()
-    
-    # Add a mock device for the demo to target
-    mock_light = MockLightDevice("light_001", "Office Light")
-    await device_manager.add_device(mock_light)
-    logger.info(f"Added mock device: {mock_light.name} ({mock_light.id})")
-
-    # Create dispatcher
-    dispatcher = EffectDispatcher(device_manager)
-
-    # --- QR Code Generation ---
+    dispatcher, driver = build_dispatcher()
     host_ip = get_local_ip()
-    http_port = 8000  # Standard port for the simple HTTP server
     ws_port = 8765
-    client_url = f"http://{host_ip}:{http_port}/websocket_client.html?ws_url=ws://{host_ip}:{ws_port}"
+    ws_url = f"ws://127.0.0.1:{ws_port}"
 
-    print("\n" + "=" * 60)
-    print("📱 Connect with your phone")
-    print("=" * 60)
-    print("\nScan the QR code below to open the client:")
+    received_effects = []
+    connected_clients = []
+    disconnected_clients = []
 
-    qr = qrcode.QRCode()
-    qr.add_data(client_url)
-    qr.print_ascii(invert=True)
+    def on_effect_received(effect):
+        received_effects.append(effect)
+        logger.info(
+            "Effect received: %s (%s ms, intensity=%s)",
+            effect.effect_type,
+            effect.duration,
+            effect.intensity,
+        )
 
-    print(f"\nOr open manually: {client_url}")
-    # --- End of QR Code Generation ---
+    def on_client_connected(client_id):
+        connected_clients.append(client_id)
+        logger.info("Client connected: %s", client_id)
 
-    # Create WebSocket server
+    def on_client_disconnected(client_id):
+        disconnected_clients.append(client_id)
+        logger.info("Client disconnected: %s", client_id)
+
     server = WebSocketServer(
-        host="0.0.0.0",
+        host="127.0.0.1",
         port=ws_port,
         dispatcher=dispatcher,
         on_effect_received=on_effect_received,
@@ -118,28 +99,101 @@ async def main():
         on_client_disconnected=on_client_disconnected,
     )
 
-    print("\n" + "=" * 60)
-    print("WebSocket Server is starting...")
-    print("=" * 60)
-    print(f"\nServer URL: ws://{host_ip}:{ws_port}")
-    print("\nPress Ctrl+C to stop the server.\n")
+    print("\nWebSocket server configuration")
+    print(f"  server: {ws_url}")
+    print(f"  host address: {host_ip}")
+
+    print("\nStarting embedded WebSocket server...")
+    server_task = asyncio.create_task(server.start())
 
     try:
-        # Start server (this will run until interrupted)
-        await server.start()
-
-    except KeyboardInterrupt:
-        logger.info("\n\nShutting down server...")
-        await server.stop()
-        logger.info("Server stopped. Goodbye!")
-
-    except Exception as e:
-        logger.error(f"\n❌ Error: {e}")
+        import websockets
+    except ImportError:
+        print("websockets is required for this demo")
+        server_task.cancel()
         return 1
+
+    websocket = None
+    for _ in range(40):
+        try:
+            websocket = await websockets.connect(ws_url)
+            break
+        except OSError:
+            await asyncio.sleep(0.25)
+
+    if websocket is None:
+        print("WebSocket server failed to become ready within 10 seconds")
+        await server.stop()
+        await asyncio.sleep(0.2)
+        try:
+            await server_task
+        except asyncio.CancelledError:
+            pass
+        return 1
+
+    try:
+        welcome = await websocket.recv()
+        print("Welcome message:")
+        print(welcome)
+
+        effects = [
+            {"effect_type": "light", "intensity": 70, "duration": 1000},
+            {"effect_type": "vibration", "intensity": 90, "duration": 500},
+            {"effect_type": "wind", "intensity": 60, "duration": 750},
+        ]
+
+        print("\nSending sample WebSocket effects")
+        print("=" * 60)
+        for index, effect in enumerate(effects, start=1):
+            message = json.dumps({"type": "effect", **effect})
+            await websocket.send(message)
+            response = await websocket.recv()
+            print(f"{index}. sent {effect['effect_type']} -> {response}")
+            await asyncio.sleep(0.25)
+    finally:
+        await websocket.close()
+
+    print("\nReceived effects")
+    print("=" * 60)
+    if received_effects:
+        for index, effect in enumerate(received_effects, start=1):
+            print(
+                f"{index}. {effect.effect_type} - "
+                f"intensity={effect.intensity}, duration={effect.duration}ms"
+            )
+    else:
+        print("No callbacks were captured during the demo run.")
+
+    if connected_clients:
+        print("\nConnected clients")
+        for client_id in connected_clients:
+            print(f"  {client_id}")
+
+    if disconnected_clients:
+        print("\nDisconnected clients")
+        for client_id in disconnected_clients:
+            print(f"  {client_id}")
+
+    print("\nDriver commands")
+    print("=" * 60)
+    if driver.commands:
+        for index, command in enumerate(driver.commands, start=1):
+            print(
+                f"{index}. {command['device_id']} -> {command['command']} "
+                f"{command['params']}"
+            )
+    else:
+        print("No driver commands were captured during the demo run.")
+
+    print("\nStopping WebSocket server...")
+    await server.stop()
+    await asyncio.sleep(0.2)
+    try:
+        await server_task
+    except asyncio.CancelledError:
+        pass
+    return 0
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\n\nServer interrupted.")
+    raise SystemExit(asyncio.run(main()))

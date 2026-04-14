@@ -5,8 +5,12 @@ This folder keeps the runnable examples that still add distinct value.
 ## What to Run
 
 1. `device_registry_demo.py` shows cross-protocol device discovery.
-2. `protocols/websocket_demo.py` shows WebSocket-driven effect flows.
-3. `protocols/driver_demo.py` shows serial driver usage.
+2. `protocols/mqtt_demo.py` starts the embedded MQTT broker and routes effects through the dispatcher and mock driver.
+3. `protocols/coap_demo.py` starts the CoAP server and posts sample effects through the dispatcher and mock driver.
+4. `protocols/http_demo.py` starts the REST API and submits sample effects through the dispatcher and mock driver.
+5. `protocols/upnp_demo.py` serves the UPnP description and control endpoint through the dispatcher and mock driver.
+6. `protocols/websocket_demo.py` starts the WebSocket server and exchanges live messages through the dispatcher and mock driver.
+7. `protocols/driver_demo.py` shows serial driver usage.
 
 ## Platform Server Examples
 

@@ -129,8 +129,15 @@ class MQTTServer:
                             "max_connections": 10,
                         },
                     },
-                    "auth": {
-                        "allow-anonymous": True,
+                    "plugins": {
+                        "amqtt.plugins.logging_amqtt.EventLoggerPlugin": {},
+                        "amqtt.plugins.logging_amqtt.PacketLoggerPlugin": {},
+                        "amqtt.plugins.authentication.AnonymousAuthPlugin": {
+                            "allow_anonymous": True,
+                        },
+                        "amqtt.plugins.sys.broker.BrokerSysPlugin": {
+                            "sys_interval": 20,
+                        },
                     },
                 }
             )
