@@ -114,23 +114,26 @@ class MQTTServer:
             return
 
         try:
-            config = {
-                "listeners": {
-                    "default": {
-                        "bind": f"{self.host}:{self.port}",
-                        "type": "tcp",
+            from amqtt.broker import BrokerConfig
+
+            config = BrokerConfig.from_dict(
+                {
+                    "listeners": {
+                        "default": {
+                            "bind": f"{self.host}:{self.port}",
+                            "type": "tcp",
+                        },
+                        "ws": {
+                            "bind": f"{self.host}:9001",
+                            "type": "ws",
+                            "max_connections": 10,
+                        },
                     },
-                    "ws": {
-                        "bind": f"{self.host}:9001",
-                        "type": "ws",
-                        "max_connections": 10,
+                    "auth": {
+                        "allow-anonymous": True,
                     },
-                },
-                "auth": {"allow-anonymous": True},
-                "plugins": {
-                    # Disable problematic sys plugin entirely
-                },
-            }
+                }
+            )
             self.broker = Broker(config)
             logger.debug("amqtt Broker instance created.")
             await self.broker.start()
@@ -151,7 +154,8 @@ class MQTTServer:
 
             # Subscribe upon successful connection to avoid duplicate
             # or missed subscriptions.
-            def _on_connect(client, userdata, flags, rc):
+            # Support both paho-mqtt v1 and v2 API signatures
+            def _on_connect(client, userdata, flags, rc, properties=None):
                 try:
                     client.subscribe(self.subscribe_topic, qos=0)
                     logger.debug(
@@ -171,7 +175,9 @@ class MQTTServer:
 
             self.internal_client.on_connect = _on_connect
 
-            def _on_subscribe(client, userdata, mid, granted_qos):
+            def _on_subscribe(
+                client, userdata, mid, granted_qos, properties=None
+            ):
                 try:
                     self._subscribed.set()
                     if self.loop is not None:

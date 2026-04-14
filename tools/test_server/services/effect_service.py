@@ -1,13 +1,9 @@
 from datetime import datetime, timezone
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from tools.test_server.handlers import (
-    HTTPHandler, HTTPConfig,
-    CoAPHandler, CoAPConfig,
-    MQTTHandler, MQTTConfig,
-    UPnPHandler, UPnPConfig
-)
+if TYPE_CHECKING:
+    from tools.test_server.services.protocol_service import ProtocolService
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +11,12 @@ logger = logging.getLogger(__name__)
 class EffectService:
     """Tracks effect dispatch attempts and inbox entries."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self, protocol_service: Optional["ProtocolService"] = None
+    ) -> None:
         self._effects_sent = 0
         self._effect_inbox: List[Dict[str, Any]] = []
+        self._protocol_service = protocol_service
 
     @property
     def effects_sent(self) -> int:
@@ -30,7 +29,7 @@ class EffectService:
         device_id: str,
         effect: Dict[str, Any],
         protocol: Optional[str] = None,
-        endpoint: Optional[Dict[str, Any]] = None
+        endpoint: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Dispatch an effect via a specific protocol or default (WS)."""
         if not device_exists:
@@ -39,24 +38,53 @@ class EffectService:
         self._effects_sent += 1
         protocol = (protocol or "websocket").lower()
         success = True
-        
-        if protocol == "mqtt":
-            cfg = MQTTConfig(**endpoint) if endpoint else MQTTConfig()
-            handler = MQTTHandler(config=cfg)
-            success = await handler.send(effect)
-        elif protocol == "coap":
-            cfg = CoAPConfig(**endpoint) if endpoint else CoAPConfig()
-            handler = CoAPHandler(config=cfg)
-            success = await handler.send(effect)
-        elif protocol == "http":
-            cfg = HTTPConfig(**endpoint) if endpoint else HTTPConfig()
-            handler = HTTPHandler(config=cfg)
-            success = await handler.send(effect)
-        elif protocol == "upnp":
-            cfg = UPnPConfig(**endpoint) if endpoint else UPnPConfig()
-            handler = UPnPHandler(config=cfg)
-            success = await handler.send(effect)
-        
+
+        # Try to use embedded PlaySEM servers first
+        if self._protocol_service and protocol in ("mqtt", "coap", "upnp"):
+            try:
+                success = await self._protocol_service.publish_effect(
+                    device_id, effect, protocol
+                )
+                if success:
+                    logger.info(
+                        f"Effect dispatched via PlaySEM {protocol} server"
+                    )
+            except Exception as e:
+                logger.error(
+                    f"PlaySEM server dispatch failed: {e}, falling back to handler"
+                )
+                success = False
+
+        # Fallback to handlers if PlaySEM server not available or failed
+        if not success or protocol == "websocket":
+            from tools.test_server.handlers import (
+                HTTPHandler,
+                HTTPConfig,
+                CoAPHandler,
+                CoAPConfig,
+                MQTTHandler,
+                MQTTConfig,
+                UPnPHandler,
+                UPnPConfig,
+            )
+
+            if protocol == "mqtt":
+                cfg = MQTTConfig(**endpoint) if endpoint else MQTTConfig()
+                handler = MQTTHandler(config=cfg)
+                success = await handler.send(effect)
+            elif protocol == "coap":
+                cfg = CoAPConfig(**endpoint) if endpoint else CoAPConfig()
+                handler = CoAPHandler(config=cfg)
+                success = await handler.send(effect)
+            elif protocol == "http":
+                cfg = HTTPConfig(**endpoint) if endpoint else HTTPConfig()
+                handler = HTTPHandler(config=cfg)
+                success = await handler.send(effect)
+            elif protocol == "upnp":
+                cfg = UPnPConfig(**endpoint) if endpoint else UPnPConfig()
+                handler = UPnPHandler(config=cfg)
+                success = await handler.send(effect)
+
         return {
             "success": success,
             "device_id": device_id,

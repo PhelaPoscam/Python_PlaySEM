@@ -48,13 +48,13 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
     server_config = config or ServerConfig()
     app = FastAPI(title=server_config.app_title)
     device_service = DeviceService()
-    effect_service = EffectService()
     protocol_service = ProtocolService(
         server_port=DEFAULT_SERVER_PORT,
         mqtt_port=DEFAULT_MQTT_PORT,
         coap_port=DEFAULT_COAP_PORT,
         upnp_http_port=DEFAULT_UPNP_HTTP_PORT,
     )
+    effect_service = EffectService(protocol_service=protocol_service)
 
     app.state.device_service = device_service
     app.state.effect_service = effect_service

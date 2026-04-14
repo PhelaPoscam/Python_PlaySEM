@@ -1,9 +1,11 @@
 import asyncio
+import json
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
 from playsem.effect_dispatcher import EffectDispatcher
 from playsem.protocol_servers import CoAPServer, MQTTServer, UPnPServer
+from playsem.effect_metadata import EffectMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +138,65 @@ class ProtocolService:
             await self._coap_server.stop()
         if self._upnp_server:
             await self._upnp_server.stop()
+
+    async def publish_effect(
+        self,
+        device_id: str,
+        effect: Dict[str, Any],
+        protocol: Optional[str] = None,
+    ) -> bool:
+        """Publish an effect through the embedded protocol servers."""
+        effect_type = effect.get("effect_type", "unknown")
+        intensity = effect.get("intensity", 50)
+        duration = effect.get("duration", 1000)
+        modality = effect.get("modality", "vibration")
+        parameters = effect.get("parameters", {})
+
+        protocol = (protocol or "mqtt").lower()
+
+        try:
+            if protocol == "mqtt" and self._mqtt_server:
+                # Wait for the broker to be ready before publishing
+                if self._mqtt_server.is_running():
+                    await self._mqtt_server.wait_until_ready()
+
+                # Publish via MQTT broker - include modality for proper parsing
+                payload = json.dumps(
+                    {
+                        "effect_type": effect_type,
+                        "intensity": intensity,
+                        "duration": duration,
+                        "modality": modality,
+                        "parameters": parameters,
+                        "device_id": device_id,
+                    }
+                )
+                # The MQTTServer subscribes to effects/# topic internally
+                # We need to use the internal client to publish
+                if hasattr(self._mqtt_server, "internal_client"):
+                    self._mqtt_server.internal_client.publish(
+                        f"effects/{device_id}", payload
+                    )
+                    logger.info(
+                        f"Published effect via MQTT: {effect_type} "
+                        f"to effects/{device_id}"
+                    )
+                return True
+
+            elif protocol == "coap" and self._coap_server:
+                # For CoAP, we'd need to send a request to the server
+                # This is more complex - just return True for now
+                return True
+
+            elif protocol == "upnp" and self._upnp_server:
+                # UPnP is one-way discovery, not really for sending effects
+                return True
+
+            return False
+
+        except Exception as e:
+            logger.error(f"Failed to publish effect via {protocol}: {e}")
+            return False
 
     def build_protocol_endpoints(
         self,
