@@ -1,1 +1,22 @@
+# --- Line Endings & Text ---
 * text=auto eol=lf
+
+# --- Language Specific ---
+*.py text diff=python
+*.yaml text
+*.yml text
+*.md text
+*.json text
+*.toml text
+*.ini text
+
+# --- Build & Assets ---
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.svg text
+*.ico binary
+
+# --- IDEs ---
+.editorconfig text
+.vscode/*.json text

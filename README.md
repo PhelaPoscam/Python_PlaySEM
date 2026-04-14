@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-**PlaySEM** is a powerful Python framework for orchestrating sensory effects across diverse devices and protocols. Control lights, haptics, wind, and scent through a unified, asynchronous API.
+**PlaySEM** is a Python framework for orchestrating sensory effects across diverse devices and protocols. Control lights, haptics, wind, and scent through a unified, asynchronous API.
 
 ---
 
@@ -13,7 +13,8 @@
 
 - 🔌 **Universal Protocols**: MQTT, WebSocket, CoAP, UPnP, and Serial.
 - 🎯 **Unified Registry**: Cross-protocol device discovery with optional isolation.
-- 🧩 **Extensible drivers**: plug-and-play support for any hardware.
+- 🧩 **Observational Drivers**: Built-in mock drivers with command journaling for high-fidelity testing.
+- 🧪 **System Orchestration**: Unified test fixtures for end-to-end signal verification.
 - 🔒 **Concurrence-safe**: Built for high-performance, multi-client scenarios.
 
 ## 🚀 Quick Start
@@ -29,14 +30,16 @@ pip install -e .
 ```python
 import asyncio
 from playsem import DeviceManager, EffectMetadata
+from playsem.config.loader import ConfigLoader
 
 async def main():
-    manager = DeviceManager()
-    await manager.initialize("config/devices.yaml")
+    # Load configuration
+    loader = ConfigLoader(devices_path="config/devices.yaml")
+    manager = DeviceManager(config_loader=loader)
     
     # Unleash a sensory effect
     effect = EffectMetadata(effect_type="vibration", intensity=100)
-    await manager.send_effect("my-device-id", effect)
+    manager.send_effect("my-device-id", effect)
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -53,107 +56,45 @@ For detailed guides and API references, check out:
 
 ---
 
-## 🧪 Testing the Framework
+## 🧪 High-Fidelity Testing
 
-### Run All Tests
+PlaySEM prioritizes "Observational Testing" over complex mocking. Our `playsem_system` fixture boots a full stack (Broker -> Dispatcher -> Manager -> Driver) in-process.
+
+### Run End-to-End Scenarios
 
 ```bash
-pytest tests/ -v
+# Run the high-fidelity integration suite
+pytest tests/integration/test_system_scenarios.py -v
 ```
 
-### Test Individual Protocols
+### Verifying Signal Propagation
 
-#### WebSocket
+Instead of mocking function calls, we inspect the "journal" of the mock hardware:
 
-```bash
-# Terminal 1: Start WebSocket server
-python -c "
-import asyncio
-from playsem import DeviceManager, EffectDispatcher
-from playsem.protocol_servers import WebSocketServer
-
-async def main():
-    dm = DeviceManager(client=type('Mock', (), {'publish': lambda *a: None})())
-    dispatcher = EffectDispatcher(dm)
-    server = WebSocketServer(host='127.0.0.1', port=8765, dispatcher=dispatcher)
-    await server.start()
-    await asyncio.sleep(60)
-
-asyncio.run(main())
-"
-
-# Terminal 2: Connect client
-python -c "
-import asyncio
-import websockets
-import json
-
-async def test():
-    async with websockets.connect('ws://127.0.0.1:8765') as ws:
-        await ws.send(json.dumps({'type': 'effect', 'effect_type': 'vibration', 'intensity': 80, 'duration': 500}))
-        print(await ws.recv())
-
-asyncio.run(test())
-"
+```python
+def test_signal(playsem_system):
+    # 1. Send an effect via any protocol (e.g., MQTT)
+    # 2. Inspect the mock driver's history
+    history = playsem_system.mock_driver.command_history
+    assert any(cmd["command"] == "set_intensity" for cmd in history)
 ```
 
-
-#### HTTP
-
-```bash
-# Start test server
-python tools/test_server/main.py
-
-# Test endpoints
-curl -X POST http://localhost:8090/api/devices/register -H "Content-Type: application/json" -d '{"device_id":"test","device_type":"vibration","protocols":["http"]}'
-curl -X POST http://localhost:8090/api/effects/send -H "Content-Type: application/json" -d '{"device_id":"test","effect":{"effect_type":"vibration","intensity":80}}'
-```
-
-#### UPnP
+### Protocol-Specific Tests
 
 ```bash
-pytest tests/protocols/test_upnp_server.py -v
-```
-
-#### MQTT (External Public Broker)
-
-```bash
-python -c "
-import paho.mqtt.client as mqtt
-import asyncio
-
-def on_message(client, userdata, msg):
-    print(f'Topic: {msg.topic} | Payload: {msg.payload}')
-
-client = mqtt.Client()
-client.on_message = on_message
-client.connect('test.mosquitto.org', 1883)
-client.subscribe('playsem/test/#')
-client.loop_start()
-asyncio.sleep(30)
-"
-```
-
-#### MQTT (Embedded Broker)
-
-```bash
-pytest tests/protocols/test_mqtt_broker.py -v
-```
-
-#### All Protocol Tests
-
-```bash
+# All Protocol Servers
 pytest tests/protocols/ -v
+
+# Unit Tests
+pytest tests/unit/ -v
 ```
 
 ---
 
-
 ## 🛠 Ecosystem
 
-- **[Platform Server](tools/test_server/)**: A modular REST/WebSocket backend.
-- **[PlaySEM GUI](gui/)**: Interactive control panel for real-time orchestration.
-- **[Examples](examples/)**: Ready-to-run demonstration scripts.
+- **[Platform Server](tools/test_server/)**: A modular REST/WebSocket/MQTT backend for testing external integrations.
+- **[Examples](examples/)**: Ready-to-run demonstration scripts for every supported protocol.
 
 ---
 

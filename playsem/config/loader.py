@@ -134,9 +134,9 @@ class ConfigLoader:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 if extension in [".yaml", ".yml"]:
-                    return yaml.safe_load(f)
+                    return yaml.safe_load(f) or {}
                 elif extension == ".json":
-                    return json.load(f)
+                    return json.load(f) or {}
                 elif extension == ".xml":
                     raw_dict = xmltodict.parse(f.read())
                     # Check if this is a PlaySEM XML file and transform it
@@ -145,7 +145,7 @@ class ConfigLoader:
                             "PlaySEM XML format detected. Transforming..."
                         )
                         return self._transform_playsem_dict(raw_dict)
-                    return raw_dict
+                    return raw_dict or {}
                 else:
                     raise ValueError(
                         f"Unsupported configuration file format: {extension}"
@@ -164,7 +164,7 @@ class ConfigLoader:
         Transforms a dictionary parsed from SERenderer.xml into the format
         expected by this application (equivalent to devices.yaml).
         """
-        transformed_config = {"devices": [], "connectivityInterfaces": []}
+        transformed_config: Dict[str, Any] = {"devices": [], "connectivityInterfaces": []}
         config_node = raw_dict.get("configuration", {})
 
         # --- Transform Devices ---

@@ -22,11 +22,12 @@ class MockConnectivityDriver(BaseDriver):
         self.interface_name = interface_name
         self.data_format = data_format.lower()
         self._connected = False
+        self.command_history: list[Dict[str, Any]] = []
         logger.info(
             f"MockConnectivityDriver '{self.interface_name}' initialized with format '{self.data_format}'"
         )
         # Map device_id -> MockDeviceBase instance for forwarding commands
-        self._devices = {}
+        self._devices: Dict[str, MockDeviceBase] = {}
 
     def connect(self) -> bool:
         logger.info("MockConnectivityDriver: connect()")
@@ -65,6 +66,16 @@ class MockConnectivityDriver(BaseDriver):
             }
             payload_str = json.dumps(message)
 
+        # Journal the command for testing/observability
+        self.command_history.append(
+            {
+                "device_id": device_id,
+                "command": command,
+                "params": params,
+                "payload": payload_str,
+            }
+        )
+
         logger.info(
             f"MockConnectivityDriver: send_command to device_id='{device_id}'. "
             f"Formatted payload ({self.data_format}): {payload_str}"
@@ -93,6 +104,12 @@ class MockConnectivityDriver(BaseDriver):
 
     def get_driver_type(self) -> str:
         return "mock"
+
+    def clear_history(self) -> None:
+        """Clear the command history journal."""
+        self.command_history.clear()
+        for device in self._devices.values():
+            device.clear_history()
 
     def get_capabilities(self, device_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -351,7 +368,8 @@ class MockDeviceBase:
         self.device_id = device_id
         self.properties = properties or {}
         self.delay = int(self.properties.get("delay", 0))
-        self.state = {}
+        self.state: Dict[str, Any] = {}
+        self.command_history: list[Dict[str, Any]] = []
         logger.info(
             f"Mock device '{device_id}' initialized " f"(delay={self.delay}ms)"
         )
@@ -368,11 +386,17 @@ class MockDeviceBase:
             f"[{self.device_id}] Command: {command}, " f"Params: {params}"
         )
         self.state.update(params)
+        self.command_history.append({"command": command, "params": params})
 
     def reset(self):
         """Reset device to default state."""
         logger.info(f"[{self.device_id}] Reset to default state")
         self.state: Dict[str, Any] = {}
+        self.clear_history()
+
+    def clear_history(self):
+        """Clear the device's command history."""
+        self.command_history.clear()
 
     def get_state(self) -> Dict[str, Any]:
         """Get current device state."""

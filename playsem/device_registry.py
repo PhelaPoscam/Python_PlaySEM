@@ -421,8 +421,8 @@ class DeviceRegistry:
             # Get devices visible to this protocol
             devices = self.get_all_devices(requesting_protocol)
 
-            protocols_count = {}
-            types_count = {}
+            protocols_count: Dict[str, int] = {}
+            types_count: Dict[str, int] = {}
 
             for device in devices:
                 # Count protocols

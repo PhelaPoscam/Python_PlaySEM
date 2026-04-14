@@ -54,11 +54,7 @@ dev = [
     "httpx>=0.27.0",
     "playwright>=1.46.0",
     "pytest-playwright",
-]
-gui = [
-    "PyQt6>=6.7.0",
-    "qasync>=0.27.0",
-    "qrcode[pil]>=0.21.0",
+    "types-PyYAML",
 ]
 server = [
     "fastapi>=0.122.0",

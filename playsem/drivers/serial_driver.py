@@ -351,7 +351,7 @@ class SerialDriver(BaseDriver):
             logger.debug(
                 f"Sent {bytes_written} bytes to {self.port}: " f"{data.hex()}"
             )
-            return bytes_written == len(data)
+            return bool(bytes_written == len(data))
 
         except serial.SerialException as e:
             logger.error(f"Error sending to {self.port}: {e}")
@@ -486,7 +486,7 @@ class SerialDriver(BaseDriver):
         try:
             data = self._serial.readline()
             if data:
-                return data.decode(encoding).strip()
+                return str(data.decode(encoding).strip())
             return None
 
         except (serial.SerialException, UnicodeDecodeError) as e:

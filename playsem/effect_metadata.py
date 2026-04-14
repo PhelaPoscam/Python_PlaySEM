@@ -303,9 +303,10 @@ class EffectMetadataParser:
         # Try to parse metadata from root
         if root.get("title"):
             timeline.metadata["title"] = root.get("title")
-        if root.get("duration"):
+        duration_val = root.get("duration")
+        if duration_val:
             try:
-                timeline.total_duration = int(root.get("duration"))
+                timeline.total_duration = int(duration_val)
             except (ValueError, TypeError):
                 pass
 
@@ -354,12 +355,12 @@ class EffectMetadataParser:
         # Parse timestamp (milliseconds)
         timestamp = EffectMetadataParser._parse_int_attr(
             elem, ["timestamp", "Timestamp", "time", "Time"], default=0
-        )
+        ) or 0
 
         # Parse duration (milliseconds)
         duration = EffectMetadataParser._parse_int_attr(
             elem, ["duration", "Duration"], default=1000
-        )
+        ) or 1000
 
         # Parse intensity (0-100)
         intensity = EffectMetadataParser._parse_int_attr(
@@ -379,7 +380,7 @@ class EffectMetadataParser:
         )
 
         # Parse additional parameters
-        parameters = {}
+        parameters: Dict[str, Any] = {}
 
         # Color for light effects
         color = (

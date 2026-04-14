@@ -1,4 +1,4 @@
-# Python
+# --- Python ---
 __pycache__/
 *.py[cod]
 *$py.class
@@ -23,66 +23,42 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Virtual Environment
+# --- Virtual Environments ---
 .venv/
-virtualenv/
-ENV/
 env/
+venv/
+ENV/
 
-# PyCharm
-.idea/
-
-# VS Code
+# --- IDEs & Editors ---
 .vscode/
-*.code-workspace
+.idea/
+*.swp
+*.swo
+*~
+.editorconfig
+.qodo/
 
-# Testing
+# --- Testing & Reports ---
 .pytest_cache/
+.mypy_cache/
 .coverage
 htmlcov/
 .tox/
 .hypothesis/
 coverage.xml
+.playwright/
+test-results/
 
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# OS
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-*~
-
-# Logs
+# --- Logs & Temp ---
 *.log
-
-# Environment variables
-.env
-.env.local
-
-# Temporary files
 *.tmp
 temp/
-
-# Ignore the temporary Java project
-temp_java_project/
-# Editor / AI temp files
-.gemini_temp/
-.qodo/
-.mypy_cache/
-GEMINI.md
-
-# Remove egg info
-pythonplaysem.egg-info/
-# Archive temp java project
-archive/temp_java_project*
-# Backups created by maintenance tasks
+legacy_backup/
+archive/
 archive_backups/
 server.err
-# Phase 3D: Spring Cleaning
-legacy_backup/
-tests/unit/__pycache__/
-tests/integration/__pycache__/
-tests/gui/__pycache__/
-tests/protocols/__pycache__/
+
+# --- Project Specific ---
+temp_java_project/
+.gemini_temp/
+GEMINI.md

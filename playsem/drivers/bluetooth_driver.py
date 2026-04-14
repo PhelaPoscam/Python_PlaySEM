@@ -26,9 +26,10 @@ try:
     BLEAK_AVAILABLE = True
 except ImportError:
     BLEAK_AVAILABLE = False
-    BleakScanner = None
-    BleakClient = None
-    BleakGATTCharacteristic = None
+    # Use Any for fallbacks to prevent Mypy "Cannot assign to a type" errors
+    BleakScanner = Any  # type: ignore
+    BleakClient = Any  # type: ignore
+    BleakGATTCharacteristic = Any  # type: ignore
 
 from .base_driver import AsyncBaseDriver
 from .retry_policy import RetryPolicy
@@ -145,7 +146,7 @@ class BluetoothDriver(AsyncBaseDriver):
         try:
             # Scan with optional service UUID filter
             discovered = await BleakScanner.discover(
-                timeout=timeout, service_uuids=service_uuids
+                timeout=timeout, service_uuids=service_uuids or []
             )
 
             devices = []
@@ -428,7 +429,7 @@ class BluetoothDriver(AsyncBaseDriver):
     async def start_notify(
         self,
         uuid: str,
-        callback: Callable[[int, bytearray], None],
+        callback: Any,
     ) -> bool:
         """
         Start receiving notifications from a characteristic.

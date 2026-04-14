@@ -176,10 +176,10 @@ class EffectCapability:
 
         # Validate provided parameters
         for param_name, param_value in params.items():
-            param_cap = self.get_parameter(param_name)
-            if param_cap is None:
+            cap = self.get_parameter(param_name)
+            if cap is None:
                 errors.append(f"Unknown parameter '{param_name}'")
-            elif not param_cap.validate(param_value):
+            elif not cap.validate(param_value):
                 errors.append(
                     f"Invalid value for parameter "
                     f"'{param_name}': {param_value}"
@@ -230,7 +230,7 @@ class DeviceCapabilities:
         if self.firmware_version:
             result["firmware_version"] = self.firmware_version
         if self.metadata:
-            result["metadata"] = self.metadata
+            result["metadata"] = self.metadata  # type: ignore
 
         return result
 

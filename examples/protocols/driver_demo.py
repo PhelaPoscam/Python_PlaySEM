@@ -43,11 +43,11 @@ def demo_list_ports():
     ports = SerialDriver.list_ports()
 
     if not ports:
-        print("\n❌ No serial ports found")
+        print("\n[FAIL] No serial ports found")
         print("   Make sure a USB device is connected")
         return
 
-    print(f"\n✅ Found {len(ports)} serial port(s):\n")
+    print(f"\n[OK] Found {len(ports)} serial port(s):\n")
 
     for i, port in enumerate(ports, 1):
         print(f"{i}. {port['device']}")
@@ -74,7 +74,7 @@ def demo_auto_discover():
     )
 
     if driver:
-        print(f"\n✅ Arduino found on {driver.port}")
+        print(f"\n[OK] Arduino found on {driver.port}")
         return driver.port
 
     # Try finding any Arduino by description
@@ -83,10 +83,10 @@ def demo_auto_discover():
     )
 
     if driver:
-        print(f"\n✅ Arduino-like device found on {driver.port}")
+        print(f"\n[OK] Arduino-like device found on {driver.port}")
         return driver.port
 
-    print("\n❌ No Arduino found")
+    print("\n[FAIL] No Arduino found")
     print("   Connect an Arduino and try again")
     return None
 
@@ -100,7 +100,7 @@ def demo_manual_connection(port: str):
     # Create driver with context manager
     try:
         with SerialDriver(port=port, baudrate=9600) as driver:
-            print(f"\n✅ Connected to {port}")
+            print(f"\n[OK] Connected to {port}")
 
             # Send some test commands
             print("\n📤 Sending test commands...")
@@ -128,10 +128,10 @@ def demo_manual_connection(port: str):
             else:
                 print("   No response (timeout)")
 
-            print(f"\n✅ Connection test complete")
+            print(f"\n[OK] Connection test complete")
 
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\n[FAIL] Error: {e}")
         logger.error(f"Connection failed: {e}")
 
 
@@ -151,7 +151,7 @@ def demo_callback_mode(port: str):
         )
 
         if driver.open_connection():
-            print(f"\n✅ Connected with callback mode")
+            print(f"\n[OK] Connected with callback mode")
             print("   Listening for incoming data...")
 
             # Send commands and wait for responses
@@ -160,11 +160,11 @@ def demo_callback_mode(port: str):
                 print(f"   Sent: PING:{i}")
                 time.sleep(1)
 
-            print("\n✅ Callback test complete")
+            print("\n[OK] Callback test complete")
             driver.close_connection()
 
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\n[FAIL] Error: {e}")
 
 
 def demo_arduino_effect_control(port: str):
@@ -182,7 +182,7 @@ def demo_arduino_effect_control(port: str):
 
     try:
         with SerialDriver(port=port, baudrate=115200) as driver:
-            print(f"\n✅ Connected to Arduino at 115200 baud")
+            print(f"\n[OK] Connected to Arduino at 115200 baud")
 
             for effect_type, intensity, duration in effects:
                 # Format: EFFECT:<type>:<intensity>:<duration>\n
@@ -195,10 +195,10 @@ def demo_arduino_effect_control(port: str):
                 driver.send_command(command)
                 time.sleep(duration / 1000.0 + 0.5)
 
-            print("\n✅ All effects sent successfully")
+            print("\n[OK] All effects sent successfully")
 
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\n[FAIL] Error: {e}")
 
 
 def interactive_mode():
@@ -209,7 +209,7 @@ def interactive_mode():
 
     ports = SerialDriver.list_ports()
     if not ports:
-        print("\n❌ No serial ports available")
+        print("\n[FAIL] No serial ports available")
         return
 
     # Select port
@@ -240,10 +240,10 @@ def interactive_mode():
     try:
         driver = SerialDriver(port=port, baudrate=baudrate)
         if not driver.open_connection():
-            print(f"❌ Failed to connect to {port}")
+            print(f"[FAIL] Failed to connect to {port}")
             return
 
-        print(f"\n✅ Connected to {port} @ {baudrate}")
+        print(f"\n[OK] Connected to {port} @ {baudrate}")
         print("\nCommands:")
         print("  'send <text>' - Send text")
         print("  'hex <bytes>'  - Send hex bytes (e.g., 'hex FF 00 64')")
@@ -282,10 +282,10 @@ def interactive_mode():
                 print("Unknown command")
 
         driver.close_connection()
-        print("\n✅ Disconnected")
+        print("\n[OK] Disconnected")
 
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\n[FAIL] Error: {e}")
 
 
 def main():
@@ -307,7 +307,7 @@ def main():
             port = ports[0]["device"]
             print(f"\n💡 Using first available port: {port}")
         else:
-            print("\n❌ No serial ports available for demos")
+            print("\n[FAIL] No serial ports available for demos")
             print("   Connect a USB device and try again")
             return
 
@@ -327,7 +327,7 @@ def main():
         interactive_mode()
 
     print("\n" + "=" * 60)
-    print("✅ Demo complete!")
+    print("[OK] Demo complete!")
     print("=" * 60)
 
 

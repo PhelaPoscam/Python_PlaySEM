@@ -10,8 +10,13 @@ import asyncio
 import json
 import logging
 import socket
+import sys
 import urllib.error
 import urllib.request
+from pathlib import Path
+
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from playsem import DeviceManager, EffectDispatcher
 from playsem.drivers import MockConnectivityDriver

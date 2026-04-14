@@ -28,6 +28,39 @@ from ..effect_metadata import EffectMetadata
 logger = logging.getLogger(__name__)
 
 
+class EffectRequest(BaseModel):
+    effect_type: str = Field(..., description="Type of effect")
+    timestamp: float = Field(0.0, description="Effect timestamp in ms")
+    duration: float = Field(1000.0, description="Effect duration in ms")
+    intensity: int = Field(100, ge=0, le=255, description="Effect intensity")
+    location: Optional[str] = Field(None, description="Effect location")
+    parameters: Optional[Dict[str, Any]] = Field(None, description="Additional parameters")
+
+
+class EffectResponse(BaseModel):
+    success: bool
+    message: str
+    effect_id: Optional[str] = None
+
+
+class StatusResponse(BaseModel):
+    status: str
+    version: str
+    uptime_seconds: float
+    effects_processed: int
+
+
+class DeviceInfoModel(BaseModel):
+    device_id: str
+    device_type: str
+    status: str
+
+
+class DevicesResponse(BaseModel):
+    devices: list
+    count: int
+
+
 class HTTPServer:
     """
     HTTP REST API server for sensory effect requests.
@@ -95,15 +128,6 @@ class HTTPServer:
 
     def _setup_app(self):
         """Setup FastAPI application with routes and middleware."""
-        # Store for use in routes
-        self._fastapi = FastAPI
-        self._HTTPException = HTTPException
-        self._Security = Security
-        self._Depends = Depends
-        self._status = status
-        self._APIKeyHeader = APIKeyHeader
-        self._uvicorn = uvicorn
-
         # Create app
         self._app = FastAPI(
             title="PlaySEM REST API",
@@ -121,50 +145,6 @@ class HTTPServer:
             allow_methods=["*"],
             allow_headers=["*"],
         )
-
-        # Define request/response models
-        class EffectRequest(BaseModel):
-            effect_type: str = Field(..., description="Type of effect")
-            timestamp: float = Field(0.0, description="Effect timestamp in ms")
-            duration: float = Field(
-                1000.0, description="Effect duration in ms"
-            )
-            intensity: int = Field(
-                100, ge=0, le=255, description="Effect intensity"
-            )
-            location: Optional[str] = Field(
-                None, description="Effect location"
-            )
-            parameters: Optional[Dict[str, Any]] = Field(
-                None, description="Additional parameters"
-            )
-
-        class EffectResponse(BaseModel):
-            success: bool
-            message: str
-            effect_id: Optional[str] = None
-
-        class StatusResponse(BaseModel):
-            status: str
-            version: str
-            uptime_seconds: float
-            effects_processed: int
-
-        class DeviceInfo(BaseModel):
-            device_id: str
-            device_type: str
-            status: str
-
-        class DevicesResponse(BaseModel):
-            devices: list
-            count: int
-
-        # Store models for use in routes
-        self._EffectRequest = EffectRequest
-        self._EffectResponse = EffectResponse
-        self._StatusResponse = StatusResponse
-        self._DeviceInfo = DeviceInfo
-        self._DevicesResponse = DevicesResponse
 
         # Setup API key security if enabled
         if self.api_key:
@@ -194,22 +174,22 @@ class HTTPServer:
 
         @self._app.post(
             "/api/effects",
-            response_model=self._EffectResponse,
+            response_model=EffectResponse,
             summary="Submit effect",
             description="Submit a sensory effect for execution",
         )
         async def submit_effect(
-            effect: self._EffectRequest = Body(...),
+            effect: EffectRequest = Body(...),
             _auth=self._security_dependency,
         ):
             try:
                 # Create EffectMetadata from request
                 metadata = EffectMetadata(
                     effect_type=effect.effect_type,
-                    timestamp=effect.timestamp,
-                    duration=effect.duration,
+                    timestamp=int(effect.timestamp),
+                    duration=int(effect.duration),
                     intensity=effect.intensity,
-                    location=effect.location,
+                    location=effect.location or "everywhere",
                     parameters=effect.parameters or {},
                 )
 
@@ -227,7 +207,7 @@ class HTTPServer:
 
                 logger.info(f"HTTP effect received: {effect.effect_type}")
 
-                return self._EffectResponse(
+                return EffectResponse(
                     success=True,
                     message="Effect dispatched successfully",
                     effect_id=(
@@ -236,14 +216,14 @@ class HTTPServer:
                 )
             except Exception as e:
                 logger.error(f"Effect dispatch error: {e}")
-                raise self._HTTPException(
-                    status_code=self._status.HTTP_400_BAD_REQUEST,
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
                     detail=str(e),
                 )
 
         @self._app.get(
             "/api/status",
-            response_model=self._StatusResponse,
+            response_model=StatusResponse,
             summary="Server status",
             description="Get server health and statistics",
         )
@@ -251,7 +231,7 @@ class HTTPServer:
             uptime = (
                 time.time() - self._start_time if self._start_time else 0.0
             )
-            return self._StatusResponse(
+            return StatusResponse(
                 status="running",
                 version="0.1.0",
                 uptime_seconds=uptime,
@@ -260,7 +240,7 @@ class HTTPServer:
 
         @self._app.get(
             "/api/devices",
-            response_model=self._DevicesResponse,
+            response_model=DevicesResponse,
             summary="List devices",
             description="Get list of connected devices",
             dependencies=[self._security_dependency] if self.api_key else [],
@@ -279,7 +259,7 @@ class HTTPServer:
                     "status": "connected",
                 },
             ]
-            return self._DevicesResponse(devices=devices, count=len(devices))
+            return DevicesResponse(devices=devices, count=len(devices))
 
         @self._app.get(
             "/ui/capabilities",
@@ -363,31 +343,31 @@ class HTTPServer:
         async def get_device_capabilities(device_id: str):
             """Get capabilities for a specific device."""
             try:
-                # Get capabilities from device driver
+                # Get capabilities from device manager
                 device_manager = self.dispatcher.device_manager
-                if device_manager and device_manager.driver:
-                    caps = device_manager.driver.get_capabilities(device_id)
+                if device_manager:
+                    caps = device_manager.get_device_capabilities(device_id)
                     if caps:
                         return caps
                     else:
-                        raise self._HTTPException(
-                            status_code=self._status.HTTP_404_NOT_FOUND,
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
                             detail=(
                                 f"Capabilities not available for "
                                 f"device: {device_id}"
                             ),
                         )
                 else:
-                    raise self._HTTPException(
-                        status_code=self._status.HTTP_503_SERVICE_UNAVAILABLE,
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                         detail="No device manager or driver available",
                     )
-            except self._HTTPException:
+            except HTTPException:
                 raise
             except Exception as e:
                 logger.error(f"Error getting capabilities: {e}")
-                raise self._HTTPException(
-                    status_code=self._status.HTTP_500_INTERNAL_SERVER_ERROR,
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=str(e),
                 )
 
@@ -405,10 +385,10 @@ class HTTPServer:
             f"http://{self.host}:{self.port}/docs"
         )
 
-        config = self._uvicorn.Config(
+        config = uvicorn.Config(
             self._app, host=self.host, port=self.port, log_level="info"
         )
-        self._server = self._uvicorn.Server(config)
+        self._server = uvicorn.Server(config)
         await self._server.serve()
 
     async def stop(self):
