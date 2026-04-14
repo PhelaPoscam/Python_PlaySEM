@@ -318,6 +318,48 @@ class TestDeviceRegistry:
         assert stats["devices_by_type"]["light"] == 2
         assert stats["devices_by_type"]["vibration"] == 1
 
+    def test_protocol_isolation_filters_visibility(self):
+        """Test protocol isolation in both filtered and shared modes."""
+        self.registry.register_device(
+            {
+                "id": "mqtt_001",
+                "name": "MQTT Light",
+                "type": "light",
+                "address": "addr1",
+                "protocols": ["mqtt"],
+            },
+            source_protocol="mqtt",
+        )
+        self.registry.register_device(
+            {
+                "id": "ws_001",
+                "name": "WS Vibration",
+                "type": "vibration",
+                "address": "addr2",
+                "protocols": ["websocket"],
+            },
+            source_protocol="websocket",
+        )
+
+        self.registry.set_protocol_isolation(True)
+
+        mqtt_visible = self.registry.get_all_devices(
+            requesting_protocol="mqtt"
+        )
+        websocket_visible = self.registry.get_all_devices(
+            requesting_protocol="websocket"
+        )
+
+        assert [device.id for device in mqtt_visible] == ["mqtt_001"]
+        assert [device.id for device in websocket_visible] == ["ws_001"]
+
+        self.registry.set_protocol_isolation(False)
+
+        all_visible = self.registry.get_all_devices(
+            requesting_protocol="websocket"
+        )
+        assert {device.id for device in all_visible} == {"mqtt_001", "ws_001"}
+
     def test_to_dict_list(self):
         """Test converting registry to dictionary list."""
         self.registry.register_device(
