@@ -27,7 +27,7 @@ import uvicorn
 from fastapi import FastAPI
 from tools.test_server.app import create_app
 from tools.test_server.config import ServerConfig
-from tools.test_server.app.handlers import MQTTHandler
+from tools.test_server.handlers import MQTTConfig, MQTTHandler
 
 
 def create_app_with_mqtt(config: ServerConfig) -> FastAPI:
@@ -47,17 +47,21 @@ def create_app_with_mqtt(config: ServerConfig) -> FastAPI:
 
     # Create and register MQTT handler
     mqtt_handler = MQTTHandler(
-        broker_host="localhost",
-        broker_port=1883,
-        topic_prefix="playsem",
+        config=MQTTConfig(
+            host="localhost",
+            port=1883,
+            topic="playsem/effects",
+        ),
     )
 
     # Register with protocol service
     protocol_service.register_handler("mqtt", mqtt_handler)
 
     print("[OK] MQTT handler registered")
-    print(f"  Broker: {mqtt_handler.broker_host}:{mqtt_handler.broker_port}")
-    print(f"  Topic: {mqtt_handler.topic_prefix}/#")
+    print(
+        "  Broker: " f"{mqtt_handler.config.host}:{mqtt_handler.config.port}"
+    )
+    print(f"  Topic: {mqtt_handler.config.topic}")
 
     return app
 

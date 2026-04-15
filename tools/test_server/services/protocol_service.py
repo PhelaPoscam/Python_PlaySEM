@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import json
 import logging
 from typing import Any, Callable, Dict, List, Optional
@@ -47,6 +48,14 @@ class ProtocolService:
         self._upnp_server: Optional[UPnPServer] = None
 
         self._on_protocol_effect: Optional[Callable] = None
+        self._custom_handlers: Dict[str, Any] = {}
+
+    def register_handler(self, protocol_name: str, handler: Any) -> None:
+        """Register a custom protocol handler used by publish_effect."""
+        key = (protocol_name or "").strip().lower()
+        if not key:
+            raise ValueError("protocol_name must be a non-empty string")
+        self._custom_handlers[key] = handler
 
     def set_effect_callback(self, callback: Callable):
         """Set callback for effects received from embedded servers."""
@@ -191,6 +200,24 @@ class ProtocolService:
             elif protocol == "upnp" and self._upnp_server:
                 # UPnP is one-way discovery, not really for sending effects
                 return True
+
+            # Fall back to user-registered custom handlers.
+            handler = self._custom_handlers.get(protocol)
+            if handler is not None:
+                send = getattr(handler, "send", None)
+                if callable(send):
+                    payload = {
+                        "device_id": device_id,
+                        "effect_type": effect_type,
+                        "intensity": intensity,
+                        "duration": duration,
+                        "modality": modality,
+                        "parameters": parameters,
+                    }
+                    result = send(payload)
+                    if inspect.isawaitable(result):
+                        result = await result
+                    return bool(result)
 
             return False
 

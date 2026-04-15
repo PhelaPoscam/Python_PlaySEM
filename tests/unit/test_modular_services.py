@@ -9,6 +9,15 @@ from tools.test_server.services import (
 )
 
 
+class _AsyncCustomHandler:
+    def __init__(self):
+        self.seen_payloads = []
+
+    async def send(self, effect):
+        self.seen_payloads.append(effect)
+        return True
+
+
 def test_device_service_register_and_list():
     service = DeviceService()
 
@@ -64,3 +73,35 @@ def test_protocol_service_build_default_endpoints():
     assert "http" in endpoints
     assert "coap" in endpoints
     assert "upnp" in endpoints
+
+
+@pytest.mark.asyncio
+async def test_protocol_service_dispatches_to_registered_custom_handler():
+    service = ProtocolService(
+        server_port=8090,
+        mqtt_port=1883,
+        coap_port=5683,
+        upnp_http_port=8008,
+    )
+    handler = _AsyncCustomHandler()
+    service.register_handler("custom", handler)
+
+    result = await service.publish_effect(
+        device_id="device_1",
+        effect={
+            "effect_type": "vibration",
+            "intensity": 72,
+            "duration": 250,
+            "parameters": {"zone": "left"},
+        },
+        protocol="custom",
+    )
+
+    assert result is True
+    assert len(handler.seen_payloads) == 1
+    payload = handler.seen_payloads[0]
+    assert payload["device_id"] == "device_1"
+    assert payload["effect_type"] == "vibration"
+    assert payload["intensity"] == 72
+    assert payload["duration"] == 250
+    assert payload["parameters"] == {"zone": "left"}

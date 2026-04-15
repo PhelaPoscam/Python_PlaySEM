@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import asyncio
+import json
 
 from playsem.drivers.mock_driver import MockConnectivityDriver
 from playsem.protocol_servers import HTTPServer
@@ -8,6 +9,9 @@ from playsem.protocol_servers import HTTPServer
 class _FakeDeviceManager:
     def __init__(self, driver):
         self.driver = driver
+
+    def get_device_capabilities(self, device_id):
+        return self.driver.get_capabilities(device_id)
 
 
 class _FakeDispatcher:
@@ -26,17 +30,15 @@ def test_mock_driver_light_capabilities():
 async def _asgi_get(app, path: str):
     """Minimal ASGI client to perform a GET request without external deps."""
     status = None
-    headers = []
     body_chunks = []
 
     async def receive():
         return {"type": "http.request", "body": b"", "more_body": False}
 
     async def send(message):
-        nonlocal status, headers
+        nonlocal status
         if message["type"] == "http.response.start":
             status = message.get("status")
-            headers = message.get("headers", [])
         elif message["type"] == "http.response.body":
             body_chunks.append(message.get("body", b""))
 
@@ -54,12 +56,10 @@ async def _asgi_get(app, path: str):
     }
 
     await app(scope, receive, send)
-
     return status, b"".join(body_chunks)
 
 
 def test_http_capabilities_endpoint_returns_caps():
-    # Setup HTTP server with a fake dispatcher/driver
     driver = MockConnectivityDriver()
     dispatcher = _FakeDispatcher(driver)
 
@@ -70,12 +70,10 @@ def test_http_capabilities_endpoint_returns_caps():
         api_key=None,
     )
 
-    # Use a minimal ASGI client to hit the endpoint (no httpx dependency)
     status, body = asyncio.run(
         _asgi_get(server._app, "/api/capabilities/mock_light_1")
     )
     assert status == 200
-    import json
 
     data = json.loads(body.decode("utf-8"))
     assert isinstance(data, dict)

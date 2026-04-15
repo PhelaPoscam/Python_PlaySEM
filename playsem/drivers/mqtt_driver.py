@@ -87,7 +87,14 @@ class MQTTDriver(BaseDriver):
         self._last_reconnect_error: Optional[str] = None
 
         # Create MQTT client
-        self.client = mqtt.Client(client_id=client_id)
+        callback_api_version = getattr(mqtt, "CallbackAPIVersion", None)
+        if callback_api_version is not None:
+            self.client = mqtt.Client(
+                callback_api_version=callback_api_version.VERSION2,
+                client_id=client_id,
+            )
+        else:
+            self.client = mqtt.Client(client_id=client_id)
 
         # Set authentication if provided
         if username and password:
@@ -319,8 +326,24 @@ class MQTTDriver(BaseDriver):
 
         return caps.to_dict()
 
-    def _on_connect(self, client, userdata, flags, rc):
+    @staticmethod
+    def _reason_code_to_int(reason_code: Any) -> int:
+        """Normalize paho reason codes across callback API versions."""
+        if isinstance(reason_code, int):
+            return reason_code
+        if hasattr(reason_code, "value"):
+            try:
+                return int(reason_code.value)
+            except Exception:
+                pass
+        try:
+            return int(reason_code)
+        except Exception:
+            return -1
+
+    def _on_connect(self, client, userdata, flags, reason_code, *args):
         """Callback when connected to broker."""
+        rc = self._reason_code_to_int(reason_code)
         if rc == 0:
             self._is_connected = True
             logger.info("Connected to MQTT broker")
@@ -330,8 +353,13 @@ class MQTTDriver(BaseDriver):
                 f"{mqtt.connack_string(rc)}"
             )
 
-    def _on_disconnect(self, client, userdata, rc):
+    def _on_disconnect(self, client, userdata, *args):
         """Callback when disconnected from broker."""
+        # API v1: args=(rc,); API v2: args=(disconnect_flags, reason_code, properties)
+        reason_code = (
+            args[0] if len(args) == 1 else (args[1] if len(args) > 1 else 0)
+        )
+        rc = self._reason_code_to_int(reason_code)
         self._is_connected = False
         if rc == 0:
             logger.info("Disconnected from MQTT broker")
