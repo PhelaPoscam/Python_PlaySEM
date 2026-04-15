@@ -5,6 +5,7 @@ MQTT server for receiving sensory effect requests.
 import asyncio
 import json
 import logging
+import socket
 import threading
 from typing import Optional, Callable
 
@@ -62,6 +63,7 @@ class MQTTServer:
         self._last_msg_sig = None
         self._last_msg_time = 0.0
         self._subscribed = threading.Event()
+        self.ws_port = self._pick_free_port()
 
         logger.info(
             f"Embedded MQTT Broker initialized - "
@@ -124,7 +126,7 @@ class MQTTServer:
                             "type": "tcp",
                         },
                         "ws": {
-                            "bind": f"{self.host}:9001",
+                            "bind": f"{self.host}:{self.ws_port}",
                             "type": "ws",
                             "max_connections": 10,
                         },
@@ -249,6 +251,15 @@ class MQTTServer:
 
         except Exception as e:
             logger.error(f"Error processing MQTT message: {e}")
+
+    def _pick_free_port(self) -> int:
+        """Reserve and return a currently free local TCP port."""
+        bind_host = (
+            "127.0.0.1" if self.host in ("0.0.0.0", "::") else self.host
+        )
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind((bind_host, 0))
+            return int(sock.getsockname()[1])
 
     async def _broker_main_loop_with_shutdown(self):
         """

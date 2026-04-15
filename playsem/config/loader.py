@@ -164,7 +164,10 @@ class ConfigLoader:
         Transforms a dictionary parsed from SERenderer.xml into the format
         expected by this application (equivalent to devices.yaml).
         """
-        transformed_config: Dict[str, Any] = {"devices": [], "connectivityInterfaces": []}
+        transformed_config: Dict[str, Any] = {
+            "devices": [],
+            "connectivityInterfaces": [],
+        }
         config_node = raw_dict.get("configuration", {})
 
         # --- Transform Devices ---

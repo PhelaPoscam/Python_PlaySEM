@@ -353,14 +353,20 @@ class EffectMetadataParser:
         effect_type = EffectMetadataParser._normalize_effect_type(effect_type)
 
         # Parse timestamp (milliseconds)
-        timestamp = EffectMetadataParser._parse_int_attr(
-            elem, ["timestamp", "Timestamp", "time", "Time"], default=0
-        ) or 0
+        timestamp = (
+            EffectMetadataParser._parse_int_attr(
+                elem, ["timestamp", "Timestamp", "time", "Time"], default=0
+            )
+            or 0
+        )
 
         # Parse duration (milliseconds)
-        duration = EffectMetadataParser._parse_int_attr(
-            elem, ["duration", "Duration"], default=1000
-        ) or 1000
+        duration = (
+            EffectMetadataParser._parse_int_attr(
+                elem, ["duration", "Duration"], default=1000
+            )
+            or 1000
+        )
 
         # Parse intensity (0-100)
         intensity = EffectMetadataParser._parse_int_attr(

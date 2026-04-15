@@ -34,7 +34,9 @@ class EffectRequest(BaseModel):
     duration: float = Field(1000.0, description="Effect duration in ms")
     intensity: int = Field(100, ge=0, le=255, description="Effect intensity")
     location: Optional[str] = Field(None, description="Effect location")
-    parameters: Optional[Dict[str, Any]] = Field(None, description="Additional parameters")
+    parameters: Optional[Dict[str, Any]] = Field(
+        None, description="Additional parameters"
+    )
 
 
 class EffectResponse(BaseModel):

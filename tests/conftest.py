@@ -78,9 +78,10 @@ async def playsem_system(tmp_path):
     # 1. Setup temporary config
     config_dir = tmp_path / "config"
     config_dir.mkdir()
-    
+
     devices_file = config_dir / "devices.yaml"
-    devices_file.write_text("""
+    devices_file.write_text(
+        """
 devices:
   - deviceId: vibration_device
     driver_type: mock
@@ -91,11 +92,14 @@ devices:
 connectivityInterfaces:
   - name: mock_interface
     protocol: mock
-    """)
-    
+    """
+    )
+
     effects_file = config_dir / "effects.yaml"
-    effects_file.write_text("effects: {}") # Use empty dict to allow defaults or define them explicitly
-    
+    effects_file.write_text(
+        "effects: {}"
+    )  # Use empty dict to allow defaults or define them explicitly
+
     protocols_file = config_dir / "protocols.yaml"
     protocols_file.write_text("protocols: []")
 
@@ -103,25 +107,27 @@ connectivityInterfaces:
     loader = ConfigLoader(
         devices_path=str(devices_file),
         effects_path=str(effects_file),
-        protocols_path=str(protocols_file)
+        protocols_path=str(protocols_file),
     )
 
     # Mock driver for observability
     mock_driver = MockConnectivityDriver(interface_name="mock_interface")
-    
+
     # DeviceManager with the mock driver and loader
     manager = DeviceManager(config_loader=loader, drivers=[mock_driver])
-    
+
     # Dispatcher
     dispatcher = EffectDispatcher(device_manager=manager)
-    
+
     # 3. Start MQTT Server on free port
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
     mqtt_port = sock.getsockname()[1]
     sock.close()
-    
-    mqtt_server = MQTTServer(dispatcher=dispatcher, host="127.0.0.1", port=mqtt_port)
+
+    mqtt_server = MQTTServer(
+        dispatcher=dispatcher, host="127.0.0.1", port=mqtt_port
+    )
     mqtt_server.start()
     await asyncio.wait_for(mqtt_server.wait_until_ready(), timeout=5.0)
 
@@ -135,6 +141,6 @@ connectivityInterfaces:
 
     bundle = SystemBundle()
     yield bundle
-    
+
     # Teardown
     mqtt_server.stop()
