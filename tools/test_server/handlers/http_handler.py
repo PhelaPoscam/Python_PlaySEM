@@ -1,10 +1,6 @@
 import dataclasses
 from typing import Optional, Dict, Any
-
-try:
-    import requests
-except ImportError:
-    requests = None
+import aiohttp
 
 
 JSON = Dict[str, Any]
@@ -32,24 +28,18 @@ class HTTPHandler:
         self.config = config or HTTPConfig()
 
     async def send(self, effect: JSON) -> bool:
-        if requests is None:
-            print("[HTTPHandler] requests not installed; skipping send")
-            return False
+        """Send effect via HTTP POST using aiohttp."""
         headers = {"Content-Type": "application/json"}
         if self.config.api_key:
             headers["X-API-Key"] = self.config.api_key
 
-        def _post():
-            resp = requests.post(
-                self.config.url, json=effect, headers=headers, timeout=5
-            )
-            resp.raise_for_status()
-            return True
-
         try:
-            import asyncio
-
-            return await asyncio.to_thread(_post)
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    self.config.url, json=effect, headers=headers, timeout=5
+                ) as resp:
+                    resp.raise_for_status()
+                    return True
         except Exception as e:
             print(f"[HTTPHandler] send failed: {e}")
             return False

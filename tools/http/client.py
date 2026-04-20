@@ -3,94 +3,90 @@
 HTTP REST API Client Test Script.
 
 Tests the HTTP REST server by sending effect requests and checking status.
+Consolidated to use aiohttp for dependency reduction.
 
 Run:
   # Start server first:
   python examples/demos/http_server_demo.py
 
   # Then run this client:
-  python examples/clients/test_http_client.py
+  python tools/http/client.py
 """
 
-import time
-
-import requests  # noqa: E402
+import asyncio
+import aiohttp
 
 BASE_URL = "http://localhost:8080"
 
 
-def test_server_status():
+async def test_server_status(session: aiohttp.ClientSession):
     """Test GET /api/status endpoint."""
     print("\n" + "=" * 60)
     print("Test 1: Server Status")
     print("=" * 60)
 
     try:
-        response = requests.get(f"{BASE_URL}/api/status")
-        response.raise_for_status()
-
-        data = response.json()
-        print(f"✅ Status: {data['status']}")
-        print(f"   Version: {data['version']}")
-        print(f"   Uptime: {data['uptime_seconds']:.1f}s")
-        print(f"   Effects Processed: {data['effects_processed']}")
-        return True
+        async with session.get(f"{BASE_URL}/api/status") as response:
+            response.raise_for_status()
+            data = await response.json()
+            print(f"[OK] Status: {data['status']}")
+            print(f"   Version: {data['version']}")
+            print(f"   Uptime: {data['uptime_seconds']:.1f}s")
+            print(f"   Effects Processed: {data['effects_processed']}")
+            return True
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"[FAIL] Error: {e}")
         return False
 
 
-def test_submit_effect(effect_data):
+async def test_submit_effect(
+    session: aiohttp.ClientSession, effect_data: dict
+):
     """Test POST /api/effects endpoint."""
     print("\n" + "=" * 60)
     print(f"Test: Submit Effect ({effect_data['effect_type']})")
     print("=" * 60)
 
     try:
-        response = requests.post(
-            f"{BASE_URL}/api/effects",
-            json=effect_data,
-            headers={"Content-Type": "application/json"},
-        )
-        response.raise_for_status()
-
-        data = response.json()
-        print(f"✅ Success: {data['message']}")
-        print(f"   Effect ID: {data.get('effect_id', 'N/A')}")
-        print(f"   Effect: {effect_data}")
-        return True
+        headers = {"Content-Type": "application/json"}
+        async with session.post(
+            f"{BASE_URL}/api/effects", json=effect_data, headers=headers
+        ) as response:
+            response.raise_for_status()
+            data = await response.json()
+            print(f"✅ Success: {data['message']}")
+            print(f"   Effect ID: {data.get('effect_id', 'N/A')}")
+            print(f"   Effect: {effect_data}")
+            return True
     except Exception as e:
-        print(f"❌ Error: {e}")
-        if hasattr(e, "response") and e.response:
-            print(f"   Response: {e.response.text}")
+        print(f"[FAIL] Error: {e}")
         return False
 
 
-def test_list_devices():
+async def test_list_devices(session: aiohttp.ClientSession):
     """Test GET /api/devices endpoint."""
     print("\n" + "=" * 60)
     print("Test 3: List Devices")
     print("=" * 60)
 
     try:
-        response = requests.get(f"{BASE_URL}/api/devices")
-        response.raise_for_status()
-
-        data = response.json()
-        print(f"✅ Found {data['count']} device(s):")
-        for device in data["devices"]:
-            print(
-                f"   - {device['device_id']} "
-                f"({device['device_type']}) "
-                f"- {device['status']}"
-            )
-        return True
+        async with session.get(f"{BASE_URL}/api/devices") as response:
+            response.raise_for_status()
+            data = await response.json()
+            print(f"✅ Found {data['count']} device(s):")
+            for device in data["devices"]:
+                print(
+                    f"   - {device['device_id']} "
+                    f"({device['device_type']}) "
+                    f"- {device['status']}"
+                )
+            return True
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"[FAIL] Error: {e}")
         return False
 
 
-def main():
+async def main():
     """Run all tests."""
     print("\n" + "=" * 60)
     print("HTTP REST API Client Test")
@@ -99,62 +95,63 @@ def main():
     print("Make sure the server is running!")
     print("=" * 60)
 
-    # Test 1: Check server status
-    if not test_server_status():
-        print("\n❌ Server not responding. Is it running?")
-        return
+    async with aiohttp.ClientSession() as session:
+        # Test 1: Check server status
+        if not await test_server_status(session):
+            print("\n❌ Server not responding. Is it running?")
+            return
 
-    time.sleep(0.5)
+        await asyncio.sleep(0.5)
 
-    # Test 2: Submit various effects
-    effects = [
-        {
-            "effect_type": "light",
-            "intensity": 255,
-            "duration": 2000,
-            "parameters": {"color": "blue"},
-        },
-        {
-            "effect_type": "wind",
-            "intensity": 180,
-            "duration": 3000,
-            "parameters": {"speed": "medium"},
-        },
-        {
-            "effect_type": "vibration",
-            "intensity": 200,
-            "duration": 1500,
-            "location": "left",
-        },
-        {
-            "effect_type": "scent",
-            "intensity": 100,
-            "duration": 5000,
-            "parameters": {"fragrance": "ocean"},
-        },
-    ]
+        # Test 2: Submit various effects
+        effects = [
+            {
+                "effect_type": "light",
+                "intensity": 255,
+                "duration": 2000,
+                "parameters": {"color": "blue"},
+            },
+            {
+                "effect_type": "wind",
+                "intensity": 180,
+                "duration": 3000,
+                "parameters": {"speed": "medium"},
+            },
+            {
+                "effect_type": "vibration",
+                "intensity": 200,
+                "duration": 1500,
+                "location": "left",
+            },
+            {
+                "effect_type": "scent",
+                "intensity": 100,
+                "duration": 5000,
+                "parameters": {"fragrance": "ocean"},
+            },
+        ]
 
-    for effect in effects:
-        test_submit_effect(effect)
-        time.sleep(0.5)
+        for effect in effects:
+            await test_submit_effect(session, effect)
+            await asyncio.sleep(0.5)
 
-    # Test 3: List devices
-    test_list_devices()
+        # Test 3: List devices
+        await test_list_devices(session)
 
-    # Final status check
-    time.sleep(0.5)
-    test_server_status()
+        # Final status check
+        await asyncio.sleep(0.5)
+        await test_server_status(session)
 
-    print("\n" + "=" * 60)
-    print("✅ All tests complete!")
-    print("=" * 60)
-    print("\nTry the interactive documentation at:")
-    print(f"  {BASE_URL}/docs")
-    print("=" * 60)
+        print("\n" + "=" * 60)
+        print("✅ All tests complete!")
+        print("=" * 60)
+        print("\nTry the interactive documentation at:")
+        print(f"  {BASE_URL}/docs")
+        print("=" * 60)
 
 
 if __name__ == "__main__":
     try:
-        main()
+        asyncio.run(main())
     except KeyboardInterrupt:
         print("\n\n🛑 Test interrupted by user")

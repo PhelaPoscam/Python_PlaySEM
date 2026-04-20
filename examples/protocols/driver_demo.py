@@ -103,25 +103,25 @@ def demo_manual_connection(port: str):
             print(f"\n[OK] Connected to {port}")
 
             # Send some test commands
-            print("\n📤 Sending test commands...")
+            print("\n[SEND] Sending test commands...")
 
             # Example 1: Send bytes
             driver.send_bytes(b"\xff\x00\x64")
             print("   Sent: 0xFF 0x00 0x64")
             time.sleep(0.1)
 
-            # Example 2: Send ASCII command
-            driver.send_command("LED:ON\n")
+            # Example 2: Send ASCII command (raw text)
+            driver.send_text("LED:ON\n")
             print("   Sent: LED:ON")
             time.sleep(0.5)
 
-            # Example 3: Send effect command
-            driver.send_command("EFFECT:LIGHT:255:1000\n")
+            # Example 3: Send effect command (raw text)
+            driver.send_text("EFFECT:LIGHT:255:1000\n")
             print("   Sent: EFFECT:LIGHT:255:1000")
             time.sleep(1.0)
 
             # Try to read response (if device sends any)
-            print("\n📥 Checking for response...")
+            print("\n[RECV] Checking for response...")
             response = driver.read_line()
             if response:
                 print(f"   Device response: {response}")
@@ -143,7 +143,7 @@ def demo_callback_mode(port: str):
 
     def on_data(data: bytes):
         """Callback for incoming data."""
-        print(f"📨 Received: {data.hex()} ({data})")
+        print(f"[RECV] Received: {data.hex()} ({data})")
 
     try:
         driver = SerialDriver(
@@ -156,7 +156,7 @@ def demo_callback_mode(port: str):
 
             # Send commands and wait for responses
             for i in range(3):
-                driver.send_command(f"PING:{i}\n")
+                driver.send_text(f"PING:{i}\n")
                 print(f"   Sent: PING:{i}")
                 time.sleep(1)
 
@@ -188,11 +188,11 @@ def demo_arduino_effect_control(port: str):
                 # Format: EFFECT:<type>:<intensity>:<duration>\n
                 command = f"EFFECT:{effect_type}:{intensity}:{duration}\n"
 
-                print(f"\n🎯 Sending: {effect_type}")
+                print(f"\n[SENDING] Sending: {effect_type}")
                 print(f"   Intensity: {intensity}")
                 print(f"   Duration: {duration}ms")
 
-                driver.send_command(command)
+                driver.send_text(command)
                 time.sleep(duration / 1000.0 + 0.5)
 
             print("\n[OK] All effects sent successfully")
@@ -259,7 +259,7 @@ def interactive_mode():
 
             elif cmd.startswith("send "):
                 text = cmd[5:] + "\n"
-                driver.send_command(text)
+                driver.send_text(text)
                 print(f"Sent: {text.strip()}")
 
             elif cmd.startswith("hex "):
@@ -291,7 +291,7 @@ def interactive_mode():
 def main():
     """Run all demos."""
     print("\n" + "=" * 60)
-    print("🔌 Serial Driver Demo - PythonPlaySEM")
+    print("Serial Driver Demo - PythonPlaySEM")
     print("=" * 60)
 
     # Demo 1: List ports
@@ -305,7 +305,7 @@ def main():
         ports = SerialDriver.list_ports()
         if ports:
             port = ports[0]["device"]
-            print(f"\n💡 Using first available port: {port}")
+            print(f"\n[INFO] Using first available port: {port}")
         else:
             print("\n[FAIL] No serial ports available for demos")
             print("   Connect a USB device and try again")
@@ -322,9 +322,12 @@ def main():
 
     # Interactive mode
     print("\n" + "=" * 60)
-    choice = input("\nEnter interactive mode? (y/n): ").strip().lower()
-    if choice == "y":
-        interactive_mode()
+    if sys.stdin.isatty():
+        choice = input("\nEnter interactive mode? (y/n): ").strip().lower()
+        if choice == "y":
+            interactive_mode()
+    else:
+        print("\nSkipping interactive mode (non-terminal)")
 
     print("\n" + "=" * 60)
     print("[OK] Demo complete!")
@@ -335,6 +338,6 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n⚠️  Demo interrupted")
+        print("\n\n[INFO] Demo interrupted")
     except Exception as e:
         logger.error(f"Demo failed: {e}", exc_info=True)

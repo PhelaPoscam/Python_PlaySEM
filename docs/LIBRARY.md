@@ -20,18 +20,34 @@ PlaySEM is a Python framework for orchestrating sensory effects across multiple 
 
 ## Installation
 
-### From Source (Development)
+### From Source
 
 ```bash
-git clone https://github.com/PhelaPoscam/Python_PlaySEM.git
-cd Python_PlaySEM
+# Minimal installation (core only)
 pip install -e .
+
+# Full installation (all protocols: MQTT, Bluetooth, CoAP, etc.)
+pip install -e ".[all]"
+```
+
+### Protocol-Specific Installation
+
+If you only need specific protocols, you can install them individually:
+
+```bash
+pip install -e ".[mqtt]"      # MQTT support
+pip install -e ".[coap]"      # CoAP support
+pip install -e ".[upnp]"      # UPnP support
+pip install -e ".[bluetooth]" # Bluetooth LE support
+pip install -e ".[serial]"    # Serial/Arduino support
+pip install -e ".[websocket]" # WebSocket server
+pip install -e ".[server]"    # REST API / Platform Server
 ```
 
 ### Dependencies
 
-- **Core**: paho-mqtt, pyyaml, websockets, aiocoap, async-upnp-client
-- **Optional**: PyQt6 (for GUI), FastAPI/Uvicorn (for platform server)
+- **Core**: pyyaml, numpy, aiohttp
+- **Optional**: See "Protocol-Specific Installation" above.
 
 ---
 

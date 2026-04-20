@@ -6,11 +6,16 @@ from .upnp_handler import UPnPHandler, UPnPConfig
 from .mqtt_handler import MQTTHandler, MQTTConfig
 from .websocket_handler import WebSocketHandler, WebSocketConfig
 
-# Export only handler classes to match test expectations
+# Export handler classes and configs to match test expectations and satisfy linting
 __all__ = [
     "HTTPHandler",
+    "HTTPConfig",
     "CoAPHandler",
+    "CoAPConfig",
     "UPnPHandler",
+    "UPnPConfig",
     "MQTTHandler",
+    "MQTTConfig",
     "WebSocketHandler",
+    "WebSocketConfig",
 ]

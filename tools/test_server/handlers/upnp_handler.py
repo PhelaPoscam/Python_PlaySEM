@@ -1,8 +1,8 @@
 import dataclasses
 import textwrap
 from typing import Optional, Dict, Any
-
-import requests
+from urllib.parse import quote
+import aiohttp
 
 
 JSON = Dict[str, Any]
@@ -17,12 +17,15 @@ class UPnPConfig:
 
 class UPnPHandler:
     def __init__(
-        self, global_dispatcher=None, config: Optional[UPnPConfig] = None
+        self,
+        global_dispatcher=None,
+        config: Optional[UPnPConfig] = None,
     ):
         self.dispatcher = global_dispatcher
         self.config = config or UPnPConfig()
 
     async def send(self, effect: JSON) -> bool:
+        """Send effect via UPnP SOAP POST using aiohttp."""
         if not self.config.control_url:
             print("[UPnPHandler] control_url not set; skipping send")
             return False
@@ -38,14 +41,15 @@ class UPnPHandler:
         envelope = textwrap.dedent(
             f"""
             <?xml version="1.0"?>
-            <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+            <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+                        s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
               <s:Body>
                 <u:SendEffect xmlns:u="urn:schemas-playsem:service:Effects:1">
                   <EffectType>{effect_type}</EffectType>
                   <Duration>{duration}</Duration>
                   <Intensity>{intensity}</Intensity>
                   <Location>{location}</Location>
-                  <Parameters>{requests.utils.requote_uri(str(parameters))}</Parameters>
+                  <Parameters>{quote(str(parameters))}</Parameters>
                 </u:SendEffect>
               </s:Body>
             </s:Envelope>
@@ -58,16 +62,15 @@ class UPnPHandler:
         }
 
         try:
-            resp = requests.post(
-                self.config.control_url,
-                data=envelope.encode("utf-8"),
-                headers=headers,
-                timeout=5,
-            )
-            resp.raise_for_status()
-            return True
-        except (
-            Exception
-        ) as e:  # pragma: no cover - network/UPnP failures are runtime
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    self.config.control_url,
+                    data=envelope.encode("utf-8"),
+                    headers=headers,
+                    timeout=5,
+                ) as resp:
+                    resp.raise_for_status()
+                    return True
+        except Exception as e:
             print(f"[UPnPHandler] send failed: {e}")
             return False

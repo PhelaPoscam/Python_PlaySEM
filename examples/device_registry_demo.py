@@ -166,7 +166,9 @@ def main():
     print("\n[UNLOCK] Disabling protocol isolation (shared mode)...")
     registry.set_protocol_isolation(False)
 
-    print("\n[QUERY] WebSocket client asks again: 'What devices are available?'")
+    print(
+        "\n[QUERY] WebSocket client asks again: 'What devices are available?'"
+    )
     ws_visible_devices = registry.get_all_devices(
         requesting_protocol="websocket"
     )

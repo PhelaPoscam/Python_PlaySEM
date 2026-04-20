@@ -22,7 +22,11 @@
 ### Installation
 
 ```bash
+# Minimal installation (core only)
 pip install -e .
+
+# Full installation (all protocols: MQTT, Bluetooth, CoAP, etc.)
+pip install -e ".[all]"
 ```
 
 ### Minimal Example
