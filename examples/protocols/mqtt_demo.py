@@ -123,7 +123,8 @@ async def main():
     print("PlaySEM MQTT Protocol Demo")
     print("=" * 60)
 
-    _, dispatcher, driver = build_dispatcher()
+    device_manager, dispatcher, driver = build_dispatcher()
+    await device_manager.start_async_workers()
     received_effects = []
 
     async def on_effect_broadcast(effect, source):
@@ -188,6 +189,7 @@ async def main():
 
     print("\nStopping MQTT broker...")
     mqtt_server.stop()
+    await device_manager.stop_async_workers()
     return 0
 
 

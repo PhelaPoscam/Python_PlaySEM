@@ -64,6 +64,7 @@ class MQTTServer:
         self._dedupe_window_seconds = 1.0
         self._subscribed = threading.Event()
         self.ws_port = self._pick_free_port()
+        self.main_loop = None
 
         logger.info(
             f"Embedded MQTT Broker initialized - "
@@ -78,6 +79,11 @@ class MQTTServer:
             if self._is_running:
                 logger.warning("Embedded MQTT Broker already running")
                 return
+
+            try:
+                self.main_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                self.main_loop = None
 
             logger.info(
                 f"Starting embedded MQTT broker on {self.host}:{self.port}"
@@ -241,21 +247,30 @@ class MQTTServer:
                 # Submit the effect to the async dispatch queue instead of blocking
                 import asyncio
 
-                if self.loop is not None:
+                dispatch_loop = (
+                    self.main_loop
+                    if (
+                        self.main_loop is not None
+                        and self.main_loop.is_running()
+                    )
+                    else self.loop
+                )
+
+                if dispatch_loop is not None:
                     asyncio.run_coroutine_threadsafe(
                         self.dispatcher.async_dispatch_effect_metadata(effect),
-                        self.loop,
+                        dispatch_loop,
                     )
                 logger.info(
                     "Effect "
                     f"'{effect.effect_type}' "
                     "executed successfully via MQTT"
                 )
-                if self.on_effect_broadcast:
-                    # Run async callback in the broker's event loop
+                if self.on_effect_broadcast and dispatch_loop is not None:
+                    # Run async callback in the dispatch loop
                     asyncio.run_coroutine_threadsafe(
                         self.on_effect_broadcast(effect, "mqtt_broadcast"),
-                        self.loop,
+                        dispatch_loop,
                     )
             else:
                 logger.warning(
