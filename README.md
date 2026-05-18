@@ -16,7 +16,7 @@ It acts as a high-performance translation matrix between abstract haptic metadat
 
 ```mermaid
 flowchart TD
-    subgraph Ingress Layer [Network Ingress]
+    subgraph Ingress_Layer [Network Ingress]
         HTTP[HTTP FastAPI Server]
         WS[WebSocket Server]
         MQTT_S[Embedded MQTT Broker]
@@ -45,7 +45,7 @@ flowchart TD
         Hardware[Physical Actuators]
     end
 
-    Ingress Layer -->|EffectMetadata| Dispatcher
+    Ingress_Layer -->|EffectMetadata| Dispatcher
     Dispatcher -->|CommandEnvelope| DM
     DM -->|Enqueue| Queues
     Queues -->|Drain| Workers
