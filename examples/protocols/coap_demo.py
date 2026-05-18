@@ -94,6 +94,7 @@ async def main():
     print("=" * 60)
 
     dispatcher, driver = build_dispatcher()
+    await dispatcher.device_manager.start_async_workers()
     received_effects = []
 
     def on_effect_received(effect):
@@ -158,6 +159,7 @@ async def main():
 
     print("\nStopping CoAP server...")
     await coap_server.stop()
+    await dispatcher.device_manager.stop_async_workers()
     return 0
 
 

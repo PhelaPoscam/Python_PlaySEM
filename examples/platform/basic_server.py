@@ -13,7 +13,6 @@ Then open:
     http://localhost:8090/api/devices
 """
 
-import asyncio
 import sys
 from pathlib import Path
 

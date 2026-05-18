@@ -63,8 +63,9 @@ def fetch_text(url):
 
 
 def send_soap_request(host, port, effect):
+    encoding_style = "http://schemas.xmlsoap.org/soap/encoding/"
     envelope = f"""<?xml version="1.0"?>
-<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="{encoding_style}">
   <s:Body>
     <u:SendEffect xmlns:u="urn:schemas-upnp-org:service:PlaySEM:1">
       <EffectType>{effect['effect_type']}</EffectType>
@@ -98,6 +99,7 @@ async def main():
     driver = RecordingConnectivityDriver()
     device_manager = DeviceManager(connectivity_driver=driver)
     device_manager.connect()
+    await device_manager.start_async_workers()
     dispatcher = EffectDispatcher(device_manager)
     upnp_http_port = 8088
     upnp_server = UPnPServer(
@@ -142,6 +144,8 @@ async def main():
         print(f"{index}. {effect['effect_type']} -> status={status}")
         print(body.strip())
 
+    await asyncio.sleep(0.5)
+
     print("\nReceived effects")
     print("=" * 60)
     if driver.commands:
@@ -155,6 +159,7 @@ async def main():
 
     print("\nStopping UPnP server...")
     await upnp_server.stop()
+    await device_manager.stop_async_workers()
     return 0
 
 

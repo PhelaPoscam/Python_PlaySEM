@@ -10,7 +10,6 @@ This example simulates:
 3. Seeing the MQTT device from WebSocket (previously impossible!)
 """
 
-import asyncio
 import sys
 from pathlib import Path
 

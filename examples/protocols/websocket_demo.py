@@ -70,6 +70,7 @@ async def main():
     print("=" * 60)
 
     dispatcher, driver = build_dispatcher()
+    await dispatcher.device_manager.start_async_workers()
     host_ip = get_local_ip()
     ws_port = 8765
     ws_url = f"ws://127.0.0.1:{ws_port}"
@@ -192,6 +193,7 @@ async def main():
 
     print("\nStopping WebSocket server...")
     await server.stop()
+    await dispatcher.device_manager.stop_async_workers()
     await asyncio.sleep(0.2)
     try:
         await server_task

@@ -101,6 +101,7 @@ async def main():
     print("=" * 60)
 
     dispatcher, driver = build_dispatcher()
+    await dispatcher.device_manager.start_async_workers()
     received_effects = []
 
     def on_effect_received(effect):
@@ -177,6 +178,7 @@ async def main():
 
     print("\nStopping HTTP server...")
     await http_server.stop()
+    await dispatcher.device_manager.stop_async_workers()
     await asyncio.sleep(0.2)
     try:
         await server_task

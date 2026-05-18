@@ -14,7 +14,6 @@ Features:
     - Shows protocol handler extensibility pattern
 """
 
-import asyncio
 import sys
 from pathlib import Path
 
