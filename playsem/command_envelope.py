@@ -3,11 +3,13 @@ from typing import Dict, Any, Optional, Literal
 import time
 from playsem.effect_metadata import EffectMetadata
 
+
 @dataclass(frozen=True)
 class CommandEnvelope:
     """
     Standardized payload for dispatching an effect to a device.
     """
+
     effect: EffectMetadata
     device_id: str
     command: str

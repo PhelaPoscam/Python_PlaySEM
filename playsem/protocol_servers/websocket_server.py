@@ -302,7 +302,9 @@ class WebSocketServer:
 
                     # Dispatch effect
                     # Submit the effect to the async dispatch queue instead of blocking
-                    await self.dispatcher.async_dispatch_effect_metadata(effect)
+                    await self.dispatcher.async_dispatch_effect_metadata(
+                        effect
+                    )
                     if (
                         self.process_managed_queue
                         and getattr(self.dispatcher, "managed_mode", False)

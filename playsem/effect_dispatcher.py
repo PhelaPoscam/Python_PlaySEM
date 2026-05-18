@@ -295,7 +295,9 @@ class EffectDispatcher:
                 error="dispatch deadline expired",
             )
         try:
-            outcome = await self._async_dispatch_once_result(effect_name, parameters)
+            outcome = await self._async_dispatch_once_result(
+                effect_name, parameters
+            )
         except Exception as exc:
             latency_ms = (time.perf_counter() - started) * 1000.0
             return DispatchResult(
@@ -365,7 +367,9 @@ class EffectDispatcher:
         self, effect: EffectMetadata, priority: int = 5
     ) -> bool:
         """Asynchronously dispatch an effect from EffectMetadata object."""
-        result = await self.async_dispatch_effect_metadata_result(effect, priority)
+        result = await self.async_dispatch_effect_metadata_result(
+            effect, priority
+        )
         return bool(result)
 
     async def async_dispatch_effect_metadata_result(
@@ -625,12 +629,16 @@ class EffectDispatcher:
                     deadline_ms = ttl_val
             except (ValueError, TypeError):
                 pass
-                
+
         # Optional delivery mode based on failure policy
-        delivery_mode = "at_least_once" if self.failure_policy in ("retry", "dead_letter") else "best_effort"
+        delivery_mode = (
+            "at_least_once"
+            if self.failure_policy in ("retry", "dead_letter")
+            else "best_effort"
+        )
 
         envelope = CommandEnvelope(
-            effect=None, # In raw dispatch we may not have EffectMetadata
+            effect=None,  # In raw dispatch we may not have EffectMetadata
             device_id=device_id,
             command=command,
             params=mapped_params,
@@ -639,9 +647,11 @@ class EffectDispatcher:
         )
 
         try:
-            submit_result = await self.device_manager.async_submit_envelope(envelope)
+            submit_result = await self.device_manager.async_submit_envelope(
+                envelope
+            )
             latency_ms = (time.perf_counter() - started) * 1000.0
-            
+
             return DispatchResult(
                 status=submit_result.get("status", "failed"),
                 accepted=submit_result.get("accepted", False),

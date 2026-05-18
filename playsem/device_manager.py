@@ -250,22 +250,39 @@ class DeviceManager:
 
             # Single connectivity driver mode
             driver = None
-            if self._single_driver_mode and self.connectivity_driver is not None:
+            if (
+                self._single_driver_mode
+                and self.connectivity_driver is not None
+            ):
                 driver = self.connectivity_driver
             else:
                 driver = self.device_to_driver.get(device_id)
 
             if not driver:
-                logger.error(f"No driver found for device_id '{device_id}'. Cannot send command.")
+                logger.error(
+                    f"No driver found for device_id '{device_id}'. Cannot send command."
+                )
                 return False
 
-            logger.info(f"Async sending command '{command}' to device '{device_id}' via {driver.get_driver_type() if hasattr(driver, 'get_driver_type') else type(driver).__name__} driver.")
+            driver_name = (
+                driver.get_driver_type()
+                if hasattr(driver, "get_driver_type")
+                else type(driver).__name__
+            )
+            logger.info(
+                f"Async sending command '{command}' to device "
+                f"'{device_id}' via {driver_name} driver."
+            )
             try:
                 if inspect.iscoroutinefunction(driver.send_command):
-                    result = await driver.send_command(device_id, command, params)
+                    result = await driver.send_command(
+                        device_id, command, params
+                    )
                 else:
+
                     def _run_sync():
                         return driver.send_command(device_id, command, params)
+
                     result = await asyncio.to_thread(_run_sync)
 
                 if inspect.isawaitable(result):
@@ -277,7 +294,9 @@ class DeviceManager:
                     self._record_circuit_outcome(device_id, success)
                 return success
             except Exception as e:
-                logger.error(f"Failed to async send command to device '{device_id}': {e}")
+                logger.error(
+                    f"Failed to async send command to device '{device_id}': {e}"
+                )
                 with device_lock:
                     self._record_circuit_failure(device_id, str(e))
                 return False
@@ -307,7 +326,9 @@ class DeviceManager:
             # Bounded priority queue
             self._queues[device_id] = asyncio.PriorityQueue(maxsize=100)
         if device_id not in self._workers or self._workers[device_id].done():
-            self._workers[device_id] = asyncio.create_task(self._device_worker(device_id))
+            self._workers[device_id] = asyncio.create_task(
+                self._device_worker(device_id)
+            )
 
     async def async_submit_envelope(self, envelope: CommandEnvelope) -> Any:
         """
@@ -319,7 +340,10 @@ class DeviceManager:
         self._ensure_worker(device_id)
 
         if device_id not in self._queues:
-            return {"status": "rejected", "error": f"No queue for device {device_id}"}
+            return {
+                "status": "rejected",
+                "error": f"No queue for device {device_id}",
+            }
 
         queue = self._queues[device_id]
         try:
@@ -358,7 +382,9 @@ class DeviceManager:
             if envelope.deadline_ms is not None:
                 elapsed_ms = (time.monotonic() - envelope.created_at) * 1000.0
                 if elapsed_ms > envelope.deadline_ms:
-                    logger.warning(f"Envelope for '{device_id}' expired before dispatch.")
+                    logger.warning(
+                        f"Envelope for '{device_id}' expired before dispatch."
+                    )
                     queue.task_done()
                     continue
 
@@ -375,7 +401,9 @@ class DeviceManager:
                     await asyncio.sleep(0.1 * attempts)  # Simple backoff
 
             if not success:
-                logger.warning(f"Dead-lettering envelope for '{device_id}' after {attempts} attempts.")
+                logger.warning(
+                    f"Dead-lettering envelope for '{device_id}' after {attempts} attempts."
+                )
                 self.dead_letter_queue.append(envelope)
 
             queue.task_done()

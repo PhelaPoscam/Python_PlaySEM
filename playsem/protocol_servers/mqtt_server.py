@@ -240,9 +240,11 @@ class MQTTServer:
             if effect:
                 # Submit the effect to the async dispatch queue instead of blocking
                 import asyncio
+
                 if self.loop is not None:
                     asyncio.run_coroutine_threadsafe(
-                        self.dispatcher.async_dispatch_effect_metadata(effect), self.loop
+                        self.dispatcher.async_dispatch_effect_metadata(effect),
+                        self.loop,
                     )
                 logger.info(
                     "Effect "

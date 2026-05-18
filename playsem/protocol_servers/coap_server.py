@@ -98,7 +98,9 @@ class CoAPServer:
 
                         # Dispatch effect
                         # Submit the effect to the async dispatch queue
-                        await self._outer.dispatcher.async_dispatch_effect_metadata(effect)
+                        await self._outer.dispatcher.async_dispatch_effect_metadata(
+                            effect
+                        )
 
                         resp = {
                             "success": True,
