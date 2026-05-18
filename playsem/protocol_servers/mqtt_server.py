@@ -60,8 +60,8 @@ class MQTTServer:
         self.internal_client = None
         self._ready_event = asyncio.Event()
         self._stop_event = asyncio.Event()  # New stop event
-        self._last_msg_sig = None
-        self._last_msg_time = 0.0
+        self._recent_message_ids = {}
+        self._dedupe_window_seconds = 1.0
         self._subscribed = threading.Event()
         self.ws_port = self._pick_free_port()
 
@@ -216,23 +216,34 @@ class MQTTServer:
                 f"Broker received message on topic '{topic}': {payload_str}"
             )
 
-            # Deduplicate quick successive identical messages observed
-            # on some setups.
+            # Deduplicate only when the sender provides an explicit message
+            # identity. Identical haptic pulses are valid timeline events.
             import time
 
-            sig = (topic, payload_str)
+            message_id = self._extract_message_id(topic, payload_str)
             now = time.monotonic()
-            if self._last_msg_sig == sig and (now - self._last_msg_time) < 1.0:
-                logger.debug(
-                    "Duplicate MQTT message ignored (within 1s window)"
-                )
-                return
-            self._last_msg_sig = sig
-            self._last_msg_time = now
+            if message_id is not None:
+                last_seen = self._recent_message_ids.get(message_id)
+                if (
+                    last_seen is not None
+                    and (now - last_seen) < self._dedupe_window_seconds
+                ):
+                    logger.debug(
+                        "Duplicate MQTT message id ignored "
+                        f"(within {self._dedupe_window_seconds}s window)"
+                    )
+                    return
+                self._recent_message_ids[message_id] = now
+                self._prune_recent_message_ids(now)
 
             effect = self._parse_effect(payload_str)
             if effect:
-                self.dispatcher.dispatch_effect_metadata(effect)
+                # Submit the effect to the async dispatch queue instead of blocking
+                import asyncio
+                if self.loop is not None:
+                    asyncio.run_coroutine_threadsafe(
+                        self.dispatcher.async_dispatch_effect_metadata(effect), self.loop
+                    )
                 logger.info(
                     "Effect "
                     f"'{effect.effect_type}' "
@@ -318,3 +329,31 @@ class MQTTServer:
                 return EffectMetadataParser.parse_yaml(payload)
             except Exception:
                 return None
+
+    def _extract_message_id(
+        self, topic: str, payload: str
+    ) -> Optional[tuple[str, str]]:
+        """Return an explicit sender-provided dedupe key if present."""
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError:
+            return None
+
+        if not isinstance(data, dict):
+            return None
+
+        for key in ("idempotency_key", "message_id", "event_id"):
+            value = data.get(key)
+            if value is not None:
+                return (topic, f"{key}:{value}")
+        return None
+
+    def _prune_recent_message_ids(self, now: float) -> None:
+        """Bound memory used by short-window MQTT id dedupe."""
+        expired = [
+            message_id
+            for message_id, last_seen in self._recent_message_ids.items()
+            if (now - last_seen) >= self._dedupe_window_seconds
+        ]
+        for message_id in expired:
+            self._recent_message_ids.pop(message_id, None)

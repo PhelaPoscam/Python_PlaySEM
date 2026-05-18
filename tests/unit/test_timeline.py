@@ -2,6 +2,7 @@
 
 import pytest
 import time
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import MagicMock
 from playsem.timeline import Timeline
 from playsem.effect_metadata import create_effect, create_timeline
@@ -85,6 +86,22 @@ def test_timeline_get_position(timeline_scheduler):
     assert current_pos >= 90  # Allow some timing variance
 
     timeline_scheduler.stop()
+
+
+def test_timeline_get_status_does_not_deadlock(timeline_scheduler):
+    """get_status can safely call get_position while holding the timeline lock."""
+    effect_timeline = create_timeline(
+        create_effect("light", timestamp=0, duration=200)
+    )
+
+    timeline_scheduler.load_timeline(effect_timeline)
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(timeline_scheduler.get_status)
+        status = future.result(timeout=1.0)
+
+    assert status["current_position"] == 0
+    assert status["pending_effects"] == 0
 
 
 def test_event_effect(timeline_scheduler, mock_dispatcher):

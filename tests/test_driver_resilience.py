@@ -12,6 +12,16 @@ class _AsyncNoop:
         return None
 
 
+class _PublishResult:
+    def __init__(self, rc, published=True):
+        self.rc = rc
+        self._published = published
+        self.wait_for_publish = MagicMock()
+
+    def is_published(self):
+        return self._published
+
+
 def test_retry_policy_delays_are_bounded():
     policy = RetryPolicy(
         max_attempts=4,
@@ -68,6 +78,39 @@ def test_mqtt_reconnect_loop_updates_attempts():
     assert driver._last_reconnect_error is None
 
 
+def test_mqtt_wait_for_publish_ack_success():
+    driver = MQTTDriver(
+        interface_name="mqtt_test",
+        broker="localhost",
+        wait_for_publish=True,
+        publish_timeout=0.25,
+    )
+    driver._is_connected = True
+    publish_result = _PublishResult(rc=0, published=True)
+    driver.client.publish = MagicMock(return_value=publish_result)
+
+    assert driver.send_command("devices/test", "pulse", {"intensity": 50})
+    publish_result.wait_for_publish.assert_called_once_with(timeout=0.25)
+
+
+def test_mqtt_wait_for_publish_ack_timeout_fails():
+    driver = MQTTDriver(
+        interface_name="mqtt_test",
+        broker="localhost",
+        wait_for_publish=True,
+        publish_timeout=0.25,
+    )
+    driver._is_connected = True
+    publish_result = _PublishResult(rc=0, published=False)
+    driver.client.publish = MagicMock(return_value=publish_result)
+
+    assert (
+        driver.send_command("devices/test", "pulse", {"intensity": 50})
+        is False
+    )
+    publish_result.wait_for_publish.assert_called_once_with(timeout=0.25)
+
+
 def test_serial_connect_retries(monkeypatch):
     import playsem.drivers.serial_driver as serial_module
 
@@ -87,6 +130,28 @@ def test_serial_connect_retries(monkeypatch):
     assert driver.connect() is True
     assert driver.open_connection.call_count == 2
     assert driver._last_reconnect_error is None
+
+
+def test_serial_write_failure_marks_connection_unhealthy():
+    import playsem.drivers.serial_driver as serial_module
+
+    if not serial_module.SERIAL_AVAILABLE:
+        pytest.skip("pyserial not available")
+
+    class BrokenSerial:
+        def write(self, data):
+            raise serial_module.serial.SerialException("device vanished")
+
+        def flush(self):
+            raise AssertionError("flush should not run after failed write")
+
+    driver = serial_module.SerialDriver(port="COM_TEST")
+    driver._serial = BrokenSerial()
+    driver._is_connected = True
+
+    assert driver.send_bytes(b"PING\n") is False
+    assert driver.is_connected() is False
+    assert driver._last_reconnect_error == "device vanished"
 
 
 @pytest.mark.asyncio

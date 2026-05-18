@@ -7,7 +7,7 @@ import socket
 import json
 import pytest
 import logging
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, AsyncMock
 
 import paho.mqtt.client as mqtt
 from playsem.protocol_servers import MQTTServer
@@ -93,7 +93,7 @@ async def test_broker_publish_and_dispatch(mqtt_broker, effect_dispatcher):
     """
     Test that the broker receives a message and dispatches the effect.
     """
-    effect_dispatcher.dispatch_effect_metadata.reset_mock()
+    effect_dispatcher.async_dispatch_effect_metadata.reset_mock()
     # The mqtt_broker fixture has already started the server
 
     # Use a standard paho-mqtt client to connect and publish
@@ -150,10 +150,10 @@ async def test_broker_publish_and_dispatch(mqtt_broker, effect_dispatcher):
         await asyncio.sleep(1.0)
 
         # Assert that the dispatcher was called
-        effect_dispatcher.dispatch_effect_metadata.assert_called_once()
+        effect_dispatcher.async_dispatch_effect_metadata.assert_called_once()
 
         # Check the content of the call
-        call_args = effect_dispatcher.dispatch_effect_metadata.call_args
+        call_args = effect_dispatcher.async_dispatch_effect_metadata.call_args
         dispatched_effect = call_args[0][0]
         assert isinstance(dispatched_effect, EffectMetadata)
         assert dispatched_effect.effect_type == "vibration"
@@ -163,3 +163,52 @@ async def test_broker_publish_and_dispatch(mqtt_broker, effect_dispatcher):
         # Clean disconnect
         client.loop_stop()
         client.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_mqtt_identical_payload_without_message_id_is_not_deduped(
+    effect_dispatcher,
+):
+    """Repeated identical effects are valid unless sender provides an id."""
+    server = MQTTServer(dispatcher=effect_dispatcher, host="127.0.0.1", port=0)
+    server.loop = asyncio.get_running_loop()
+    payload = json.dumps(
+        {
+            "effect_type": "vibration",
+            "duration": 100,
+            "intensity": 80,
+        }
+    )
+    msg = MagicMock()
+    msg.topic = "effects/vibration"
+    msg.payload = payload.encode("utf-8")
+
+    server._on_internal_message(None, None, msg)
+    server._on_internal_message(None, None, msg)
+
+    await asyncio.sleep(0.1)
+    assert effect_dispatcher.async_dispatch_effect_metadata.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_mqtt_explicit_message_id_is_deduped(effect_dispatcher):
+    """Explicit message ids prevent replay without dropping real repeated pulses."""
+    server = MQTTServer(dispatcher=effect_dispatcher, host="127.0.0.1", port=0)
+    server.loop = asyncio.get_running_loop()
+    payload = json.dumps(
+        {
+            "message_id": "pulse-1",
+            "effect_type": "vibration",
+            "duration": 100,
+            "intensity": 80,
+        }
+    )
+    msg = MagicMock()
+    msg.topic = "effects/vibration"
+    msg.payload = payload.encode("utf-8")
+
+    server._on_internal_message(None, None, msg)
+    server._on_internal_message(None, None, msg)
+
+    await asyncio.sleep(0.1)
+    effect_dispatcher.async_dispatch_effect_metadata.assert_called_once()

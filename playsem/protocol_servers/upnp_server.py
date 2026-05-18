@@ -200,7 +200,8 @@ class UPnPServer:
 
             # Dispatch the effect
             if self.dispatcher:
-                self.dispatcher.dispatch_effect_metadata(effect)
+                # Submit the effect to the async dispatch queue instead of blocking
+                await self.dispatcher.async_dispatch_effect_metadata(effect)
                 logger.info(
                     f"Dispatched effect '{effect.effect_type}' via UPnP"
                 )

@@ -1,6 +1,8 @@
 # tests/test_effect_dispatcher.py
 
 import pytest
+import time
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import MagicMock, patch
 
 from playsem.effect_dispatcher import EffectDispatcher
@@ -196,6 +198,118 @@ def test_managed_mode_priority_order(
         for call in mock_device_manager.send_command.call_args_list
     ]
     assert sent_params == [{"speed": 2}, {"speed": 3}, {"speed": 1}]
+
+
+def test_dispatch_effect_result_reports_structured_outcome(
+    dispatcher, mock_device_manager
+):
+    """Structured dispatch result preserves details without breaking bool flow."""
+    mock_device_manager.send_command.return_value = True
+
+    result = dispatcher.dispatch_effect_result("fan_on", {"speed": 42})
+
+    assert bool(result) is True
+    assert result.status == "dispatched"
+    assert result.accepted is True
+    assert result.delivered is True
+    assert result.effect == "fan_on"
+    assert result.device_id == "fan_1"
+    assert result.command == "set_speed"
+    assert result.attempts == 1
+    assert result.latency_ms >= 0
+
+
+def test_managed_queue_concurrent_enqueue_is_thread_safe(
+    mock_device_manager, sample_effects_config
+):
+    """Concurrent producers can enqueue without corrupting heap state."""
+    with patch("playsem.effect_dispatcher.load_effects_yaml") as mock_load:
+        mock_load.return_value = sample_effects_config
+        managed = EffectDispatcher(
+            mock_device_manager,
+            "dummy/path.yaml",
+            managed_mode=True,
+        )
+
+    def enqueue(index: int):
+        managed.dispatch_effect(
+            "fan_on",
+            {"speed": index},
+            priority=index % 5,
+        )
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        list(executor.map(enqueue, range(50)))
+
+    assert managed.get_queue_size() == 50
+
+    mock_device_manager.send_command.return_value = True
+    outcomes = managed.process_all_pending()
+
+    assert len(outcomes) == 50
+    assert all(outcome["status"] == "dispatched" for outcome in outcomes)
+    assert managed.get_queue_size() == 0
+
+
+def test_managed_queue_rejects_when_full(
+    mock_device_manager, sample_effects_config
+):
+    """Bounded managed queues reject new work instead of growing forever."""
+    with patch("playsem.effect_dispatcher.load_effects_yaml") as mock_load:
+        mock_load.return_value = sample_effects_config
+        managed = EffectDispatcher(
+            mock_device_manager,
+            "dummy/path.yaml",
+            managed_mode=True,
+            max_queue_size=1,
+        )
+
+    first = managed.dispatch_effect_result("fan_on", {"speed": 1})
+    second = managed.dispatch_effect_result("fan_on", {"speed": 2})
+
+    assert first.status == "queued"
+    assert bool(first) is True
+    assert second.status == "rejected"
+    assert bool(second) is False
+    assert second.error == "dispatch queue full"
+    assert managed.get_queue_size() == 1
+    assert managed.get_queue_capacity() == 1
+
+
+def test_direct_dispatch_expires_when_ttl_is_exhausted(
+    dispatcher, mock_device_manager
+):
+    """Immediate dispatch can reject effects whose deadline is already gone."""
+    result = dispatcher.dispatch_effect_result(
+        "fan_on", {"speed": 1}, ttl_ms=0
+    )
+
+    assert result.status == "expired"
+    assert bool(result) is False
+    assert result.error == "dispatch deadline expired"
+    mock_device_manager.send_command.assert_not_called()
+
+
+def test_managed_queue_drops_expired_effect_before_send(
+    mock_device_manager, sample_effects_config
+):
+    """Queued effects expire before hardware dispatch if their TTL elapses."""
+    with patch("playsem.effect_dispatcher.load_effects_yaml") as mock_load:
+        mock_load.return_value = sample_effects_config
+        managed = EffectDispatcher(
+            mock_device_manager,
+            "dummy/path.yaml",
+            managed_mode=True,
+        )
+
+    queued = managed.dispatch_effect_result("fan_on", {"speed": 1}, ttl_ms=1)
+    time.sleep(0.01)
+    outcome = managed.process_next_effect()
+
+    assert queued.status == "queued"
+    assert outcome["status"] == "expired"
+    assert outcome["error"] == "dispatch deadline expired"
+    mock_device_manager.send_command.assert_not_called()
 
 
 def test_managed_mode_retry_policy(mock_device_manager, sample_effects_config):

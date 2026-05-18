@@ -183,6 +183,61 @@ def test_single_driver_mode():
     )
 
 
+def test_circuit_breaker_opens_after_consecutive_failures():
+    """Enabled circuit breaker stops calls to a repeatedly failing device."""
+    mock_connectivity_driver = MagicMock(spec=BaseDriver)
+    mock_connectivity_driver.send_command.return_value = False
+    manager = DeviceManager(
+        connectivity_driver=mock_connectivity_driver,
+        circuit_breaker_failure_threshold=2,
+        circuit_breaker_reset_timeout=60.0,
+    )
+
+    assert manager.send_command("flaky", "pulse", {}) is False
+    assert manager.send_command("flaky", "pulse", {}) is False
+    assert manager.get_circuit_info("flaky")["state"] == "open"
+
+    assert manager.send_command("flaky", "pulse", {}) is False
+    assert mock_connectivity_driver.send_command.call_count == 2
+
+
+def test_circuit_breaker_half_open_success_closes_circuit():
+    """After reset timeout, one successful probe closes the circuit."""
+    mock_connectivity_driver = MagicMock(spec=BaseDriver)
+    mock_connectivity_driver.send_command.side_effect = [False, True]
+    manager = DeviceManager(
+        connectivity_driver=mock_connectivity_driver,
+        circuit_breaker_failure_threshold=1,
+        circuit_breaker_reset_timeout=0.0,
+    )
+
+    assert manager.send_command("flaky", "pulse", {}) is False
+    assert manager.get_circuit_info("flaky")["state"] == "open"
+
+    assert manager.send_command("flaky", "pulse", {}) is True
+    circuit = manager.get_circuit_info("flaky")
+    assert circuit["state"] == "closed"
+    assert circuit["failures"] == 0
+    assert mock_connectivity_driver.send_command.call_count == 2
+
+
+def test_circuit_breaker_is_per_device():
+    """An open circuit for one device does not block another device."""
+    mock_connectivity_driver = MagicMock(spec=BaseDriver)
+    mock_connectivity_driver.send_command.side_effect = [False, True]
+    manager = DeviceManager(
+        connectivity_driver=mock_connectivity_driver,
+        circuit_breaker_failure_threshold=1,
+        circuit_breaker_reset_timeout=60.0,
+    )
+
+    assert manager.send_command("flaky", "pulse", {}) is False
+    assert manager.send_command("healthy", "pulse", {}) is True
+
+    assert manager.get_circuit_info("flaky")["state"] == "open"
+    assert manager.get_circuit_info("healthy")["state"] == "closed"
+
+
 @pytest.mark.asyncio
 async def test_single_driver_mode_async_send_command_bridge():
     """Single-driver mode should execute async send_command safely."""

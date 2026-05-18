@@ -115,6 +115,7 @@ class SerialDriver(BaseDriver):
         self._is_connected = False
         self._read_thread: Optional[threading.Thread] = None
         self._stop_reading = threading.Event()
+        self._write_lock = threading.RLock()
         self._reconnect_attempts = 0
         self._last_reconnect_error: Optional[str] = None
 
@@ -345,8 +346,9 @@ class SerialDriver(BaseDriver):
             return False
 
         try:
-            bytes_written = self._serial.write(data)
-            self._serial.flush()  # Ensure data is transmitted
+            with self._write_lock:
+                bytes_written = self._serial.write(data)
+                self._serial.flush()  # Ensure data is transmitted
 
             logger.debug(
                 f"Sent {bytes_written} bytes to {self.port}: " f"{data.hex()}"
@@ -355,6 +357,7 @@ class SerialDriver(BaseDriver):
 
         except serial.SerialException as e:
             logger.error(f"Error sending to {self.port}: {e}")
+            self._mark_connection_unhealthy(str(e))
             return False
 
     def send_text(self, command: str, encoding: str = "utf-8") -> bool:
@@ -518,6 +521,7 @@ class SerialDriver(BaseDriver):
                         self.on_data_received(data)
             except Exception as e:
                 logger.error(f"Error in read loop: {e}")
+                self._mark_connection_unhealthy(str(e))
                 break
 
             time.sleep(0.01)  # Small delay to prevent CPU spinning
@@ -527,6 +531,11 @@ class SerialDriver(BaseDriver):
     def is_connected(self) -> bool:
         """Check if serial port is connected (BaseDriver interface)."""
         return self._is_connected and self._serial is not None
+
+    def _mark_connection_unhealthy(self, error: str) -> None:
+        """Mark the serial connection as unhealthy after I/O failure."""
+        self._last_reconnect_error = error
+        self._is_connected = False
 
     def reset_device(self, dtr: bool = False, rts: bool = False):
         """

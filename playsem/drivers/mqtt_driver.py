@@ -56,6 +56,8 @@ class MQTTDriver(BaseDriver):
         data_format: str = "json",
         retry_policy: Optional[RetryPolicy] = None,
         auto_reconnect: bool = True,
+        wait_for_publish: bool = False,
+        publish_timeout: float = 5.0,
     ):
         """
         Initialize MQTT driver.
@@ -71,6 +73,9 @@ class MQTTDriver(BaseDriver):
             qos: Quality of Service level (0, 1, or 2)
             retain: Retain messages on broker
             data_format: The payload format to use ('json' or 'xml').
+            wait_for_publish: If True, wait for paho publish completion
+                before reporting success. Useful with QoS 1/2.
+            publish_timeout: Max seconds to wait for publish completion.
         """
         self.interface_name = interface_name
         self.broker = broker
@@ -81,6 +86,8 @@ class MQTTDriver(BaseDriver):
         self._is_connected = False
         self.retry_policy = retry_policy or RetryPolicy()
         self.auto_reconnect = auto_reconnect
+        self.wait_for_publish = wait_for_publish
+        self.publish_timeout = publish_timeout
         self._reconnect_lock = threading.Lock()
         self._reconnect_in_progress = False
         self._reconnect_attempts = 0
@@ -228,6 +235,20 @@ class MQTTDriver(BaseDriver):
             )
 
             if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                if self.wait_for_publish:
+                    try:
+                        result.wait_for_publish(timeout=self.publish_timeout)
+                    except Exception as e:
+                        logger.error(f"Publish acknowledgement failed: {e}")
+                        return False
+
+                    is_published = getattr(result, "is_published", None)
+                    if callable(is_published) and not is_published():
+                        logger.error(
+                            "Publish acknowledgement timed out or did not complete"
+                        )
+                        return False
+
                 logger.debug(
                     f"Published to {device_id}: {command} "
                     f"(params: {params})"
@@ -273,6 +294,8 @@ class MQTTDriver(BaseDriver):
                 "qos": self.qos,
                 "retain": self.retain,
                 "auto_reconnect": self.auto_reconnect,
+                "wait_for_publish": self.wait_for_publish,
+                "publish_timeout": self.publish_timeout,
                 "reconnect_attempts": self._reconnect_attempts,
                 "last_reconnect_error": self._last_reconnect_error,
             }

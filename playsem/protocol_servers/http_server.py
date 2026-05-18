@@ -196,7 +196,7 @@ class HTTPServer:
                 )
 
                 # Dispatch effect
-                self.dispatcher.dispatch_effect_metadata(metadata)
+                await self.dispatcher.async_dispatch_effect_metadata(metadata)
                 self._effects_processed += 1
 
                 # Call broadcast callback if provided

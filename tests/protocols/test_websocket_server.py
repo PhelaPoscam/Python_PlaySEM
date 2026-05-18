@@ -39,7 +39,7 @@ async def test_websocket_server_managed_queue_processing_enabled(
     mock_websocket = AsyncMock()
     websocket_server.process_managed_queue = True
     websocket_server.dispatcher.managed_mode = True
-    websocket_server.dispatcher.dispatch_effect_metadata = Mock()
+    websocket_server.dispatcher.async_dispatch_effect_metadata = AsyncMock()
     websocket_server.dispatcher.process_all_pending = Mock()
 
     message = json.dumps(
@@ -67,7 +67,7 @@ async def test_websocket_server_managed_queue_processing_disabled(
     mock_websocket = AsyncMock()
     websocket_server.process_managed_queue = False
     websocket_server.dispatcher.managed_mode = True
-    websocket_server.dispatcher.dispatch_effect_metadata = Mock()
+    websocket_server.dispatcher.async_dispatch_effect_metadata = AsyncMock()
     websocket_server.dispatcher.process_all_pending = Mock()
 
     message = json.dumps(
@@ -224,14 +224,14 @@ async def test_websocket_server_process_effect_message(websocket_server):
     )
 
     # Mock dispatcher
-    websocket_server.dispatcher.dispatch_effect_metadata = Mock()
+    websocket_server.dispatcher.async_dispatch_effect_metadata = AsyncMock()
 
     await websocket_server._process_message(
         mock_websocket, message, "test_client"
     )
 
     # Verify effect was dispatched
-    websocket_server.dispatcher.dispatch_effect_metadata.assert_called_once()
+    websocket_server.dispatcher.async_dispatch_effect_metadata.assert_called_once()
 
     # Verify response was sent
     mock_websocket.send.assert_called()
@@ -297,7 +297,7 @@ async def test_websocket_server_callback(websocket_server):
     )
 
     # Mock dispatcher
-    websocket_server.dispatcher.dispatch_effect_metadata = Mock()
+    websocket_server.dispatcher.async_dispatch_effect_metadata = AsyncMock()
 
     await websocket_server._process_message(
         mock_websocket, message, "test_client"

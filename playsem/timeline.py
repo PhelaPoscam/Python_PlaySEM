@@ -61,7 +61,7 @@ class Timeline:
 
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
         # Callbacks for timeline events
         self.on_start_callback: Optional[Callable] = None

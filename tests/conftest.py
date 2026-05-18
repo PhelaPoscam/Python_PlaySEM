@@ -115,6 +115,7 @@ connectivityInterfaces:
 
     # DeviceManager with the mock driver and loader
     manager = DeviceManager(config_loader=loader, drivers=[mock_driver])
+    await manager.start_async_workers()
 
     # Dispatcher
     dispatcher = EffectDispatcher(device_manager=manager)
@@ -144,3 +145,4 @@ connectivityInterfaces:
 
     # Teardown
     mqtt_server.stop()
+    await manager.stop_async_workers()
