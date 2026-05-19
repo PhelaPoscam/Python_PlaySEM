@@ -30,6 +30,10 @@ from tools.test_server.handlers import (
 from tools.test_server.app import create_app
 from tools.test_server.config import ServerConfig
 from playsem.protocol_servers import MQTTServer, CoAPServer, UPnPServer
+from tools.test_server.env_loader import load_env
+
+# Load environment variables from .env if present
+load_env()
 
 # --- Configurable Ports (can be overridden by environment variables) ---
 DEFAULT_SERVER_PORT = int(os.environ.get("PLAYSEM_SERVER_PORT", 8090))

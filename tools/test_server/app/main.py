@@ -20,6 +20,11 @@ from tools.test_server.services import (
 
 logger = logging.getLogger(__name__)
 
+from tools.test_server.env_loader import load_env
+
+# Load environment variables from .env if present
+load_env()
+
 DEFAULT_SERVER_PORT = int(os.environ.get("PLAYSEM_SERVER_PORT", 8090))
 DEFAULT_MQTT_PORT = int(os.environ.get("PLAYSEM_MQTT_PORT", 1883))
 DEFAULT_COAP_PORT = int(os.environ.get("PLAYSEM_COAP_PORT", 5683))
