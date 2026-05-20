@@ -239,12 +239,15 @@ class DeviceRegistry:
         with self._lock:
             if device_id not in self._devices:
                 # Register a placeholder device if it doesn't exist yet
-                self.register_device({
-                    "id": device_id,
-                    "name": f"Device {device_id}",
-                    "type": "unknown",
-                    "address": device_id,
-                }, source_protocol="manager")
+                self.register_device(
+                    {
+                        "id": device_id,
+                        "name": f"Device {device_id}",
+                        "type": "unknown",
+                        "address": device_id,
+                    },
+                    source_protocol="manager",
+                )
 
             device = self._devices[device_id]
             device.circuit_state = state
@@ -254,11 +257,13 @@ class DeviceRegistry:
             # Sync into metadata as well
             if "circuit_breaker" not in device.metadata:
                 device.metadata["circuit_breaker"] = {}
-            device.metadata["circuit_breaker"].update({
-                "state": state,
-                "consecutive_failures": failures,
-                "last_error_message": last_error,
-            })
+            device.metadata["circuit_breaker"].update(
+                {
+                    "state": state,
+                    "consecutive_failures": failures,
+                    "last_error_message": last_error,
+                }
+            )
 
             self._notify_listeners("device_updated", device)
             return True

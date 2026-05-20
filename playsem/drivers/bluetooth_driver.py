@@ -199,18 +199,22 @@ class BluetoothDriver(AsyncBaseDriver, BaseDiscovery):
         devices = await self.scan_devices(timeout=2.0)
         discovered = []
         for d in devices:
-            clean_addr = d["address"].replace(":", "").replace("-", "").replace(" ", "")
-            discovered.append({
-                "id": f"ble_{clean_addr}",
-                "name": d["name"] or f"BLE Device {d['address']}",
-                "type": "bluetooth",
-                "address": d["address"],
-                "protocols": ["bluetooth"],
-                "metadata": {
-                    "rssi": d.get("rssi"),
-                    "metadata": d.get("metadata"),
+            clean_addr = (
+                d["address"].replace(":", "").replace("-", "").replace(" ", "")
+            )
+            discovered.append(
+                {
+                    "id": f"ble_{clean_addr}",
+                    "name": d["name"] or f"BLE Device {d['address']}",
+                    "type": "bluetooth",
+                    "address": d["address"],
+                    "protocols": ["bluetooth"],
+                    "metadata": {
+                        "rssi": d.get("rssi"),
+                        "metadata": d.get("metadata"),
+                    },
                 }
-            })
+            )
         return discovered
 
     @staticmethod

@@ -92,7 +92,9 @@ async def test_mqtt_wait_for_publish_ack_success():
     publish_result = _PublishResult(rc=0, published=True)
     driver.client.publish = MagicMock(return_value=publish_result)
 
-    assert await driver.send_command("devices/test", "pulse", {"intensity": 50})
+    assert await driver.send_command(
+        "devices/test", "pulse", {"intensity": 50}
+    )
     publish_result.wait_for_publish.assert_called_once_with(timeout=0.25)
 
 

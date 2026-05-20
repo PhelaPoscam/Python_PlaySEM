@@ -175,23 +175,33 @@ class SerialDriver(BaseDriver, BaseDiscovery):
     async def discover_devices(self) -> List[Dict[str, Any]]:
         """Scan/discover available serial devices."""
         import asyncio
+
         ports = await asyncio.to_thread(self.list_ports)
         discovered = []
         for p in ports:
-            clean_port = p["port"].replace("/", "_").replace(".", "_").replace("\\", "_").replace(":", "_")
-            discovered.append({
-                "id": f"serial_{clean_port}",
-                "name": p.get("description") or f"Serial Device on {p['port']}",
-                "type": "serial",
-                "address": p["port"],
-                "protocols": ["serial"],
-                "metadata": {
-                    "vid": p.get("vid"),
-                    "pid": p.get("pid"),
-                    "hwid": p.get("hwid"),
-                    "serial_number": p.get("serial_number"),
+            clean_port = (
+                p["port"]
+                .replace("/", "_")
+                .replace(".", "_")
+                .replace("\\", "_")
+                .replace(":", "_")
+            )
+            discovered.append(
+                {
+                    "id": f"serial_{clean_port}",
+                    "name": p.get("description")
+                    or f"Serial Device on {p['port']}",
+                    "type": "serial",
+                    "address": p["port"],
+                    "protocols": ["serial"],
+                    "metadata": {
+                        "vid": p.get("vid"),
+                        "pid": p.get("pid"),
+                        "hwid": p.get("hwid"),
+                        "serial_number": p.get("serial_number"),
+                    },
                 }
-            })
+            )
         return discovered
 
     @classmethod
@@ -361,6 +371,7 @@ class SerialDriver(BaseDriver, BaseDiscovery):
             return False
 
         try:
+
             def _write():
                 with self._write_lock:
                     bytes_written = self._serial.write(data)
@@ -418,9 +429,12 @@ class SerialDriver(BaseDriver, BaseDiscovery):
             return False
 
         try:
-            payload = serialize_device_command(
-                device_id, command, params, self.data_format
-            ) + "\n"
+            payload = (
+                serialize_device_command(
+                    device_id, command, params, self.data_format
+                )
+                + "\n"
+            )
 
             # Send via serial
             return await self.send_bytes(payload.encode("utf-8"))

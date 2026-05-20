@@ -72,7 +72,9 @@ async def test_mqtt_command_loss_budget_during_transient_disconnect():
 
     # Simulate a transient disconnect window.
     driver._is_connected = False
-    if not await driver.send_command("devices/test", "pulse", {"intensity": 100}):
+    if not await driver.send_command(
+        "devices/test", "pulse", {"intensity": 100}
+    ):
         command_loss += 1
 
     # Recover and continue command flow.
@@ -120,10 +122,14 @@ async def test_serial_port_unavailable_then_reconnect(monkeypatch):
     monkeypatch.setattr(driver, "send_bytes", AsyncMock(return_value=True))
 
     loss = 0
-    if not await driver.send_command("serial_device", "set_speed", {"speed": 10}):
+    if not await driver.send_command(
+        "serial_device", "set_speed", {"speed": 10}
+    ):
         loss += 1
 
-    if not await driver.send_command("serial_device", "set_speed", {"speed": 10}):
+    if not await driver.send_command(
+        "serial_device", "set_speed", {"speed": 10}
+    ):
         loss += 1
 
     assert loss <= 1

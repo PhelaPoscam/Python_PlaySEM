@@ -167,59 +167,63 @@ def test_timeline_dynamic_add_remove(timeline_scheduler, mock_dispatcher):
     )
     timeline_scheduler.load_timeline(effect_timeline)
     timeline_scheduler.start()
-    
+
     # Dynamically add an effect that should execute shortly
     new_effect = create_effect("wind", timestamp=150, duration=100)
     timeline_scheduler.add_effect(new_effect)
-    
+
     # Dynamically add and then remove an effect to ensure it doesn't get executed
     cancel_effect = create_effect("vibration", timestamp=200, duration=100)
     timeline_scheduler.add_effect(cancel_effect)
     timeline_scheduler.remove_effect(cancel_effect)
-    
+
     time.sleep(0.3)
     timeline_scheduler.stop()
-    
+
     # verify "light" and "wind" executed, but not "vibration"
     calls = mock_dispatcher.dispatch_effect_metadata.call_args_list
     executed_types = [call[0][0].effect_type for call in calls]
-    
+
     assert "light" in executed_types
     assert "wind" in executed_types
     assert "vibration" not in executed_types
 
 
-def test_timeline_concurrent_mutation_safety(timeline_scheduler, mock_dispatcher):
+def test_timeline_concurrent_mutation_safety(
+    timeline_scheduler, mock_dispatcher
+):
     """Test that concurrent edits to the timeline effects do not cause iteration crashes."""
     effect_timeline = create_timeline(
         create_effect("light", timestamp=10, duration=50)
     )
     timeline_scheduler.load_timeline(effect_timeline)
     timeline_scheduler.start()
-    
+
     import random
     from threading import Thread
-    
+
     stop_mutator = False
-    
+
     def mutator():
         while not stop_mutator:
             # Randomly add/remove/clear effects to stress-test locks and iteration
-            eff = create_effect("light", timestamp=random.randint(0, 1000), duration=50)
+            eff = create_effect(
+                "light", timestamp=random.randint(0, 1000), duration=50
+            )
             timeline_scheduler.add_effect(eff)
             time.sleep(0.005)
             timeline_scheduler.remove_effect(eff)
             time.sleep(0.005)
             if random.random() < 0.1:
                 timeline_scheduler.clear_effects()
-    
+
     t = Thread(target=mutator)
     t.start()
-    
+
     # Let timeline scheduler and mutator run concurrently for a short period
     time.sleep(0.2)
     stop_mutator = True
     t.join(timeout=1.0)
-    
+
     timeline_scheduler.stop()
     # Test succeeds if no RuntimeError (list changed size during iteration) or deadlocks occurred

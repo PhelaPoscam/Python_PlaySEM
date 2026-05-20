@@ -104,7 +104,9 @@ class DeviceManager:
             self.connect_all()
 
         # Register scanners from connectivity drivers
-        if self._single_driver_mode and isinstance(self.connectivity_driver, BaseDiscovery):
+        if self._single_driver_mode and isinstance(
+            self.connectivity_driver, BaseDiscovery
+        ):
             self.register_scanner(self.connectivity_driver)
         elif not self._legacy_mode and not self._single_driver_mode:
             for driver in drivers:
@@ -291,6 +293,7 @@ class DeviceManager:
                         device_id, command, params
                     )
                 else:
+
                     def _run_sync():
                         return driver.send_command(device_id, command, params)
 
@@ -529,7 +532,9 @@ class DeviceManager:
             and self.circuit_breaker_failure_threshold > 0
         )
 
-    def _sync_circuit_state_to_registry(self, device_id: str, state: _CircuitState) -> None:
+    def _sync_circuit_state_to_registry(
+        self, device_id: str, state: _CircuitState
+    ) -> None:
         """Synchronizes circuit breaker status to the device registry if configured."""
         if self.device_registry is not None:
             self.device_registry.update_circuit_status(
@@ -755,7 +760,9 @@ class DeviceManager:
         """Register a device discovery/scanner module."""
         if scanner not in self._scanners:
             self._scanners.append(scanner)
-            logger.info(f"Registered discovery scanner for interface: {scanner.get_interface_name()}")
+            logger.info(
+                f"Registered discovery scanner for interface: {scanner.get_interface_name()}"
+            )
 
     async def discover_all_devices(self) -> List[Dict[str, Any]]:
         """
@@ -778,14 +785,20 @@ class DeviceManager:
         all_devices = []
         for scanner, res in zip(self._scanners, results):
             if isinstance(res, Exception):
-                logger.error(f"Discovery scanner '{scanner.get_interface_name()}' failed: {res}")
+                logger.error(
+                    f"Discovery scanner '{scanner.get_interface_name()}' failed: {res}"
+                )
             elif isinstance(res, list):
-                logger.info(f"Scanner '{scanner.get_interface_name()}' discovered {len(res)} device(s)")
+                logger.info(
+                    f"Scanner '{scanner.get_interface_name()}' discovered {len(res)} device(s)"
+                )
                 for dev in res:
                     all_devices.append(dev)
                     if self.device_registry is not None:
                         try:
-                            protocols = dev.get("protocols", [scanner.get_interface_name()])
+                            protocols = dev.get(
+                                "protocols", [scanner.get_interface_name()]
+                            )
                             self.device_registry.register_device(
                                 device_data={
                                     "id": dev["id"],
@@ -793,15 +806,21 @@ class DeviceManager:
                                     "type": dev.get("type") or "unknown",
                                     "address": dev.get("address"),
                                     "protocols": protocols,
-                                    "capabilities": dev.get("capabilities", {}),
+                                    "capabilities": dev.get(
+                                        "capabilities", {}
+                                    ),
                                     "metadata": dev.get("metadata", {}),
                                 },
                                 source_protocol=scanner.get_interface_name(),
                             )
                         except Exception as e:
-                            logger.error(f"Failed to auto-register discovered device '{dev['id']}': {e}")
+                            logger.error(
+                                f"Failed to auto-register discovered device '{dev['id']}': {e}"
+                            )
             else:
-                logger.warning(f"Scanner '{scanner.get_interface_name()}' returned invalid type: {type(res)}")
+                logger.warning(
+                    f"Scanner '{scanner.get_interface_name()}' returned invalid type: {type(res)}"
+                )
 
         return all_devices
 

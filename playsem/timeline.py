@@ -218,11 +218,15 @@ class Timeline:
         with self._lock:
             if not self.timeline:
                 self.timeline = EffectTimeline()
-            
+
             self.timeline.add_effect(effect)
-            
+
             # If the timeline is running, schedule this new effect
-            if self.is_running and not self.is_paused and self.start_time is not None:
+            if (
+                self.is_running
+                and not self.is_paused
+                and self.start_time is not None
+            ):
                 # Only schedule if it's in the future relative to current playback position
                 current_pos = self.get_position()
                 if effect.timestamp >= current_pos:
@@ -246,10 +250,10 @@ class Timeline:
         with self._lock:
             if not self.timeline:
                 return
-            
+
             if effect in self.timeline.effects:
                 self.timeline.effects.remove(effect)
-                
+
             # Filter out from scheduled effects
             self.scheduled_effects = [
                 s for s in self.scheduled_effects if s.effect != effect

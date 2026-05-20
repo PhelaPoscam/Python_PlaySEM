@@ -203,7 +203,8 @@ class MQTTDriver(BaseDriver):
                 if self.wait_for_publish:
                     try:
                         await asyncio.to_thread(
-                            result.wait_for_publish, timeout=self.publish_timeout
+                            result.wait_for_publish,
+                            timeout=self.publish_timeout,
                         )
                     except Exception as e:
                         logger.error(f"Publish acknowledgement failed: {e}")

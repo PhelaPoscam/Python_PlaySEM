@@ -13,10 +13,12 @@ from decimal import Decimal
 from uuid import UUID
 from typing import Any, Dict, Optional
 
+
 class CustomJSONEncoder(json.JSONEncoder):
     """
     Custom JSON encoder that handles datetimes, decimals, UUIDs, bytes, and sets.
     """
+
     def default(self, obj: Any) -> Any:
         if isinstance(obj, (datetime, date)):
             return obj.isoformat()
@@ -33,12 +35,14 @@ class CustomJSONEncoder(json.JSONEncoder):
         except TypeError:
             return str(obj)
 
+
 def serialize_to_json(data: Any, **kwargs) -> str:
     """
     Serialize data to a JSON string using CustomJSONEncoder.
     """
     kwargs.setdefault("cls", CustomJSONEncoder)
     return json.dumps(data, **kwargs)
+
 
 def serialize_to_xml(tag_name: str, data: Dict[str, Any]) -> str:
     """
@@ -49,11 +53,12 @@ def serialize_to_xml(tag_name: str, data: Dict[str, Any]) -> str:
     _build_xml_tree(root, data)
     return ET.tostring(root, encoding="utf-8").decode("utf-8")
 
+
 def serialize_device_command(
     device_id: str,
     command: str,
     params: Optional[Dict[str, Any]] = None,
-    data_format: str = "json"
+    data_format: str = "json",
 ) -> str:
     """
     Serialize a device command using standard JSON or properly escaped XML.
@@ -63,16 +68,16 @@ def serialize_device_command(
 
     if data_format.lower() == "xml":
         root = ET.Element("command")
-        
+
         dev_id_elem = ET.SubElement(root, "deviceId")
         dev_id_elem.text = device_id
-        
+
         name_elem = ET.SubElement(root, "name")
         name_elem.text = command
-        
+
         params_elem = ET.SubElement(root, "params")
         _build_xml_tree(params_elem, params)
-        
+
         return ET.tostring(root, encoding="utf-8").decode("utf-8")
     else:
         payload = {
@@ -81,6 +86,7 @@ def serialize_device_command(
             "device_id": device_id,
         }
         return serialize_to_json(payload)
+
 
 def _build_xml_tree(parent: ET.Element, data: Any):
     """Recursive helper to build XML elements from dict/list/scalar data."""
@@ -106,6 +112,7 @@ def _build_xml_tree(parent: ET.Element, data: Any):
             parent.text = str(data)
         else:
             parent.text = str(data)
+
 
 def _sanitize_xml_tag(name: str) -> str:
     """Sanitize key to be a valid XML element name."""

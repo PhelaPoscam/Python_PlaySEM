@@ -256,7 +256,9 @@ class HTTPServer:
         async def get_devices():
             registry = self.device_registry
             if registry is None and hasattr(self.dispatcher, "device_manager"):
-                registry = getattr(self.dispatcher.device_manager, "device_registry", None)
+                registry = getattr(
+                    self.dispatcher.device_manager, "device_registry", None
+                )
 
             if registry:
                 devices = []
@@ -267,9 +269,15 @@ class HTTPServer:
                             device_id=d_dict["id"],
                             device_type=d_dict["type"],
                             status="connected",
-                            circuit_state=d_dict.get("circuit_state", "closed"),
-                            consecutive_failures=d_dict.get("consecutive_failures", 0),
-                            last_error_message=d_dict.get("last_error_message"),
+                            circuit_state=d_dict.get(
+                                "circuit_state", "closed"
+                            ),
+                            consecutive_failures=d_dict.get(
+                                "consecutive_failures", 0
+                            ),
+                            last_error_message=d_dict.get(
+                                "last_error_message"
+                            ),
                         )
                     )
                 return DevicesResponse(devices=devices, count=len(devices))
