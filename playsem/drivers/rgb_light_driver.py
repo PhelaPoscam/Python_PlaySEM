@@ -18,21 +18,21 @@ class RGBLightDriver(BaseDriver):
         self._connected = False
         self.command_log: List[Dict[str, Any]] = []
 
-    def connect(self) -> bool:
+    async def connect(self) -> bool:
         self._connected = True
         return True
 
-    def disconnect(self) -> bool:
+    async def disconnect(self) -> bool:
         self._connected = False
         return True
 
-    def is_connected(self) -> bool:
+    async def is_connected(self) -> bool:
         return self._connected
 
     def get_interface_name(self) -> str:
         return self.interface_name
 
-    def send_command(
+    async def send_command(
         self,
         device_id: str,
         command: str,

@@ -69,6 +69,9 @@ class DeviceInfo:
     registered_at: datetime = field(default_factory=datetime.now)
     last_seen: datetime = field(default_factory=datetime.now)
     source_protocol: str = "unknown"
+    circuit_state: str = "closed"
+    consecutive_failures: int = 0
+    last_error_message: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -84,6 +87,9 @@ class DeviceInfo:
             "registered_at": self.registered_at.isoformat(),
             "last_seen": self.last_seen.isoformat(),
             "source_protocol": self.source_protocol,
+            "circuit_state": self.circuit_state,
+            "consecutive_failures": self.consecutive_failures,
+            "last_error_message": self.last_error_message,
         }
 
     def update_last_seen(self):
@@ -221,6 +227,41 @@ class DeviceRegistry:
                 self._notify_listeners("device_unregistered", device)
                 return True
             return False
+
+    def update_circuit_status(
+        self,
+        device_id: str,
+        state: str,
+        failures: int,
+        last_error: Optional[str] = None,
+    ) -> bool:
+        """Update circuit status for a registered device."""
+        with self._lock:
+            if device_id not in self._devices:
+                # Register a placeholder device if it doesn't exist yet
+                self.register_device({
+                    "id": device_id,
+                    "name": f"Device {device_id}",
+                    "type": "unknown",
+                    "address": device_id,
+                }, source_protocol="manager")
+
+            device = self._devices[device_id]
+            device.circuit_state = state
+            device.consecutive_failures = failures
+            device.last_error_message = last_error
+
+            # Sync into metadata as well
+            if "circuit_breaker" not in device.metadata:
+                device.metadata["circuit_breaker"] = {}
+            device.metadata["circuit_breaker"].update({
+                "state": state,
+                "consecutive_failures": failures,
+                "last_error_message": last_error,
+            })
+
+            self._notify_listeners("device_updated", device)
+            return True
 
     def get_device(
         self, device_id: str, requesting_protocol: Optional[str] = None

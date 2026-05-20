@@ -15,6 +15,7 @@ Usage:
 
 import sys
 from pathlib import Path
+import asyncio
 
 # Add project root to path
 project_root = Path(__file__).resolve().parent.parent.parent
@@ -45,7 +46,7 @@ def demo_list_ports():
     if not ports:
         print("\n[FAIL] No serial ports found")
         print("   Make sure a USB device is connected")
-        return
+        return None
 
     print(f"\n[OK] Found {len(ports)} serial port(s):\n")
 
@@ -55,11 +56,16 @@ def demo_list_ports():
         print(f"   Hardware ID: {port['hwid']}")
 
         if "vid" in port and "pid" in port:
-            print(f"   VID:PID: {port['vid']:04x}:{port['pid']:04x}")
+            vid_val = port['vid']
+            pid_val = port['pid']
+            vid_str = f"{vid_val:04x}" if vid_val is not None else "None"
+            pid_str = f"{pid_val:04x}" if pid_val is not None else "None"
+            print(f"   VID:PID: {vid_str}:{pid_str}")
 
         if "serial_number" in port:
             print(f"   Serial: {port['serial_number']}")
         print()
+    return ports
 
 
 def demo_auto_discover():
@@ -91,38 +97,38 @@ def demo_auto_discover():
     return None
 
 
-def demo_manual_connection(port: str):
+async def demo_manual_connection(port: str):
     """Demo 3: Manual connection and communication."""
     print("\n" + "=" * 60)
     print(f"Demo 3: Manual Connection to {port}")
     print("=" * 60)
 
-    # Create driver with context manager
+    # Create driver with async context manager
     try:
-        with SerialDriver(port=port, baudrate=9600) as driver:
+        async with SerialDriver(port=port, baudrate=9600) as driver:
             print(f"\n[OK] Connected to {port}")
 
             # Send some test commands
             print("\n[SEND] Sending test commands...")
 
             # Example 1: Send bytes
-            driver.send_bytes(b"\xff\x00\x64")
+            await driver.send_bytes(b"\xff\x00\x64")
             print("   Sent: 0xFF 0x00 0x64")
-            time.sleep(0.1)
+            await asyncio.sleep(0.1)
 
             # Example 2: Send ASCII command (raw text)
-            driver.send_text("LED:ON\n")
+            await driver.send_text("LED:ON\n")
             print("   Sent: LED:ON")
-            time.sleep(0.5)
+            await asyncio.sleep(0.5)
 
             # Example 3: Send effect command (raw text)
-            driver.send_text("EFFECT:LIGHT:255:1000\n")
+            await driver.send_text("EFFECT:LIGHT:255:1000\n")
             print("   Sent: EFFECT:LIGHT:255:1000")
-            time.sleep(1.0)
+            await asyncio.sleep(1.0)
 
             # Try to read response (if device sends any)
             print("\n[RECV] Checking for response...")
-            response = driver.read_line()
+            response = await asyncio.to_thread(driver.read_line)
             if response:
                 print(f"   Device response: {response}")
             else:
@@ -135,7 +141,7 @@ def demo_manual_connection(port: str):
         logger.error(f"Connection failed: {e}")
 
 
-def demo_callback_mode(port: str):
+async def demo_callback_mode(port: str):
     """Demo 4: Asynchronous reading with callbacks."""
     print("\n" + "=" * 60)
     print(f"Demo 4: Callback Mode (Async Reading)")
@@ -150,24 +156,24 @@ def demo_callback_mode(port: str):
             port=port, baudrate=9600, on_data_received=on_data
         )
 
-        if driver.open_connection():
+        if await asyncio.to_thread(driver.open_connection):
             print(f"\n[OK] Connected with callback mode")
             print("   Listening for incoming data...")
 
             # Send commands and wait for responses
             for i in range(3):
-                driver.send_text(f"PING:{i}\n")
+                await driver.send_text(f"PING:{i}\n")
                 print(f"   Sent: PING:{i}")
-                time.sleep(1)
+                await asyncio.sleep(1)
 
             print("\n[OK] Callback test complete")
-            driver.close_connection()
+            await asyncio.to_thread(driver.close_connection)
 
     except Exception as e:
         print(f"\n[FAIL] Error: {e}")
 
 
-def demo_arduino_effect_control(port: str):
+async def demo_arduino_effect_control(port: str):
     """Demo 5: Send sensory effects to Arduino."""
     print("\n" + "=" * 60)
     print(f"Demo 5: Arduino Effect Control")
@@ -181,7 +187,7 @@ def demo_arduino_effect_control(port: str):
     ]
 
     try:
-        with SerialDriver(port=port, baudrate=115200) as driver:
+        async with SerialDriver(port=port, baudrate=115200) as driver:
             print(f"\n[OK] Connected to Arduino at 115200 baud")
 
             for effect_type, intensity, duration in effects:
@@ -192,8 +198,8 @@ def demo_arduino_effect_control(port: str):
                 print(f"   Intensity: {intensity}")
                 print(f"   Duration: {duration}ms")
 
-                driver.send_text(command)
-                time.sleep(duration / 1000.0 + 0.5)
+                await driver.send_text(command)
+                await asyncio.sleep(duration / 1000.0 + 0.5)
 
             print("\n[OK] All effects sent successfully")
 
@@ -201,7 +207,7 @@ def demo_arduino_effect_control(port: str):
         print(f"\n[FAIL] Error: {e}")
 
 
-def interactive_mode():
+async def interactive_mode():
     """Interactive mode for testing."""
     print("\n" + "=" * 60)
     print("Interactive Mode")
@@ -239,7 +245,7 @@ def interactive_mode():
     # Connect
     try:
         driver = SerialDriver(port=port, baudrate=baudrate)
-        if not driver.open_connection():
+        if not await asyncio.to_thread(driver.open_connection):
             print(f"[FAIL] Failed to connect to {port}")
             return
 
@@ -252,27 +258,28 @@ def interactive_mode():
         print()
 
         while True:
-            cmd = input("> ").strip()
+            cmd = await asyncio.to_thread(input, "> ")
+            cmd = cmd.strip()
 
             if cmd == "quit":
                 break
 
             elif cmd.startswith("send "):
                 text = cmd[5:] + "\n"
-                driver.send_text(text)
+                await driver.send_text(text)
                 print(f"Sent: {text.strip()}")
 
             elif cmd.startswith("hex "):
                 hex_str = cmd[4:].replace(" ", "")
                 try:
                     data = bytes.fromhex(hex_str)
-                    driver.send_bytes(data)
+                    await driver.send_bytes(data)
                     print(f"Sent: {data.hex()}")
                 except ValueError:
                     print("Invalid hex format")
 
             elif cmd == "read":
-                line = driver.read_line()
+                line = await asyncio.to_thread(driver.read_line)
                 if line:
                     print(f"Received: {line}")
                 else:
@@ -281,14 +288,14 @@ def interactive_mode():
             else:
                 print("Unknown command")
 
-        driver.close_connection()
+        await asyncio.to_thread(driver.close_connection)
         print("\n[OK] Disconnected")
 
     except Exception as e:
         print(f"\n[FAIL] Error: {e}")
 
 
-def main():
+async def main():
     """Run all demos."""
     print("\n" + "=" * 60)
     print("Serial Driver Demo - PythonPlaySEM")
@@ -312,20 +319,20 @@ def main():
             return
 
     # Demo 3: Manual connection
-    demo_manual_connection(port)
+    await demo_manual_connection(port)
 
     # Demo 4: Callback mode
-    # demo_callback_mode(port)  # Uncomment if device sends data
+    # await demo_callback_mode(port)  # Uncomment if device sends data
 
     # Demo 5: Arduino effect control
-    # demo_arduino_effect_control(port)  # Uncomment if using Arduino sketch
+    # await demo_arduino_effect_control(port)  # Uncomment if using Arduino sketch
 
     # Interactive mode
     print("\n" + "=" * 60)
     if sys.stdin.isatty():
         choice = input("\nEnter interactive mode? (y/n): ").strip().lower()
         if choice == "y":
-            interactive_mode()
+            await interactive_mode()
     else:
         print("\nSkipping interactive mode (non-terminal)")
 
@@ -336,7 +343,7 @@ def main():
 
 if __name__ == "__main__":
     try:
-        main()
+        asyncio.run(main())
     except KeyboardInterrupt:
         print("\n\n[INFO] Demo interrupted")
     except Exception as e:

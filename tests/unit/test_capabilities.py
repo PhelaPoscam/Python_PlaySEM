@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import asyncio
 import json
+import pytest
 
 from playsem.drivers.mock_driver import MockConnectivityDriver
 from playsem.protocol_servers import HTTPServer
@@ -19,9 +20,10 @@ class _FakeDispatcher:
         self.device_manager = _FakeDeviceManager(driver)
 
 
-def test_mock_driver_light_capabilities():
+@pytest.mark.asyncio
+async def test_mock_driver_light_capabilities():
     driver = MockConnectivityDriver()
-    driver.connect()
+    await driver.connect()
     caps = driver.get_capabilities("mock_light_1")
     assert caps is not None
     assert any(e["effect_type"] == "light" for e in caps.get("effects", []))

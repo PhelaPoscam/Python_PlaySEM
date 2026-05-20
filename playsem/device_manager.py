@@ -8,8 +8,9 @@ from dataclasses import dataclass
 from typing import Dict, List, Any, Optional
 
 from playsem.config.loader import ConfigLoader
-from playsem.drivers.base_driver import BaseDriver
+from playsem.drivers.base_driver import BaseDriver, BaseDiscovery
 from playsem.command_envelope import CommandEnvelope
+from playsem.device_registry import DeviceRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class DeviceManager:
         async_bridge_timeout: Optional[float] = 5.0,
         circuit_breaker_failure_threshold: Optional[int] = None,
         circuit_breaker_reset_timeout: float = 30.0,
+        device_registry: Optional[DeviceRegistry] = None,
     ):
         """
         Initializes the DeviceManager.
@@ -69,10 +71,12 @@ class DeviceManager:
         self._device_locks: Dict[str, threading.RLock] = {}
         self._device_locks_guard = threading.RLock()
         self._circuit_states: Dict[str, _CircuitState] = {}
+        self.device_registry = device_registry
         self._queues: Dict[str, asyncio.PriorityQueue] = {}
         self._workers: Dict[str, asyncio.Task] = {}
         self._async_running = False
         self.dead_letter_queue: List[CommandEnvelope] = []
+        self._scanners: List[BaseDiscovery] = []
 
         if self._legacy_mode:
             logger.info("Initializing DeviceManager in legacy client mode.")
@@ -98,6 +102,14 @@ class DeviceManager:
 
             self._map_devices_to_drivers()
             self.connect_all()
+
+        # Register scanners from connectivity drivers
+        if self._single_driver_mode and isinstance(self.connectivity_driver, BaseDiscovery):
+            self.register_scanner(self.connectivity_driver)
+        elif not self._legacy_mode and not self._single_driver_mode:
+            for driver in drivers:
+                if isinstance(driver, BaseDiscovery):
+                    self.register_scanner(driver)
 
     def _map_devices_to_drivers(self):
         """
@@ -275,21 +287,20 @@ class DeviceManager:
             )
             try:
                 if inspect.iscoroutinefunction(driver.send_command):
-                    result = await driver.send_command(
+                    success = await driver.send_command(
                         device_id, command, params
                     )
                 else:
-
                     def _run_sync():
                         return driver.send_command(device_id, command, params)
 
                     result = await asyncio.to_thread(_run_sync)
+                    if inspect.isawaitable(result):
+                        success = await result
+                    else:
+                        success = result
 
-                if inspect.isawaitable(result):
-                    success = bool(await result)
-                else:
-                    success = bool(result)
-
+                success = bool(success)
                 with device_lock:
                     self._record_circuit_outcome(device_id, success)
                 return success
@@ -424,6 +435,21 @@ class DeviceManager:
                     f"Failed to connect driver for interface '{interface_name}': {e}"
                 )
 
+    async def async_connect_all(self):
+        """Connects all managed drivers asynchronously."""
+        logger.info("Connecting all drivers asynchronously...")
+        for interface_name, driver in self.drivers_by_interface.items():
+            try:
+                if not await driver.is_connected():
+                    await driver.connect()
+                    logger.info(
+                        f"Driver for interface '{interface_name}' connected."
+                    )
+            except Exception as e:
+                logger.error(
+                    f"Failed to connect driver for interface '{interface_name}': {e}"
+                )
+
     def disconnect_all(self):
         """Disconnects all managed drivers."""
         logger.info("Disconnecting all drivers...")
@@ -432,6 +458,21 @@ class DeviceManager:
                 if self._driver_is_connected(driver):
                     result = driver.disconnect()
                     self._resolve_maybe_async(result)
+                    logger.info(
+                        f"Driver for interface '{interface_name}' disconnected."
+                    )
+            except Exception as e:
+                logger.error(
+                    f"Failed to disconnect driver for interface '{interface_name}': {e}"
+                )
+
+    async def async_disconnect_all(self):
+        """Disconnects all managed drivers asynchronously."""
+        logger.info("Disconnecting all drivers asynchronously...")
+        for interface_name, driver in self.drivers_by_interface.items():
+            try:
+                if await driver.is_connected():
+                    await driver.disconnect()
                     logger.info(
                         f"Driver for interface '{interface_name}' disconnected."
                     )
@@ -488,11 +529,22 @@ class DeviceManager:
             and self.circuit_breaker_failure_threshold > 0
         )
 
+    def _sync_circuit_state_to_registry(self, device_id: str, state: _CircuitState) -> None:
+        """Synchronizes circuit breaker status to the device registry if configured."""
+        if self.device_registry is not None:
+            self.device_registry.update_circuit_status(
+                device_id=device_id,
+                state=state.state,
+                failures=state.failures,
+                last_error=state.last_error,
+            )
+
     def _get_circuit_state(self, device_id: str) -> _CircuitState:
         state = self._circuit_states.get(device_id)
         if state is None:
             state = _CircuitState()
             self._circuit_states[device_id] = state
+            self._sync_circuit_state_to_registry(device_id, state)
         return state
 
     def _circuit_allows_request(self, device_id: str) -> bool:
@@ -510,6 +562,7 @@ class DeviceManager:
         ) >= self.circuit_breaker_reset_timeout:
             state.state = "half_open"
             logger.info(f"Circuit for device '{device_id}' moved to half-open")
+            self._sync_circuit_state_to_registry(device_id, state)
             return True
 
         logger.warning(f"Circuit for device '{device_id}' is open")
@@ -532,6 +585,7 @@ class DeviceManager:
         state.failures = 0
         state.opened_at = None
         state.last_error = None
+        self._sync_circuit_state_to_registry(device_id, state)
 
     def _record_circuit_failure(self, device_id: str, error: str) -> None:
         if not self._circuit_enabled():
@@ -549,6 +603,7 @@ class DeviceManager:
                 f"Circuit for device '{device_id}' opened after "
                 f"{state.failures} failure(s): {error}"
             )
+        self._sync_circuit_state_to_registry(device_id, state)
 
     def get_circuit_info(self, device_id: str) -> Dict[str, Any]:
         """Return circuit breaker status for a device."""
@@ -619,7 +674,9 @@ class DeviceManager:
             info["legacy"] = {"connected": True}
         elif self._single_driver_mode and self.connectivity_driver is not None:
             if hasattr(self.connectivity_driver, "get_driver_info"):
-                info["single"] = self.connectivity_driver.get_driver_info()
+                info["single"] = self._resolve_maybe_async(
+                    self.connectivity_driver.get_driver_info()
+                )
             else:
                 info["single"] = {
                     "type": type(self.connectivity_driver).__name__,
@@ -627,7 +684,9 @@ class DeviceManager:
         else:
             info.update(
                 {
-                    interface_name: driver.get_driver_info()
+                    interface_name: self._resolve_maybe_async(
+                        driver.get_driver_info()
+                    )
                     for interface_name, driver in self.drivers_by_interface.items()
                 }
             )
@@ -691,6 +750,60 @@ class DeviceManager:
         if isinstance(caps, dict):
             return caps
         return None
+
+    def register_scanner(self, scanner: BaseDiscovery) -> None:
+        """Register a device discovery/scanner module."""
+        if scanner not in self._scanners:
+            self._scanners.append(scanner)
+            logger.info(f"Registered discovery scanner for interface: {scanner.get_interface_name()}")
+
+    async def discover_all_devices(self) -> List[Dict[str, Any]]:
+        """
+        Scan/discover devices across all registered scanners in parallel.
+
+        Discovered devices will be automatically registered in the
+        device registry if configured.
+
+        Returns:
+            List[Dict[str, Any]]: Flat list of all discovered devices.
+        """
+        if not self._scanners:
+            logger.warning("No discovery scanners registered.")
+            return []
+
+        # Run discovery on all scanners in parallel
+        tasks = [scanner.discover_devices() for scanner in self._scanners]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        all_devices = []
+        for scanner, res in zip(self._scanners, results):
+            if isinstance(res, Exception):
+                logger.error(f"Discovery scanner '{scanner.get_interface_name()}' failed: {res}")
+            elif isinstance(res, list):
+                logger.info(f"Scanner '{scanner.get_interface_name()}' discovered {len(res)} device(s)")
+                for dev in res:
+                    all_devices.append(dev)
+                    if self.device_registry is not None:
+                        try:
+                            protocols = dev.get("protocols", [scanner.get_interface_name()])
+                            self.device_registry.register_device(
+                                device_data={
+                                    "id": dev["id"],
+                                    "name": dev.get("name") or dev["id"],
+                                    "type": dev.get("type") or "unknown",
+                                    "address": dev.get("address"),
+                                    "protocols": protocols,
+                                    "capabilities": dev.get("capabilities", {}),
+                                    "metadata": dev.get("metadata", {}),
+                                },
+                                source_protocol=scanner.get_interface_name(),
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to auto-register discovered device '{dev['id']}': {e}")
+            else:
+                logger.warning(f"Scanner '{scanner.get_interface_name()}' returned invalid type: {type(res)}")
+
+        return all_devices
 
 
 class _LegacyPublishDriver:

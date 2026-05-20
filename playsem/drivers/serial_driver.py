@@ -18,6 +18,7 @@ import time
 import json
 from typing import Optional, List, Callable, Dict, Any
 import threading
+import asyncio
 
 try:
     import serial
@@ -28,13 +29,14 @@ except ImportError:
     SERIAL_AVAILABLE = False
     serial = None
 
-from .base_driver import BaseDriver
+from .base_driver import BaseDriver, BaseDiscovery
 from .retry_policy import RetryPolicy
+from ..utils.serializer import serialize_device_command
 
 logger = logging.getLogger(__name__)
 
 
-class SerialDriver(BaseDriver):
+class SerialDriver(BaseDriver, BaseDiscovery):
     """
     Serial port driver for USB and Arduino devices.
 
@@ -169,6 +171,28 @@ class SerialDriver(BaseDriver):
 
         logger.info(f"Found {len(ports)} serial ports")
         return ports
+
+    async def discover_devices(self) -> List[Dict[str, Any]]:
+        """Scan/discover available serial devices."""
+        import asyncio
+        ports = await asyncio.to_thread(self.list_ports)
+        discovered = []
+        for p in ports:
+            clean_port = p["port"].replace("/", "_").replace(".", "_").replace("\\", "_").replace(":", "_")
+            discovered.append({
+                "id": f"serial_{clean_port}",
+                "name": p.get("description") or f"Serial Device on {p['port']}",
+                "type": "serial",
+                "address": p["port"],
+                "protocols": ["serial"],
+                "metadata": {
+                    "vid": p.get("vid"),
+                    "pid": p.get("pid"),
+                    "hwid": p.get("hwid"),
+                    "serial_number": p.get("serial_number"),
+                }
+            })
+        return discovered
 
     @classmethod
     def auto_discover(
@@ -322,7 +346,7 @@ class SerialDriver(BaseDriver):
 
         self._is_connected = False
 
-    def send_bytes(self, data: bytes) -> bool:
+    async def send_bytes(self, data: bytes) -> bool:
         """
         Send raw bytes to device.
 
@@ -331,27 +355,22 @@ class SerialDriver(BaseDriver):
 
         Returns:
             True if send successful, False otherwise
-
-        Example:
-            >>> # Send 3-byte command
-            >>> driver.send_bytes(b"\\xFF\\x00\\x64")
-            True
-            >>>
-            >>> # Send ASCII command
-            >>> driver.send_bytes(b"LED:ON\\n")
-            True
         """
         if not self._is_connected or not self._serial:
             logger.error("Cannot send: not connected")
             return False
 
         try:
-            with self._write_lock:
-                bytes_written = self._serial.write(data)
-                self._serial.flush()  # Ensure data is transmitted
+            def _write():
+                with self._write_lock:
+                    bytes_written = self._serial.write(data)
+                    self._serial.flush()  # Ensure data is transmitted
+                return bytes_written
+
+            bytes_written = await asyncio.to_thread(_write)
 
             logger.debug(
-                f"Sent {bytes_written} bytes to {self.port}: " f"{data.hex()}"
+                f"Sent {bytes_written} bytes to {self.port}: {data.hex()}"
             )
             return bool(bytes_written == len(data))
 
@@ -360,7 +379,7 @@ class SerialDriver(BaseDriver):
             self._mark_connection_unhealthy(str(e))
             return False
 
-    def send_text(self, command: str, encoding: str = "utf-8") -> bool:
+    async def send_text(self, command: str, encoding: str = "utf-8") -> bool:
         """
         Send text command to device.
 
@@ -370,17 +389,11 @@ class SerialDriver(BaseDriver):
 
         Returns:
             True if send successful, False otherwise
-
-        Example:
-            >>> driver.send_text("LED:255")
-            True
-            >>> driver.send_text("MOTOR:100\\n")
-            True
         """
-        return self.send_bytes(command.encode(encoding))
+        return await self.send_bytes(command.encode(encoding))
 
     # BaseDriver interface implementation
-    def send_command(
+    async def send_command(
         self,
         device_id: str,
         command: str,
@@ -397,41 +410,20 @@ class SerialDriver(BaseDriver):
         Returns:
             bool: True if command sent successfully
         """
-        if not self.is_connected() and self.auto_reconnect:
-            self.connect()
+        if not await self.is_connected() and self.auto_reconnect:
+            await self.connect()
 
-        if not self.is_connected():
+        if not await self.is_connected():
             logger.warning("Cannot send command: not connected")
             return False
 
-        if params is None:
-            params = {}
-
-        payload = ""
         try:
-            if self.data_format == "xml":
-                # Build a simple XML string
-                param_str = "".join(
-                    [f"<{k}>{v}</{k}>" for k, v in params.items()]
-                )
-                payload = (
-                    f"<command>"
-                    f"<deviceId>{device_id}</deviceId>"
-                    f"<name>{command}</name>"
-                    f"<params>{param_str}</params>"
-                    f"</command>\n"
-                )
-            else:  # Default to JSON
-                # Send as JSON for structured data
-                message = {
-                    "command": command,
-                    "params": params,
-                    "device_id": device_id,
-                }
-                payload = json.dumps(message) + "\n"
+            payload = serialize_device_command(
+                device_id, command, params, self.data_format
+            ) + "\n"
 
             # Send via serial
-            return self.send_bytes(payload.encode("utf-8"))
+            return await self.send_bytes(payload.encode("utf-8"))
 
         except Exception as e:
             logger.error(f"Error sending command: {e}")
@@ -528,7 +520,7 @@ class SerialDriver(BaseDriver):
 
         logger.debug("Read thread stopped")
 
-    def is_connected(self) -> bool:
+    async def is_connected(self) -> bool:
         """Check if serial port is connected (BaseDriver interface)."""
         return self._is_connected and self._serial is not None
 
@@ -571,14 +563,14 @@ class SerialDriver(BaseDriver):
         except Exception as e:
             logger.error(f"Error resetting device: {e}")
 
-    def __enter__(self):
-        """Context manager entry."""
-        self.open_connection()
+    async def __aenter__(self):
+        """Async context manager entry."""
+        await asyncio.to_thread(self.open_connection)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit."""
-        self.close_connection()
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await asyncio.to_thread(self.close_connection)
 
     def __repr__(self) -> str:
         """String representation."""
@@ -593,14 +585,14 @@ class SerialDriver(BaseDriver):
         return self.interface_name
 
     # BaseDriver additional methods
-    def connect(self) -> bool:
+    async def connect(self) -> bool:
         """Connect to serial device (BaseDriver interface)."""
         delays = self.retry_policy.delays()
         max_attempts = max(1, self.retry_policy.max_attempts)
 
         for attempt in range(1, max_attempts + 1):
             self._reconnect_attempts = attempt
-            if self.open_connection():
+            if await asyncio.to_thread(self.open_connection):
                 self._last_reconnect_error = None
                 return True
 
@@ -610,22 +602,22 @@ class SerialDriver(BaseDriver):
             if attempt < max_attempts:
                 delay = delays[attempt - 1] if attempt - 1 < len(delays) else 0
                 if delay > 0:
-                    time.sleep(delay)
+                    await asyncio.sleep(delay)
 
         return False
 
-    def disconnect(self) -> bool:
+    async def disconnect(self) -> bool:
         """Disconnect from serial device (BaseDriver interface)."""
         try:
-            self.close_connection()
+            await asyncio.to_thread(self.close_connection)
             return True
         except Exception as e:
             logger.error(f"Disconnect failed: {e}")
             return False
 
-    def get_driver_info(self) -> Dict[str, Any]:
+    async def get_driver_info(self) -> Dict[str, Any]:
         """Get serial driver configuration (BaseDriver interface)."""
-        info = super().get_driver_info()
+        info = await super().get_driver_info()
         info.update(
             {
                 "port": self.port,

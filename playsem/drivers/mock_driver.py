@@ -29,17 +29,17 @@ class MockConnectivityDriver(BaseDriver):
         # Map device_id -> MockDeviceBase instance for forwarding commands
         self._devices: Dict[str, MockDeviceBase] = {}
 
-    def connect(self) -> bool:
+    async def connect(self) -> bool:
         logger.info("MockConnectivityDriver: connect()")
         self._connected = True
         return True
 
-    def disconnect(self) -> bool:
+    async def disconnect(self) -> bool:
         logger.info("MockConnectivityDriver: disconnect()")
         self._connected = False
         return True
 
-    def send_command(
+    async def send_command(
         self,
         device_id: str,
         command: str,
@@ -95,7 +95,7 @@ class MockConnectivityDriver(BaseDriver):
                 return False
         return True
 
-    def is_connected(self) -> bool:
+    async def is_connected(self) -> bool:
         return self._connected
 
     def get_interface_name(self) -> str:

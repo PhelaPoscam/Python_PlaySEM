@@ -31,13 +31,13 @@ except ImportError:
     BleakClient = Any  # type: ignore
     BleakGATTCharacteristic = Any  # type: ignore
 
-from .base_driver import AsyncBaseDriver
+from .base_driver import AsyncBaseDriver, BaseDiscovery
 from .retry_policy import RetryPolicy
 
 logger = logging.getLogger(__name__)
 
 
-class BluetoothDriver(AsyncBaseDriver):
+class BluetoothDriver(AsyncBaseDriver, BaseDiscovery):
     """
     Bluetooth Low Energy (BLE) driver for wireless devices.
 
@@ -101,11 +101,16 @@ class BluetoothDriver(AsyncBaseDriver):
         self._reconnect_attempts = 0
         self._last_reconnect_error: Optional[str] = None
 
+        self.interface_name = "bluetooth"
         logger.info(
             f"BluetoothDriver initialized - "
             f"address: {address or 'not set'}, "
             f"name: {device_name or 'not set'}"
         )
+
+    def get_interface_name(self) -> str:
+        """Get the interface name (BaseDriver interface)."""
+        return self.interface_name
 
     @staticmethod
     async def scan_devices(
@@ -188,6 +193,25 @@ class BluetoothDriver(AsyncBaseDriver):
         except Exception as e:
             logger.error(f"Scan failed: {e}")
             return []
+
+    async def discover_devices(self) -> List[Dict[str, Any]]:
+        """Scan/discover available Bluetooth/BLE devices."""
+        devices = await self.scan_devices(timeout=2.0)
+        discovered = []
+        for d in devices:
+            clean_addr = d["address"].replace(":", "").replace("-", "").replace(" ", "")
+            discovered.append({
+                "id": f"ble_{clean_addr}",
+                "name": d["name"] or f"BLE Device {d['address']}",
+                "type": "bluetooth",
+                "address": d["address"],
+                "protocols": ["bluetooth"],
+                "metadata": {
+                    "rssi": d.get("rssi"),
+                    "metadata": d.get("metadata"),
+                }
+            })
+        return discovered
 
     @staticmethod
     async def find_device(
@@ -579,9 +603,9 @@ class BluetoothDriver(AsyncBaseDriver):
         if not success:
             logger.error("BLE reconnect exhausted retry budget")
 
-    def get_driver_info(self) -> Dict[str, Any]:
+    async def get_driver_info(self) -> Dict[str, Any]:
         """Get Bluetooth driver configuration and reconnect status."""
-        info = super().get_driver_info()
+        info = await super().get_driver_info()
         info.update(
             {
                 "address": self.address,

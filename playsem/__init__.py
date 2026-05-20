@@ -7,6 +7,8 @@ from .effect_dispatcher import DispatchResult, EffectDispatcher
 from .effect_metadata import EffectMetadata
 from .device_registry import DeviceRegistry, DeviceInfo
 from .timeline import Timeline
+from .drivers.base_driver import BaseDiscovery
+from .drivers.upnp_discovery import UPnPDiscovery
 
 __all__ = [
     "DeviceManager",
@@ -16,4 +18,6 @@ __all__ = [
     "DeviceRegistry",
     "DeviceInfo",
     "Timeline",
+    "BaseDiscovery",
+    "UPnPDiscovery",
 ]

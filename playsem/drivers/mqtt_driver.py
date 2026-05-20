@@ -1,20 +1,14 @@
-#!/usr/bin/env python3
-"""
-MQTT Connectivity Driver.
-
-Implements BaseDriver interface for MQTT-based device communication.
-Wraps paho-mqtt client for integration with DeviceManager.
-"""
-
 import logging
 import json
 import threading
 import time
+import asyncio
 from typing import Dict, Any, Optional
 import paho.mqtt.client as mqtt
 
 from .base_driver import BaseDriver
 from .retry_policy import RetryPolicy
+from ..utils.serializer import serialize_device_command
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +27,13 @@ class MQTTDriver(BaseDriver):
 
     Example:
         >>> driver = MQTTDriver(broker="localhost", port=1883)
-        >>> driver.connect()
-        >>> driver.send_command(
+        >>> await driver.connect()
+        >>> await driver.send_command(
         ...     device_id="devices/light_001",
         ...     command="set_intensity",
         ...     params={"intensity": 255}
         ... )
-        >>> driver.disconnect()
+        >>> await driver.disconnect()
     """
 
     def __init__(
@@ -122,17 +116,12 @@ class MQTTDriver(BaseDriver):
             f"tls: {use_tls}, qos: {qos}, format: {self.data_format}"
         )
 
-    def connect(self) -> bool:
+    async def connect(self) -> bool:
         """
         Connect to MQTT broker.
 
         Returns:
             bool: True if connection successful
-
-        Example:
-            >>> driver = MQTTDriver(broker="localhost")
-            >>> driver.connect()
-            True
         """
         delays = self.retry_policy.delays()
         max_attempts = max(1, self.retry_policy.max_attempts)
@@ -155,20 +144,16 @@ class MQTTDriver(BaseDriver):
                         delays[attempt - 1] if attempt - 1 < len(delays) else 0
                     )
                     if delay > 0:
-                        time.sleep(delay)
+                        await asyncio.sleep(delay)
 
         return False
 
-    def disconnect(self) -> bool:
+    async def disconnect(self) -> bool:
         """
         Disconnect from MQTT broker.
 
         Returns:
             bool: True if disconnect successful
-
-        Example:
-            >>> driver.disconnect()
-            True
         """
         try:
             logger.info("Disconnecting from MQTT broker")
@@ -180,7 +165,7 @@ class MQTTDriver(BaseDriver):
             logger.error(f"MQTT disconnect failed: {e}")
             return False
 
-    def send_command(
+    async def send_command(
         self,
         device_id: str,
         command: str,
@@ -201,30 +186,10 @@ class MQTTDriver(BaseDriver):
             logger.warning("Cannot send command: not connected to broker")
             return False
 
-        if params is None:
-            params = {}
-
-        message = ""
         try:
-            # Build payload based on data format
-            if self.data_format == "xml":
-                param_str = "".join(
-                    [f"<{k}>{v}</{k}>" for k, v in params.items()]
-                )
-                message = (
-                    f"<command>"
-                    f"<deviceId>{device_id}</deviceId>"
-                    f"<name>{command}</name>"
-                    f"<params>{param_str}</params>"
-                    f"</command>"
-                )
-            else:  # Default to JSON
-                payload = {
-                    "command": command,
-                    "params": params,
-                    "device_id": device_id,
-                }
-                message = json.dumps(payload)
+            message = serialize_device_command(
+                device_id, command, params, self.data_format
+            )
 
             # Publish to topic
             result = self.client.publish(
@@ -237,7 +202,9 @@ class MQTTDriver(BaseDriver):
             if result.rc == mqtt.MQTT_ERR_SUCCESS:
                 if self.wait_for_publish:
                     try:
-                        result.wait_for_publish(timeout=self.publish_timeout)
+                        await asyncio.to_thread(
+                            result.wait_for_publish, timeout=self.publish_timeout
+                        )
                     except Exception as e:
                         logger.error(f"Publish acknowledgement failed: {e}")
                         return False
@@ -262,16 +229,12 @@ class MQTTDriver(BaseDriver):
             logger.error(f"Error sending command: {e}")
             return False
 
-    def is_connected(self) -> bool:
+    async def is_connected(self) -> bool:
         """
         Check if connected to MQTT broker.
 
         Returns:
             bool: True if connected
-
-        Example:
-            >>> driver.is_connected()
-            True
         """
         return self._is_connected
 
@@ -279,14 +242,14 @@ class MQTTDriver(BaseDriver):
         """Get the unique name of the connectivity interface."""
         return self.interface_name
 
-    def get_driver_info(self) -> Dict[str, Any]:
+    async def get_driver_info(self) -> Dict[str, Any]:
         """
         Get MQTT driver configuration.
 
         Returns:
             dict: Driver information
         """
-        info = super().get_driver_info()
+        info = await super().get_driver_info()
         info.update(
             {
                 "broker": self.broker,
@@ -441,11 +404,11 @@ class MQTTDriver(BaseDriver):
             with self._reconnect_lock:
                 self._reconnect_in_progress = False
 
-    def __enter__(self):
-        """Context manager entry."""
-        self.connect()
+    async def __aenter__(self):
+        """Async context manager entry."""
+        await self.connect()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit."""
-        self.disconnect()
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.disconnect()

@@ -23,6 +23,7 @@ import uvicorn
 
 from ..effect_dispatcher import EffectDispatcher
 from ..effect_metadata import EffectMetadata
+from ..device_registry import DeviceRegistry
 
 
 logger = logging.getLogger(__name__)
@@ -56,10 +57,13 @@ class DeviceInfoModel(BaseModel):
     device_id: str
     device_type: str
     status: str
+    circuit_state: Optional[str] = "closed"
+    consecutive_failures: Optional[int] = 0
+    last_error_message: Optional[str] = None
 
 
 class DevicesResponse(BaseModel):
-    devices: list
+    devices: list[DeviceInfoModel]
     count: int
 
 
@@ -99,6 +103,7 @@ class HTTPServer:
         cors_origins: Optional[list] = None,
         on_effect_received: Optional[Callable[[EffectMetadata], None]] = None,
         on_effect_broadcast: Optional[Callable] = None,
+        device_registry: Optional[DeviceRegistry] = None,
     ):
         """
         Initialize HTTP REST server.
@@ -118,6 +123,7 @@ class HTTPServer:
         self.cors_origins = cors_origins or ["*"]
         self.on_effect_received = on_effect_received
         self.on_effect_broadcast = on_effect_broadcast
+        self.device_registry = device_registry
 
         self._server = None
         self._app = None
@@ -248,18 +254,44 @@ class HTTPServer:
             dependencies=[self._security_dependency] if self.api_key else [],
         )
         async def get_devices():
-            # Mock device list (extend with real device manager integration)
+            registry = self.device_registry
+            if registry is None and hasattr(self.dispatcher, "device_manager"):
+                registry = getattr(self.dispatcher.device_manager, "device_registry", None)
+
+            if registry:
+                devices = []
+                for device_info in registry.get_all_devices():
+                    d_dict = device_info.to_dict()
+                    devices.append(
+                        DeviceInfoModel(
+                            device_id=d_dict["id"],
+                            device_type=d_dict["type"],
+                            status="connected",
+                            circuit_state=d_dict.get("circuit_state", "closed"),
+                            consecutive_failures=d_dict.get("consecutive_failures", 0),
+                            last_error_message=d_dict.get("last_error_message"),
+                        )
+                    )
+                return DevicesResponse(devices=devices, count=len(devices))
+
+            # Fallback to mock device list if no registry is configured
             devices = [
-                {
-                    "device_id": "mock_light_1",
-                    "device_type": "light",
-                    "status": "connected",
-                },
-                {
-                    "device_id": "mock_wind_1",
-                    "device_type": "wind",
-                    "status": "connected",
-                },
+                DeviceInfoModel(
+                    device_id="mock_light_1",
+                    device_type="light",
+                    status="connected",
+                    circuit_state="closed",
+                    consecutive_failures=0,
+                    last_error_message=None,
+                ),
+                DeviceInfoModel(
+                    device_id="mock_wind_1",
+                    device_type="wind",
+                    status="connected",
+                    circuit_state="closed",
+                    consecutive_failures=0,
+                    last_error_message=None,
+                ),
             ]
             return DevicesResponse(devices=devices, count=len(devices))
 

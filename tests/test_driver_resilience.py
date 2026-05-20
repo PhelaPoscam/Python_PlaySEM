@@ -33,7 +33,8 @@ def test_retry_policy_delays_are_bounded():
     assert policy.delays() == [0.5, 1.0, 1.0]
 
 
-def test_mqtt_connect_retries_and_succeeds():
+@pytest.mark.asyncio
+async def test_mqtt_connect_retries_and_succeeds():
     driver = MQTTDriver(
         interface_name="mqtt_test",
         broker="localhost",
@@ -43,12 +44,13 @@ def test_mqtt_connect_retries_and_succeeds():
     driver.client.connect = MagicMock(side_effect=[RuntimeError("fail"), None])
     driver.client.loop_start = MagicMock()
 
-    assert driver.connect() is True
+    assert await driver.connect() is True
     assert driver.client.connect.call_count == 2
     driver.client.loop_start.assert_called_once()
 
 
-def test_mqtt_connect_exhausts_retry_budget():
+@pytest.mark.asyncio
+async def test_mqtt_connect_exhausts_retry_budget():
     driver = MQTTDriver(
         interface_name="mqtt_test",
         broker="localhost",
@@ -57,7 +59,7 @@ def test_mqtt_connect_exhausts_retry_budget():
     )
     driver.client.connect = MagicMock(side_effect=RuntimeError("fail"))
 
-    assert driver.connect() is False
+    assert await driver.connect() is False
     assert driver.client.connect.call_count == 3
 
 
@@ -78,7 +80,8 @@ def test_mqtt_reconnect_loop_updates_attempts():
     assert driver._last_reconnect_error is None
 
 
-def test_mqtt_wait_for_publish_ack_success():
+@pytest.mark.asyncio
+async def test_mqtt_wait_for_publish_ack_success():
     driver = MQTTDriver(
         interface_name="mqtt_test",
         broker="localhost",
@@ -89,11 +92,12 @@ def test_mqtt_wait_for_publish_ack_success():
     publish_result = _PublishResult(rc=0, published=True)
     driver.client.publish = MagicMock(return_value=publish_result)
 
-    assert driver.send_command("devices/test", "pulse", {"intensity": 50})
+    assert await driver.send_command("devices/test", "pulse", {"intensity": 50})
     publish_result.wait_for_publish.assert_called_once_with(timeout=0.25)
 
 
-def test_mqtt_wait_for_publish_ack_timeout_fails():
+@pytest.mark.asyncio
+async def test_mqtt_wait_for_publish_ack_timeout_fails():
     driver = MQTTDriver(
         interface_name="mqtt_test",
         broker="localhost",
@@ -105,13 +109,14 @@ def test_mqtt_wait_for_publish_ack_timeout_fails():
     driver.client.publish = MagicMock(return_value=publish_result)
 
     assert (
-        driver.send_command("devices/test", "pulse", {"intensity": 50})
+        await driver.send_command("devices/test", "pulse", {"intensity": 50})
         is False
     )
     publish_result.wait_for_publish.assert_called_once_with(timeout=0.25)
 
 
-def test_serial_connect_retries(monkeypatch):
+@pytest.mark.asyncio
+async def test_serial_connect_retries(monkeypatch):
     import playsem.drivers.serial_driver as serial_module
 
     if not serial_module.SERIAL_AVAILABLE:
@@ -127,12 +132,13 @@ def test_serial_connect_retries(monkeypatch):
         MagicMock(side_effect=[False, True]),
     )
 
-    assert driver.connect() is True
+    assert await driver.connect() is True
     assert driver.open_connection.call_count == 2
     assert driver._last_reconnect_error is None
 
 
-def test_serial_write_failure_marks_connection_unhealthy():
+@pytest.mark.asyncio
+async def test_serial_write_failure_marks_connection_unhealthy():
     import playsem.drivers.serial_driver as serial_module
 
     if not serial_module.SERIAL_AVAILABLE:
@@ -149,8 +155,8 @@ def test_serial_write_failure_marks_connection_unhealthy():
     driver._serial = BrokenSerial()
     driver._is_connected = True
 
-    assert driver.send_bytes(b"PING\n") is False
-    assert driver.is_connected() is False
+    assert await driver.send_bytes(b"PING\n") is False
+    assert await driver.is_connected() is False
     assert driver._last_reconnect_error == "device vanished"
 
 

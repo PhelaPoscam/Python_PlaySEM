@@ -208,6 +208,61 @@ class Timeline:
         # Execute immediately
         self._execute_effect(effect)
 
+    def add_effect(self, effect: EffectMetadata):
+        """
+        Dynamically add an effect to the active timeline and schedule it if running.
+
+        Args:
+            effect: EffectMetadata to add
+        """
+        with self._lock:
+            if not self.timeline:
+                self.timeline = EffectTimeline()
+            
+            self.timeline.add_effect(effect)
+            
+            # If the timeline is running, schedule this new effect
+            if self.is_running and not self.is_paused and self.start_time is not None:
+                # Only schedule if it's in the future relative to current playback position
+                current_pos = self.get_position()
+                if effect.timestamp >= current_pos:
+                    time_offset = (effect.timestamp - current_pos) / 1000.0
+                    scheduled_time = time.time() + time_offset
+                    self.scheduled_effects.append(
+                        ScheduledEffect(
+                            effect=effect,
+                            scheduled_time=scheduled_time,
+                            executed=False,
+                        )
+                    )
+
+    def remove_effect(self, effect: EffectMetadata):
+        """
+        Dynamically remove an effect from the active timeline and unschedule it.
+
+        Args:
+            effect: EffectMetadata to remove
+        """
+        with self._lock:
+            if not self.timeline:
+                return
+            
+            if effect in self.timeline.effects:
+                self.timeline.effects.remove(effect)
+                
+            # Filter out from scheduled effects
+            self.scheduled_effects = [
+                s for s in self.scheduled_effects if s.effect != effect
+            ]
+
+    def clear_effects(self):
+        """Dynamically clear all effects from the active timeline."""
+        with self._lock:
+            if self.timeline:
+                self.timeline.effects = []
+                self.timeline.total_duration = 0
+            self.scheduled_effects = []
+
     def _schedule_effects(self):
         """Schedule all timeline effects based on current position."""
         if not self.timeline:
@@ -243,6 +298,8 @@ class Timeline:
                 continue
 
             current_time = time.time()
+            to_execute = []
+            complete = False
 
             with self._lock:
                 # Update current position
@@ -251,12 +308,14 @@ class Timeline:
                     self.current_position = int(elapsed * 1000)
 
                 # Check for effects to execute
-                for scheduled in self.scheduled_effects:
+                # We iterate over a copy of self.scheduled_effects to avoid concurrent modification issues
+                for scheduled in list(self.scheduled_effects):
                     if (
                         not scheduled.executed
                         and current_time >= scheduled.scheduled_time
                     ):
-                        self._execute_effect(scheduled.effect)
+                        to_execute.append(scheduled)
+                        # Mark executed under lock to prevent double execution
                         scheduled.executed = True
 
                 # Check if timeline is complete
@@ -265,9 +324,16 @@ class Timeline:
                     and self.current_position >= self.timeline.total_duration
                 ):
                     self.is_running = False
-                    if self.on_complete_callback:
-                        self.on_complete_callback()
-                    break
+                    complete = True
+
+            # Execute effects outside of the lock to avoid blocking/deadlocks in callbacks or dispatchers
+            for scheduled in to_execute:
+                self._execute_effect(scheduled.effect)
+
+            if complete:
+                if self.on_complete_callback:
+                    self.on_complete_callback()
+                break
 
             time.sleep(self.tick_interval)
 

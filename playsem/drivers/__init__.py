@@ -8,9 +8,10 @@ Available Drivers:
     - MockDriver: Testing/simulation devices
 """
 
-from playsem.drivers.base_driver import BaseDriver
+from playsem.drivers.base_driver import BaseDriver, BaseDiscovery
 from playsem.drivers.retry_policy import RetryPolicy
 from playsem.drivers.rgb_light_driver import RGBLightDriver
+from playsem.drivers.upnp_discovery import UPnPDiscovery
 from playsem.drivers.mock_driver import (
     MockConnectivityDriver,
     MockLightDevice,
@@ -37,6 +38,8 @@ except ImportError:
 
 __all__ = [
     "BaseDriver",
+    "BaseDiscovery",
+    "UPnPDiscovery",
     "RetryPolicy",
     "RGBLightDriver",
     "MockConnectivityDriver",

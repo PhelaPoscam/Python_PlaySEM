@@ -45,7 +45,8 @@ def test_mqtt_broker_disconnect_recovery_slo():
 
 
 @pytest.mark.integration
-def test_mqtt_command_loss_budget_during_transient_disconnect():
+@pytest.mark.asyncio
+async def test_mqtt_command_loss_budget_during_transient_disconnect():
     """Failure-injection: command loss remains <=1 during transient disconnect."""
     driver = MQTTDriver(
         interface_name="mqtt_resilience",
@@ -71,14 +72,14 @@ def test_mqtt_command_loss_budget_during_transient_disconnect():
 
     # Simulate a transient disconnect window.
     driver._is_connected = False
-    if not driver.send_command("devices/test", "pulse", {"intensity": 100}):
+    if not await driver.send_command("devices/test", "pulse", {"intensity": 100}):
         command_loss += 1
 
     # Recover and continue command flow.
     driver._reconnect_loop()
 
     for _ in range(49):
-        if not driver.send_command(
+        if not await driver.send_command(
             "devices/test", "pulse", {"intensity": 100}
         ):
             command_loss += 1
@@ -87,9 +88,11 @@ def test_mqtt_command_loss_budget_during_transient_disconnect():
 
 
 @pytest.mark.integration
-def test_serial_port_unavailable_then_reconnect(monkeypatch):
+@pytest.mark.asyncio
+async def test_serial_port_unavailable_then_reconnect(monkeypatch):
     """Failure-injection: serial port unavailable first, then reconnects."""
     import playsem.drivers.serial_driver as serial_module
+    from unittest.mock import AsyncMock
 
     if not serial_module.SERIAL_AVAILABLE:
         pytest.skip("pyserial not available")
@@ -114,13 +117,13 @@ def test_serial_port_unavailable_then_reconnect(monkeypatch):
         return result
 
     monkeypatch.setattr(driver, "open_connection", open_connection_side_effect)
-    monkeypatch.setattr(driver, "send_bytes", MagicMock(return_value=True))
+    monkeypatch.setattr(driver, "send_bytes", AsyncMock(return_value=True))
 
     loss = 0
-    if not driver.send_command("serial_device", "set_speed", {"speed": 10}):
+    if not await driver.send_command("serial_device", "set_speed", {"speed": 10}):
         loss += 1
 
-    if not driver.send_command("serial_device", "set_speed", {"speed": 10}):
+    if not await driver.send_command("serial_device", "set_speed", {"speed": 10}):
         loss += 1
 
     assert loss <= 1
