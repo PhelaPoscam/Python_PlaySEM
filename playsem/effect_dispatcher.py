@@ -638,12 +638,12 @@ class EffectDispatcher:
         )
 
         envelope = CommandEnvelope(
-            effect=None,  # In raw dispatch we may not have EffectMetadata
+            effect=EffectMetadata(effect_type=""),
             device_id=device_id,
             command=command,
             params=mapped_params,
             deadline_ms=deadline_ms,
-            delivery_mode=delivery_mode,
+            delivery_mode=delivery_mode,  # type: ignore[arg-type]
         )
 
         try:

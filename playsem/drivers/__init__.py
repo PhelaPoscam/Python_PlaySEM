@@ -49,9 +49,9 @@ __all__ = [
     "MockScentDevice",
 ]
 
-if SerialDriver:
+if SerialDriver is not None:
     __all__.append("SerialDriver")
-if MQTTDriver:
+if MQTTDriver is not None:
     __all__.append("MQTTDriver")
-if BluetoothDriver:
+if BluetoothDriver is not None:
     __all__.append("BluetoothDriver")

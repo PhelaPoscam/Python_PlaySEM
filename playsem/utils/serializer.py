@@ -8,6 +8,7 @@ as well as proper escaping and tag sanitization for XML payloads.
 
 import json
 import xml.etree.ElementTree as ET
+from xml.etree.ElementTree import tostring as _tostring
 from datetime import datetime, date
 from decimal import Decimal
 from uuid import UUID
@@ -51,7 +52,8 @@ def serialize_to_xml(tag_name: str, data: Dict[str, Any]) -> str:
     """
     root = ET.Element(tag_name)
     _build_xml_tree(root, data)
-    return ET.tostring(root, encoding="utf-8").decode("utf-8")
+    result: bytes = _tostring(root, encoding="utf-8")
+    return result.decode("utf-8")
 
 
 def serialize_device_command(
@@ -78,7 +80,8 @@ def serialize_device_command(
         params_elem = ET.SubElement(root, "params")
         _build_xml_tree(params_elem, params)
 
-        return ET.tostring(root, encoding="utf-8").decode("utf-8")
+        result: bytes = _tostring(root, encoding="utf-8")
+        return result.decode("utf-8")
     else:
         payload = {
             "command": command,

@@ -8,7 +8,7 @@
 
 **PlaySEM** is an enterprise-grade, highly concurrent, async-native Python framework for orchestrating sensory and haptic effects (vibration, wind, light, scent) across diverse hardware devices and networking protocols. 
 
-It acts as a high-performance translation matrix between abstract haptic metadata schemas and physical physical devices.
+It acts as a high-performance translation matrix between abstract haptic metadata schemas and physical devices.
 
 ---
 

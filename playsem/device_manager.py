@@ -109,7 +109,7 @@ class DeviceManager:
         ):
             self.register_scanner(self.connectivity_driver)
         elif not self._legacy_mode and not self._single_driver_mode:
-            for driver in drivers:
+            for driver in drivers or []:
                 if isinstance(driver, BaseDiscovery):
                     self.register_scanner(driver)
 
@@ -518,7 +518,7 @@ class DeviceManager:
         """Return the async lock that serializes async commands for one logical device."""
         with self._device_locks_guard:
             if not hasattr(self, "_async_device_locks"):
-                self._async_device_locks = {}
+                self._async_device_locks: dict[str, asyncio.Lock] = {}
             lock = self._async_device_locks.get(device_id)
             if lock is None:
                 lock = asyncio.Lock()

@@ -60,7 +60,7 @@ class MQTTServer:
         self.internal_client = None
         self._ready_event = asyncio.Event()
         self._stop_event = asyncio.Event()  # New stop event
-        self._recent_message_ids = {}
+        self._recent_message_ids: dict[str, float] = {}
         self._dedupe_window_seconds = 1.0
         self._subscribed = threading.Event()
         self.ws_port = self._pick_free_port()

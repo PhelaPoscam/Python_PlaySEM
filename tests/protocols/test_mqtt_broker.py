@@ -97,15 +97,20 @@ async def test_broker_publish_and_dispatch(mqtt_broker, effect_dispatcher):
     # The mqtt_broker fixture has already started the server
 
     # Use a standard paho-mqtt client to connect and publish
-    client = mqtt.Client(client_id="test_client")
+    client = mqtt.Client(
+        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+        client_id="test_client",
+    )
     connection_result = {"value": -1}
     message_published = {"done": False}
 
-    def on_connect(client, userdata, flags, rc):
-        connection_result["value"] = rc
-        logger.info(f"paho-mqtt client connected with result code: {rc}")
+    def on_connect(client, userdata, flags, reason_code, properties):
+        connection_result["value"] = reason_code
+        logger.info(
+            f"paho-mqtt client connected with result code: {reason_code}"
+        )
 
-    def on_publish(client, userdata, mid):
+    def on_publish(client, userdata, mid, reason_code, properties):
         message_published["done"] = True
         logger.info(f"Message published: {mid}")
 

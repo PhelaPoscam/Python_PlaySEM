@@ -30,13 +30,13 @@ except ImportError:
 
 __all__ = []
 
-if CoAPServer:
+if CoAPServer is not None:
     __all__.append("CoAPServer")
-if HTTPServer:
+if HTTPServer is not None:
     __all__.append("HTTPServer")
-if MQTTServer:
+if MQTTServer is not None:
     __all__.append("MQTTServer")
-if UPnPServer:
+if UPnPServer is not None:
     __all__.append("UPnPServer")
-if WebSocketServer:
+if WebSocketServer is not None:
     __all__.append("WebSocketServer")
