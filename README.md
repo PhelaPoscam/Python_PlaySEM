@@ -6,7 +6,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Architecture: Async](https://img.shields.io/badge/architecture-async--native-orange.svg)]()
 
-**PlaySEM** is an enterprise-grade, highly concurrent, async-native Python framework for orchestrating sensory and haptic effects (vibration, wind, light, scent) across diverse hardware devices and networking protocols. 
+**PlaySEM** is a concurrent, async-native Python framework for orchestrating sensory and haptic effects (vibration, wind, light, scent) across diverse hardware devices and networking protocols. 
 
 It acts as a high-performance translation matrix between abstract haptic metadata schemas and physical devices.
 
@@ -57,20 +57,6 @@ flowchart TD
 
 ---
 
-## ✨ Features
-
-- ⚡ **Native Async Architecture**: Non-blocking async-native dispatch loop prevents OOM errors and thread-creation overhead under high-volume haptic streams.
-- 📦 **Command Envelopes (`CommandEnvelope`)**: Unified transaction data carrier supporting delivery priorities, time-to-live (TTL) deadlines, idempotency keys, and quality-of-service guarantees.
-- 🚦 **Robust Backpressure**: Bounded per-device `asyncio.PriorityQueue` buffers that automatically serialize execution and apply backpressure to fast-producing ingress sources.
-- 🛡️ **Fault Tolerance & Resilience**:
-  - **Circuit Breakers**: Per-logical-device circuit breakers prevent system locks by automatically isolating unresponsive or crashing drivers.
-  - **Exponential Backoff**: Automated message delivery retries with adaptive delays.
-  - **Dead-Letter Queue (DLQ)**: Failed high-priority envelopes are safely captured for diagnostic review.
-  - **Write Serialization**: Per-device async locks guarantee in-order delivery to serial ports and sockets without blocking the core event loop.
-- 🔌 **Multi-Protocol Ingress**: Native servers for **FastAPI (HTTP)**, **WebSockets**, **MQTT** (featuring an embedded broker), **CoAP**, and **UPnP**.
-- 🧪 **High-Fidelity Observational Testing**: Rich mock drivers with complete transactional history logs permit E2E system testing without requiring physical hardware present.
-
----
 
 ## 🚀 Quick Start
 
@@ -186,4 +172,4 @@ async def test_cross_protocol_consistency(playsem_system):
 - **Origins**: Modern Python translation and extension of the original Java PlaySEM by [Estevão Bissoli](https://github.com/estevaobissoli).
 
 ---
-*Immersive sensory experiences, structured for production.* 🌍✨
+

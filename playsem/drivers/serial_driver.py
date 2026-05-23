@@ -178,9 +178,9 @@ class SerialDriver(BaseDriver, BaseDiscovery):
         ports = await asyncio.to_thread(self.list_ports)
         discovered = []
         for p in ports:
+            device_path = p["device"]
             clean_port = (
-                p["port"]
-                .replace("/", "_")
+                device_path.replace("/", "_")
                 .replace(".", "_")
                 .replace("\\", "_")
                 .replace(":", "_")
@@ -189,9 +189,9 @@ class SerialDriver(BaseDriver, BaseDiscovery):
                 {
                     "id": f"serial_{clean_port}",
                     "name": p.get("description")
-                    or f"Serial Device on {p['port']}",
+                    or f"Serial Device on {device_path}",
                     "type": "serial",
-                    "address": p["port"],
+                    "address": device_path,
                     "protocols": ["serial"],
                     "metadata": {
                         "vid": p.get("vid"),

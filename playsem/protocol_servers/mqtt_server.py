@@ -58,8 +58,8 @@ class MQTTServer:
         self._lock = threading.Lock()
         self.loop = None
         self.internal_client = None
-        self._ready_event = asyncio.Event()
-        self._stop_event = asyncio.Event()  # New stop event
+        self._ready_event = threading.Event()
+        self._stop_event = threading.Event()
         self._recent_message_ids: dict[str, float] = {}
         self._dedupe_window_seconds = 1.0
         self._subscribed = threading.Event()
@@ -179,12 +179,7 @@ class MQTTServer:
                     )
                     # Signal readiness after successful subscribe
                     if self.loop is not None:
-                        try:
-                            self.loop.call_soon_threadsafe(
-                                self._ready_event.set
-                            )
-                        except Exception:
-                            pass
+                        self._ready_event.set()
                 except Exception as e:
                     logger.error(f"Internal MQTT subscribe error: {e}")
 
@@ -195,8 +190,7 @@ class MQTTServer:
             ):
                 try:
                     self._subscribed.set()
-                    if self.loop is not None:
-                        self.loop.call_soon_threadsafe(self._ready_event.set)
+                    self._ready_event.set()
                 except Exception as e:
                     logger.error(f"Internal MQTT on_subscribe error: {e}")
 
@@ -293,7 +287,8 @@ class MQTTServer:
         """
         Main loop for the broker, waits for a stop signal.
         """
-        await self._stop_event.wait()  # Wait until stop event is set
+        while not self._stop_event.is_set():
+            await asyncio.sleep(0.1)
         logger.info("Stop event received, initiating amqtt broker shutdown.")
         if self.broker:
             await self.broker.shutdown()  # Await the broker shutdown
@@ -304,7 +299,8 @@ class MQTTServer:
         Wait until the embedded MQTT Broker is fully started
         and ready to accept connections.
         """
-        await self._ready_event.wait()
+        while not self._ready_event.is_set():
+            await asyncio.sleep(0.05)
 
     def stop(self):
         """

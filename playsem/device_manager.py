@@ -29,6 +29,11 @@ class DeviceManager:
     """
     Manages all active device drivers and routes commands to the correct
     driver based on device ID.
+
+    Supports three initialization modes, all unified under a single code path:
+    - Multi-driver mode: map devices to specific drivers via config
+    - Single-driver mode: all devices route to one connectivity driver
+    - Legacy mode: wrap a raw MQTT client as a driver
     """
 
     def __init__(
@@ -57,9 +62,6 @@ class DeviceManager:
             circuit_breaker_reset_timeout: Seconds before an open circuit allows
                 a half-open probe.
         """
-        # Legacy mode: if a raw client is provided, use a simple publish-based driver
-        self._legacy_mode = client is not None
-        self._single_driver_mode = connectivity_driver is not None
         self.async_bridge_timeout = async_bridge_timeout
         self.circuit_breaker_failure_threshold = (
             circuit_breaker_failure_threshold
@@ -77,47 +79,64 @@ class DeviceManager:
         self._async_running = False
         self.dead_letter_queue: List[CommandEnvelope] = []
         self._scanners: List[BaseDiscovery] = []
+        self.drivers_by_interface: Dict[str, BaseDriver] = {}
+        self._default_driver: Optional[BaseDriver] = None
+        self.config_loader: Optional[ConfigLoader] = config_loader
+        self.connectivity_driver = connectivity_driver
 
-        if self._legacy_mode:
+        if client is not None:
+            # Legacy mode: wrap raw client as a driver
             logger.info("Initializing DeviceManager in legacy client mode.")
-            self.driver = _LegacyPublishDriver(client)
-        elif self._single_driver_mode:
+            self._default_driver = _LegacyPublishDriver(client)
+        elif connectivity_driver is not None:
+            # Single driver mode
             logger.info(
                 "Initializing DeviceManager with single connectivity driver."
             )
-            self.connectivity_driver = connectivity_driver
+            self._default_driver = connectivity_driver
+            if isinstance(connectivity_driver, BaseDiscovery):
+                self.register_scanner(connectivity_driver)
         else:
+            # Multi-driver mode
             drivers = drivers or []
             logger.info(
                 f"Initializing DeviceManager with {len(drivers)} drivers."
             )
-            self.drivers_by_interface: Dict[str, BaseDriver] = {
+            self.drivers_by_interface = {
                 driver.get_interface_name(): driver for driver in drivers
             }
             if config_loader is None:
                 raise ValueError(
                     "config_loader is required when not using legacy client mode"
                 )
-            self.config_loader = config_loader
-
             self._map_devices_to_drivers()
             self.connect_all()
 
-        # Register scanners from connectivity drivers
-        if self._single_driver_mode and isinstance(
-            self.connectivity_driver, BaseDiscovery
-        ):
-            self.register_scanner(self.connectivity_driver)
-        elif not self._legacy_mode and not self._single_driver_mode:
-            for driver in drivers or []:
+            for driver in drivers:
                 if isinstance(driver, BaseDiscovery):
                     self.register_scanner(driver)
+
+    @property
+    def connectivity_driver(self) -> Optional[Any]:
+        return getattr(self, "_connectivity_driver", None)
+
+    @connectivity_driver.setter
+    def connectivity_driver(self, value: Optional[Any]) -> None:
+        self._connectivity_driver = value
+        self._default_driver = value
+
+    def _resolve_driver(self, device_id: str) -> Optional[Any]:
+        """Resolve the driver for a device, falling back to default."""
+        return self.device_to_driver.get(device_id) or self._default_driver
 
     def _map_devices_to_drivers(self):
         """
         Builds a mapping from each deviceId to its corresponding driver instance
         using the loaded configuration.
         """
+        if self.config_loader is None:
+            return
+
         devices_config = self.config_loader.load_devices_config()
         devices = devices_config.get("devices", [])
 
@@ -169,50 +188,14 @@ class DeviceManager:
         if params is None:
             params = {}
 
-        device_lock = self._get_device_lock(device_id)
-
-        # Legacy publish mode
-        if self._legacy_mode:
-            with device_lock:
-                if not self._circuit_allows_request(device_id):
-                    return False
-                try:
-                    payload = str({"command": command, "params": params})
-                    self.driver.client.publish(device_id, payload)
-                    self._record_circuit_success(device_id)
-                    return True
-                except Exception as e:
-                    logger.error(f"Legacy publish failed: {e}")
-                    self._record_circuit_failure(device_id, str(e))
-                    return False
-
-        # Single connectivity driver mode
-        if self._single_driver_mode and self.connectivity_driver is not None:
-            with device_lock:
-                if not self._circuit_allows_request(device_id):
-                    return False
-                try:
-                    result = self.connectivity_driver.send_command(
-                        device_id, command, params
-                    )
-                    success = bool(self._resolve_maybe_async(result))
-                    self._record_circuit_outcome(device_id, success)
-                    return success
-                except Exception as e:
-                    logger.error(f"Single-driver send failed: {e}")
-                    self._record_circuit_failure(device_id, str(e))
-                    return False
-
-        driver = self.device_to_driver.get(device_id)
+        driver = self._resolve_driver(device_id)
         if not driver:
             logger.error(
                 f"No driver found for device_id '{device_id}'. Cannot send command."
             )
             return False
 
-        logger.info(
-            f"Sending command '{command}' to device '{device_id}' via {driver.get_driver_type()} driver."
-        )
+        device_lock = self._get_device_lock(device_id)
         with device_lock:
             if not self._circuit_allows_request(device_id):
                 return False
@@ -241,42 +224,19 @@ class DeviceManager:
         if params is None:
             params = {}
 
-        device_lock = self._get_device_lock(device_id)
-        async_lock = self._get_async_device_lock(device_id)
+        driver = self._resolve_driver(device_id)
+        if not driver:
+            logger.error(
+                f"No driver found for device_id '{device_id}'. Cannot send command."
+            )
+            return False
 
+        async_lock = self._get_async_device_lock(device_id)
         async with async_lock:
+            device_lock = self._get_device_lock(device_id)
             with device_lock:
                 if not self._circuit_allows_request(device_id):
                     return False
-
-            # Legacy publish mode
-            if self._legacy_mode:
-                with device_lock:
-                    try:
-                        payload = str({"command": command, "params": params})
-                        self.driver.client.publish(device_id, payload)
-                        self._record_circuit_success(device_id)
-                        return True
-                    except Exception as e:
-                        logger.error(f"Legacy publish failed: {e}")
-                        self._record_circuit_failure(device_id, str(e))
-                        return False
-
-            # Single connectivity driver mode
-            driver = None
-            if (
-                self._single_driver_mode
-                and self.connectivity_driver is not None
-            ):
-                driver = self.connectivity_driver
-            else:
-                driver = self.device_to_driver.get(device_id)
-
-            if not driver:
-                logger.error(
-                    f"No driver found for device_id '{device_id}'. Cannot send command."
-                )
-                return False
 
             driver_name = (
                 driver.get_driver_type()
@@ -319,7 +279,6 @@ class DeviceManager:
         """Starts the per-device async background workers."""
         self._async_running = True
         logger.info("Starting async device workers.")
-        # Start a worker for all currently known devices
         for device_id in self.device_to_driver.keys():
             self._ensure_worker(device_id)
 
@@ -337,7 +296,6 @@ class DeviceManager:
         if not self._async_running:
             return
         if device_id not in self._queues:
-            # Bounded priority queue
             self._queues[device_id] = asyncio.PriorityQueue(maxsize=100)
         if device_id not in self._workers or self._workers[device_id].done():
             self._workers[device_id] = asyncio.create_task(
@@ -347,8 +305,6 @@ class DeviceManager:
     async def async_submit_envelope(self, envelope: CommandEnvelope) -> Any:
         """
         Submit a command envelope to the appropriate per-device queue.
-        Returns a DispatchResult-like object from effect_dispatcher (dict for now)
-        or a structured response.
         """
         device_id = envelope.device_id
         self._ensure_worker(device_id)
@@ -361,8 +317,6 @@ class DeviceManager:
 
         queue = self._queues[device_id]
         try:
-            # We use the envelope priority and created_at to order the queue
-            # Lower priority number = higher priority
             item = (envelope.priority, envelope.created_at, envelope)
             await asyncio.wait_for(queue.put(item), timeout=0.05)
             return {
@@ -392,7 +346,6 @@ class DeviceManager:
                 logger.error(f"Worker for '{device_id}' queue get error: {e}")
                 continue
 
-            # Check deadline before processing
             if envelope.deadline_ms is not None:
                 elapsed_ms = (time.monotonic() - envelope.created_at) * 1000.0
                 if elapsed_ms > envelope.deadline_ms:
@@ -412,7 +365,7 @@ class DeviceManager:
                     device_id, envelope.command, envelope.params
                 )
                 if not success and attempts < max_attempts:
-                    await asyncio.sleep(0.1 * attempts)  # Simple backoff
+                    await asyncio.sleep(0.1 * attempts)
 
             if not success:
                 logger.warning(
@@ -425,6 +378,16 @@ class DeviceManager:
     def connect_all(self):
         """Connects all managed drivers."""
         logger.info("Connecting all drivers...")
+        if self._default_driver is not None:
+            try:
+                if not self._driver_is_connected(self._default_driver):
+                    result = self._default_driver.connect()
+                    self._resolve_maybe_async(result)
+                    logger.info("Default driver connected.")
+            except Exception as e:
+                logger.error(f"Failed to connect default driver: {e}")
+            return
+
         for interface_name, driver in self.drivers_by_interface.items():
             try:
                 if not self._driver_is_connected(driver):
@@ -441,21 +404,32 @@ class DeviceManager:
     async def async_connect_all(self):
         """Connects all managed drivers asynchronously."""
         logger.info("Connecting all drivers asynchronously...")
-        for interface_name, driver in self.drivers_by_interface.items():
+        drivers = self._all_drivers()
+        for driver in drivers:
             try:
                 if not await driver.is_connected():
                     await driver.connect()
                     logger.info(
-                        f"Driver for interface '{interface_name}' connected."
+                        f"Driver {driver.get_driver_type()} connected."
                     )
             except Exception as e:
                 logger.error(
-                    f"Failed to connect driver for interface '{interface_name}': {e}"
+                    f"Failed to connect driver {driver.get_driver_type()}: {e}"
                 )
 
     def disconnect_all(self):
         """Disconnects all managed drivers."""
         logger.info("Disconnecting all drivers...")
+        if self._default_driver is not None:
+            try:
+                if self._driver_is_connected(self._default_driver):
+                    result = self._default_driver.disconnect()
+                    self._resolve_maybe_async(result)
+                    logger.info("Default driver disconnected.")
+            except Exception as e:
+                logger.error(f"Failed to disconnect default driver: {e}")
+            return
+
         for interface_name, driver in self.drivers_by_interface.items():
             try:
                 if self._driver_is_connected(driver):
@@ -472,38 +446,45 @@ class DeviceManager:
     async def async_disconnect_all(self):
         """Disconnects all managed drivers asynchronously."""
         logger.info("Disconnecting all drivers asynchronously...")
-        for interface_name, driver in self.drivers_by_interface.items():
+        drivers = self._all_drivers()
+        for driver in drivers:
             try:
                 if await driver.is_connected():
                     await driver.disconnect()
                     logger.info(
-                        f"Driver for interface '{interface_name}' disconnected."
+                        f"Driver {driver.get_driver_type()} disconnected."
                     )
             except Exception as e:
                 logger.error(
-                    f"Failed to disconnect driver for interface '{interface_name}': {e}"
+                    f"Failed to disconnect driver {driver.get_driver_type()}: {e}"
                 )
 
     # --- Backwards compatibility helpers ---
     def connect(self):
         """Connect single connectivity driver (legacy path)."""
-        if self._single_driver_mode and self.connectivity_driver is not None:
+        if self._default_driver is not None:
             try:
-                if hasattr(self.connectivity_driver, "connect"):
-                    result = self.connectivity_driver.connect()
+                if hasattr(self._default_driver, "connect"):
+                    result = self._default_driver.connect()
                     self._resolve_maybe_async(result)
             except Exception as exc:
-                logger.error(f"Single-driver connect failed: {exc}")
+                logger.error(f"Default driver connect failed: {exc}")
 
     def disconnect(self):
         """Disconnect single connectivity driver (legacy path)."""
-        if self._single_driver_mode and self.connectivity_driver is not None:
+        if self._default_driver is not None:
             try:
-                if hasattr(self.connectivity_driver, "disconnect"):
-                    result = self.connectivity_driver.disconnect()
+                if hasattr(self._default_driver, "disconnect"):
+                    result = self._default_driver.disconnect()
                     self._resolve_maybe_async(result)
             except Exception as exc:
-                logger.error(f"Single-driver disconnect failed: {exc}")
+                logger.error(f"Default driver disconnect failed: {exc}")
+
+    def _all_drivers(self) -> List[Any]:
+        """Return all unique driver instances."""
+        if self._default_driver is not None:
+            return [self._default_driver]
+        return list(self.drivers_by_interface.values())
 
     def _get_device_lock(self, device_id: str) -> threading.RLock:
         """Return the lock that serializes commands for one logical device."""
@@ -630,7 +611,6 @@ class DeviceManager:
         """Resolve sync/async driver calls in sync DeviceManager paths."""
         if not inspect.isawaitable(result):
             return result
-
         return self._run_awaitable_blocking(result)
 
     def _driver_is_connected(self, driver: Any) -> bool:
@@ -675,16 +655,14 @@ class DeviceManager:
         """Gets status information from all managed drivers."""
         info: Dict[str, Any] = {}
 
-        if self._legacy_mode:
-            info["legacy"] = {"connected": True}
-        elif self._single_driver_mode and self.connectivity_driver is not None:
-            if hasattr(self.connectivity_driver, "get_driver_info"):
-                info["single"] = self._resolve_maybe_async(
-                    self.connectivity_driver.get_driver_info()
+        if self._default_driver is not None:
+            if hasattr(self._default_driver, "get_driver_info"):
+                info["default"] = self._resolve_maybe_async(
+                    self._default_driver.get_driver_info()
                 )
             else:
-                info["single"] = {
-                    "type": type(self.connectivity_driver).__name__,
+                info["default"] = {
+                    "type": type(self._default_driver).__name__,
                 }
         else:
             info.update(
@@ -715,9 +693,9 @@ class DeviceManager:
         return info
 
     def get_device_info(self, device_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Gets configuration information for a specific device.
-        """
+        """Gets configuration information for a specific device."""
+        if self.config_loader is None:
+            return None
         devices_config = self.config_loader.load_devices_config()
         for device in devices_config.get("devices", []):
             if not isinstance(device, dict):
@@ -728,19 +706,13 @@ class DeviceManager:
 
     def get_driver_for_device(self, device_id: str) -> Optional[Any]:
         """Return the concrete driver instance for a device id."""
-        if self._legacy_mode:
-            return None
-
-        if self._single_driver_mode and self.connectivity_driver is not None:
-            return self.connectivity_driver
-
-        return self.device_to_driver.get(device_id)
+        return self._resolve_driver(device_id)
 
     def get_device_capabilities(
         self, device_id: str
     ) -> Optional[Dict[str, Any]]:
         """Query capabilities for a device from its mapped driver."""
-        driver = self.get_driver_for_device(device_id)
+        driver = self._resolve_driver(device_id)
         if driver is None or not hasattr(driver, "get_capabilities"):
             return None
 
@@ -767,18 +739,11 @@ class DeviceManager:
     async def discover_all_devices(self) -> List[Dict[str, Any]]:
         """
         Scan/discover devices across all registered scanners in parallel.
-
-        Discovered devices will be automatically registered in the
-        device registry if configured.
-
-        Returns:
-            List[Dict[str, Any]]: Flat list of all discovered devices.
         """
         if not self._scanners:
             logger.warning("No discovery scanners registered.")
             return []
 
-        # Run discovery on all scanners in parallel
         tasks = [scanner.discover_devices() for scanner in self._scanners]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -839,3 +804,19 @@ class _LegacyPublishDriver:
 
     def disconnect(self) -> None:
         return None
+
+    def get_driver_type(self) -> str:
+        return "legacy"
+
+    def get_interface_name(self) -> str:
+        return "legacy"
+
+    def send_command(
+        self,
+        device_id: str,
+        command: str,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        payload = str({"command": command, "params": params or {}})
+        self.client.publish(device_id, payload)
+        return True

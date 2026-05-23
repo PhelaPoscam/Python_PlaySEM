@@ -39,7 +39,7 @@ def load_config(path: str) -> Config:
     """
     try:
         with open(path, "r", encoding="utf-8") as f:
-            data = xmltodict.parse(f.read())
+            data = xmltodict.parse(f.read(), disable_entities=True)
     except FileNotFoundError:
         logger.error(f"Configuration file not found: {path}")
         raise

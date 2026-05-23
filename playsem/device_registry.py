@@ -154,59 +154,65 @@ class DeviceRegistry:
             ... }, source_protocol="mqtt")
         """
         with self._lock:
-            device_id = device_data.get("id") or device_data.get("device_id")
+            return self._register_device_internal(device_data, source_protocol)
 
-            if not device_id:
-                raise ValueError("Device must have an 'id' or 'device_id'")
+    def _register_device_internal(
+        self, device_data: Dict[str, Any], source_protocol: str
+    ) -> DeviceInfo:
+        """Internal device registration (caller must hold self._lock)."""
+        device_id = device_data.get("id") or device_data.get("device_id")
 
-            # Check if device already exists
-            if device_id in self._devices:
-                # Update existing device
-                existing = self._devices[device_id]
-                existing.update_last_seen()
+        if not device_id:
+            raise ValueError("Device must have an 'id' or 'device_id'")
 
-                # Merge protocols if new one provided
-                new_protocols = device_data.get("protocols", [])
-                if source_protocol not in existing.protocols:
-                    existing.protocols.append(source_protocol)
-                for proto in new_protocols:
-                    if proto not in existing.protocols:
-                        existing.protocols.append(proto)
+        # Check if device already exists
+        if device_id in self._devices:
+            # Update existing device
+            existing = self._devices[device_id]
+            existing.update_last_seen()
 
-                logger.info(
-                    f"Updated device: {device_id} (now supports: {existing.protocols})"
-                )
-                self._notify_listeners("device_updated", existing)
-                return existing
-
-            # Create new device
-            device = DeviceInfo(
-                id=device_id,
-                name=device_data.get("name")
-                or device_data.get("device_name", f"Device {device_id}"),
-                type=device_data.get("type")
-                or device_data.get("device_type", "unknown"),
-                address=device_data.get("address", device_id),
-                protocols=device_data.get("protocols", [source_protocol]),
-                capabilities=device_data.get("capabilities", []),
-                connection_mode=device_data.get("connection_mode", "isolated"),
-                metadata=device_data.get("metadata", {}),
-                source_protocol=source_protocol,
-            )
-
-            # Ensure source protocol is in protocols list
-            if source_protocol not in device.protocols:
-                device.protocols.append(source_protocol)
-
-            self._devices[device_id] = device
+            # Merge protocols if new one provided
+            new_protocols = device_data.get("protocols", [])
+            if source_protocol not in existing.protocols:
+                existing.protocols.append(source_protocol)
+            for proto in new_protocols:
+                if proto not in existing.protocols:
+                    existing.protocols.append(proto)
 
             logger.info(
-                f"Registered device: {device.name} ({device_id}) "
-                f"via {source_protocol} - protocols: {device.protocols}"
+                f"Updated device: {device_id} (now supports: {existing.protocols})"
             )
+            self._notify_listeners("device_updated", existing)
+            return existing
 
-            self._notify_listeners("device_registered", device)
-            return device
+        # Create new device
+        device = DeviceInfo(
+            id=device_id,
+            name=device_data.get("name")
+            or device_data.get("device_name", f"Device {device_id}"),
+            type=device_data.get("type")
+            or device_data.get("device_type", "unknown"),
+            address=device_data.get("address", device_id),
+            protocols=device_data.get("protocols", [source_protocol]),
+            capabilities=device_data.get("capabilities", []),
+            connection_mode=device_data.get("connection_mode", "isolated"),
+            metadata=device_data.get("metadata", {}),
+            source_protocol=source_protocol,
+        )
+
+        # Ensure source protocol is in protocols list
+        if source_protocol not in device.protocols:
+            device.protocols.append(source_protocol)
+
+        self._devices[device_id] = device
+
+        logger.info(
+            f"Registered device: {device.name} ({device_id}) "
+            f"via {source_protocol} - protocols: {device.protocols}"
+        )
+
+        self._notify_listeners("device_registered", device)
+        return device
 
     def unregister_device(self, device_id: str) -> bool:
         """
@@ -238,8 +244,7 @@ class DeviceRegistry:
         """Update circuit status for a registered device."""
         with self._lock:
             if device_id not in self._devices:
-                # Register a placeholder device if it doesn't exist yet
-                self.register_device(
+                self._register_device_internal(
                     {
                         "id": device_id,
                         "name": f"Device {device_id}",
@@ -254,7 +259,6 @@ class DeviceRegistry:
             device.consecutive_failures = failures
             device.last_error_message = last_error
 
-            # Sync into metadata as well
             if "circuit_breaker" not in device.metadata:
                 device.metadata["circuit_breaker"] = {}
             device.metadata["circuit_breaker"].update(

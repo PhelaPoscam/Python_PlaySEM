@@ -9,7 +9,7 @@ Supports multiple formats:
 
 import json
 import yaml
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 

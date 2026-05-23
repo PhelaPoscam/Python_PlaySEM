@@ -379,6 +379,7 @@ class MQTTDriver(BaseDriver):
                 self._reconnect_attempts = attempt
                 try:
                     self.client.reconnect()
+                    self.client.loop_start()  # Restart the network loop after reconnect
                     self._last_reconnect_error = None
                     logger.info(
                         f"MQTT reconnect succeeded on attempt {attempt}/"

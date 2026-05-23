@@ -15,6 +15,7 @@ from aiohttp import web
 
 from ..effect_dispatcher import EffectDispatcher
 from ..effect_metadata import EffectMetadata
+from ..utils.rate_limiter import SlidingWindowLimiter
 
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,9 @@ class UPnPServer:
         manufacturer: str = "PlaySEM",
         model_name: str = "PlaySEM Python Server",
         model_version: str = "1.0",
+        max_payload_size: int = 64 * 1024,  # 64 KB default
+        rate_limit_requests: int = 100,  # requests per window
+        rate_limit_window: float = 60.0,  # seconds
     ):
         """
         Initialize UPnP server.
@@ -113,6 +117,11 @@ class UPnPServer:
 
         self.service_type = "urn:schemas-upnp-org:service:PlaySEM:1"
         self.device_type = "urn:schemas-upnp-org:device:PlaySEM:1"
+
+        self.max_payload_size = max_payload_size
+        self.rate_limiter = SlidingWindowLimiter(
+            max_requests=rate_limit_requests, window_seconds=rate_limit_window
+        )
 
         self._is_running = False
         self._transport = None
@@ -159,7 +168,24 @@ class UPnPServer:
 
     async def _handle_control(self, request):
         """HTTP handler for the SOAP control endpoint."""
-        import xml.etree.ElementTree as ET
+        # Rate limit check
+        client_ip = request.remote if request.remote else "unknown"
+        if not self.rate_limiter.allow(client_ip):
+            logger.warning(f"UPnP rate limit exceeded for client {client_ip}")
+            return web.Response(status=429, text="Rate limit exceeded")
+
+        # Payload size check
+        content_length = request.content_length
+        if (
+            content_length is not None
+            and content_length > self.max_payload_size
+        ):
+            logger.warning(
+                f"UPnP payload size {content_length} exceeds limit {self.max_payload_size} from {client_ip}"
+            )
+            return web.Response(status=413, text="Payload too large")
+
+        import defusedxml.ElementTree as ET
 
         body = await request.text()
         logger.debug(f"Received UPnP SOAP request on /control:\n{body}")
@@ -235,7 +261,7 @@ class UPnPServer:
             )
         except Exception as e:
             logger.error(f"Error processing UPnP control request: {e}")
-            fault_xml = self._get_soap_fault("501", str(e))
+            fault_xml = self._get_soap_fault("501", "Action failed")
             return web.Response(
                 text=fault_xml,
                 content_type="text/xml",

@@ -3,6 +3,7 @@ HTTP server for receiving sensory effect requests.
 """
 
 import asyncio
+import hmac
 import logging
 import time
 from typing import Optional, Callable, Dict, Any
@@ -14,16 +15,18 @@ from fastapi import (
     Depends,
     status,
     Body,
+    Request,
 )
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 import uvicorn
 
 from ..effect_dispatcher import EffectDispatcher
 from ..effect_metadata import EffectMetadata
 from ..device_registry import DeviceRegistry
+from ..utils.rate_limiter import SlidingWindowLimiter
 
 
 logger = logging.getLogger(__name__)
@@ -104,6 +107,9 @@ class HTTPServer:
         on_effect_received: Optional[Callable[[EffectMetadata], None]] = None,
         on_effect_broadcast: Optional[Callable] = None,
         device_registry: Optional[DeviceRegistry] = None,
+        max_payload_size: int = 64 * 1024,  # 64 KB default
+        rate_limit_requests: int = 100,  # requests per window
+        rate_limit_window: float = 60.0,  # seconds
     ):
         """
         Initialize HTTP REST server.
@@ -124,6 +130,10 @@ class HTTPServer:
         self.on_effect_received = on_effect_received
         self.on_effect_broadcast = on_effect_broadcast
         self.device_registry = device_registry
+        self.max_payload_size = max_payload_size
+        self.rate_limiter = SlidingWindowLimiter(
+            max_requests=rate_limit_requests, window_seconds=rate_limit_window
+        )
 
         self._server = None
         self._app = None
@@ -154,12 +164,56 @@ class HTTPServer:
             allow_headers=["*"],
         )
 
+        # Add rate limiting and payload size validation middleware
+        @self._app.middleware("http")
+        async def rate_limit_and_size_check(request: Request, call_next):
+            # Extract client IP for rate limiting
+            client_ip = request.client.host if request.client else "unknown"
+
+            # Check rate limit
+            if not self.rate_limiter.allow(client_ip):
+                remaining = self.rate_limiter.get_remaining(client_ip)
+                logger.warning(f"Rate limit exceeded for client {client_ip}")
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "success": False,
+                        "message": "Rate limit exceeded",
+                        "retry_after": 60,
+                        "remaining": remaining,
+                    },
+                )
+
+            # Check payload size for POST/PUT requests
+            if request.method in ["POST", "PUT", "PATCH"]:
+                content_length = request.headers.get("content-length")
+                if content_length:
+                    try:
+                        size = int(content_length)
+                        if size > self.max_payload_size:
+                            logger.warning(
+                                f"Payload too large from {client_ip}: "
+                                f"{size} bytes (max: {self.max_payload_size})"
+                            )
+                            return JSONResponse(
+                                status_code=413,
+                                content={
+                                    "success": False,
+                                    "message": f"Payload size {size} exceeds maximum {self.max_payload_size} bytes",
+                                },
+                            )
+                    except ValueError:
+                        pass
+
+            response = await call_next(request)
+            return response
+
         # Setup API key security if enabled
         if self.api_key:
             api_key_header = APIKeyHeader(name="X-API-Key", auto_error=True)
 
             async def verify_api_key(key: str = Security(api_key_header)):
-                if key != self.api_key:
+                if not hmac.compare_digest(key, self.api_key):
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail="Invalid API key",

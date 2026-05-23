@@ -1,6 +1,7 @@
 # effect_dispatcher.py
 
 import heapq
+import logging
 import time
 import threading
 from dataclasses import dataclass
@@ -11,6 +12,8 @@ from playsem.config.loader import load_effects_yaml
 from playsem.device_capabilities import validate_effect_parameters
 from playsem.effect_metadata import EffectMetadata
 from playsem.command_envelope import CommandEnvelope
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -638,7 +641,9 @@ class EffectDispatcher:
         )
 
         envelope = CommandEnvelope(
-            effect=EffectMetadata(effect_type=""),
+            effect=EffectMetadata(
+                effect_type=effect_name, parameters=mapped_params
+            ),
             device_id=device_id,
             command=command,
             params=mapped_params,
@@ -715,16 +720,16 @@ class EffectDispatcher:
         This method updates DeviceManager settings and potentially
         signals for ProtocolServer settings updates.
         """
-        print(f"Received reconfigure command with data: {config_data}")
+        logger.info(f"Received reconfigure command with data: {config_data}")
 
         # Reconfigure DeviceManager if relevant data is present
         if "device_manager" in config_data:
             reconfigure_fn = getattr(self.device_manager, "reconfigure", None)
             if callable(reconfigure_fn):
                 if reconfigure_fn(config_data["device_manager"]):
-                    print("DeviceManager reconfigured successfully.")
+                    logger.info("DeviceManager reconfigured successfully.")
                 else:
-                    print(
+                    logger.warning(
                         "DeviceManager reconfiguration failed or not "
                         "supported."
                     )

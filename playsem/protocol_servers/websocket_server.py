@@ -3,6 +3,7 @@ WebSocket server for receiving sensory effect requests.
 """
 
 import asyncio
+import hmac
 import json
 import logging
 import threading
@@ -10,6 +11,7 @@ from typing import Optional, Callable
 
 from ..effect_dispatcher import EffectDispatcher
 from ..effect_metadata import EffectMetadata
+from ..utils.rate_limiter import SlidingWindowLimiter
 
 
 logger = logging.getLogger(__name__)
@@ -47,6 +49,10 @@ class WebSocketServer:
         on_effect_received: Optional[Callable[[EffectMetadata], None]] = None,
         on_client_connected: Optional[Callable[[str], None]] = None,
         on_client_disconnected: Optional[Callable[[str], None]] = None,
+        max_message_size: int = 64 * 1024,
+        rate_limit_messages: int = 100,
+        rate_limit_window: float = 60.0,
+        max_connections: int = 100,
     ):
         """
         Initialize WebSocket server.
@@ -67,6 +73,10 @@ class WebSocketServer:
             on_client_connected: Optional callback when client connects
             on_client_disconnected: Optional callback when client
                 disconnects
+            max_message_size: Maximum message size in bytes (default: 64KB)
+            rate_limit_messages: Max messages per client per window (default: 100)
+            rate_limit_window: Rate limit window in seconds (default: 60.0)
+            max_connections: Maximum concurrent connections (default: 100)
         """
         self.host = host
         self.port = port
@@ -79,6 +89,12 @@ class WebSocketServer:
         self.on_effect_received = on_effect_received
         self.on_client_connected = on_client_connected
         self.on_client_disconnected = on_client_disconnected
+        self.max_message_size = max_message_size
+        self.max_connections = max_connections
+        self._rate_limit_messages = rate_limit_messages
+        self._rate_limit_window = rate_limit_window
+        self._client_rate_limiters: dict[str, SlidingWindowLimiter] = {}
+        self._rate_limiters_lock = threading.Lock()
 
         self.clients: set = set()  # Connected WebSocket clients
         self._server = None
@@ -88,7 +104,10 @@ class WebSocketServer:
         logger.info(
             f"WebSocket Server initialized - {host}:{port}, "
             f"auth: {'enabled' if auth_token else 'disabled'}, "
-            f"ssl: {'enabled' if use_ssl else 'disabled'}"
+            f"ssl: {'enabled' if use_ssl else 'disabled'}, "
+            f"max_msg: {max_message_size}B, "
+            f"max_conn: {max_connections}, "
+            f"rate: {rate_limit_messages}/{rate_limit_window}s"
         )
 
     async def start(self):
@@ -193,6 +212,18 @@ class WebSocketServer:
         client_id = f"{addr[0]}:{addr[1]}"
         authenticated = not self.auth_token  # No auth = auto-authenticated
 
+        # Check connection limit
+        with self._lock:
+            if len(self.clients) >= self.max_connections:
+                logger.warning(
+                    f"Connection limit reached ({self.max_connections}), "
+                    f"rejecting client {client_id}"
+                )
+                await websocket.close(
+                    code=1013, reason="Server connection limit reached"
+                )
+                return
+
         try:
             # Send welcome message
             await websocket.send(
@@ -210,12 +241,48 @@ class WebSocketServer:
 
             # Handle messages from client
             async for message in websocket:
+                # Validate message size
+                if len(message) > self.max_message_size:
+                    logger.warning(
+                        f"Message too large from {client_id}: "
+                        f"{len(message)} bytes (max: {self.max_message_size})"
+                    )
+                    await websocket.send(
+                        json.dumps(
+                            {
+                                "type": "error",
+                                "message": f"Message size {len(message)} exceeds maximum {self.max_message_size} bytes",
+                            }
+                        )
+                    )
+                    await websocket.close(
+                        code=1009, reason="Message too large"
+                    )
+                    return
+
+                # Check rate limit
+                if not self._check_rate_limit(client_id):
+                    logger.warning(
+                        f"Rate limit exceeded for client {client_id}"
+                    )
+                    await websocket.send(
+                        json.dumps(
+                            {"type": "error", "message": "Rate limit exceeded"}
+                        )
+                    )
+                    await websocket.close(
+                        code=1008, reason="Rate limit exceeded"
+                    )
+                    return
+
                 # Check authentication on first message if required
                 if not authenticated:
                     try:
                         data = json.loads(message)
                         token = data.get("token")
-                        if token == self.auth_token:
+                        if token and hmac.compare_digest(
+                            token, self.auth_token
+                        ):
                             authenticated = True
                             self.clients.add(websocket)
                             logger.info(f"Client authenticated: {client_id}")
@@ -272,6 +339,7 @@ class WebSocketServer:
         finally:
             # Unregister client
             self.clients.discard(websocket)
+            self._cleanup_rate_limiter(client_id)
             logger.info(f"Client disconnected: {client_id}")
 
             if self.on_client_disconnected:
@@ -420,6 +488,37 @@ class WebSocketServer:
 
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
+
+    def _check_rate_limit(self, client_id: str) -> bool:
+        """
+        Check if a client has exceeded their rate limit.
+
+        Args:
+            client_id: Client identifier
+
+        Returns:
+            True if request is allowed, False if rate limited
+        """
+        with self._rate_limiters_lock:
+            if client_id not in self._client_rate_limiters:
+                self._client_rate_limiters[client_id] = SlidingWindowLimiter(
+                    max_requests=self._rate_limit_messages,
+                    window_seconds=self._rate_limit_window,
+                )
+
+            limiter = self._client_rate_limiters[client_id]
+            return limiter.allow(client_id)
+
+    def _cleanup_rate_limiter(self, client_id: str):
+        """
+        Clean up rate limiter for a disconnected client.
+
+        Args:
+            client_id: Client identifier
+        """
+        with self._rate_limiters_lock:
+            if client_id in self._client_rate_limiters:
+                del self._client_rate_limiters[client_id]
 
     async def broadcast_effect(self, effect: EffectMetadata):
         """

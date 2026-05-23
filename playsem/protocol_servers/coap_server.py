@@ -10,6 +10,7 @@ from typing import Optional, Callable, Dict, Any
 
 from ..effect_dispatcher import EffectDispatcher
 from ..effect_metadata import EffectMetadata, EffectMetadataParser
+from ..utils.rate_limiter import SlidingWindowLimiter
 
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,9 @@ class CoAPServer:
         dispatcher: EffectDispatcher,
         on_effect_received: Optional[Callable[[EffectMetadata], None]] = None,
         started_event: Optional[asyncio.Event] = None,
+        max_payload_size: int = 64 * 1024,  # 64 KB default
+        rate_limit_requests: int = 100,  # requests per window
+        rate_limit_window: float = 60.0,  # seconds
     ):
         """
         Initialize CoAP server.
@@ -48,6 +52,10 @@ class CoAPServer:
         self.dispatcher = dispatcher
         self.on_effect_received = on_effect_received
         self.started_event = started_event
+        self.max_payload_size = max_payload_size
+        self.rate_limiter = SlidingWindowLimiter(
+            max_requests=rate_limit_requests, window_seconds=rate_limit_window
+        )
 
         self._context = None
         self._site = None
@@ -81,6 +89,37 @@ class CoAPServer:
 
                 async def render_post(self, request):
                     try:
+                        # Rate limit check
+                        client_ip = getattr(
+                            request.remote, "host", None
+                        ) or str(request.remote)
+                        if not self._outer.rate_limiter.allow(client_ip):
+                            logger.warning(
+                                f"CoAP rate limit exceeded for client {client_ip}"
+                            )
+                            return self._outer._json_response(
+                                {
+                                    "success": False,
+                                    "error": "Rate limit exceeded",
+                                },
+                                code="BAD_REQUEST",
+                            )
+
+                        # Payload size check
+                        if len(request.payload) > self._outer.max_payload_size:
+                            logger.warning(
+                                f"CoAP payload size {len(request.payload)} "
+                                f"exceeds limit {self._outer.max_payload_size} "
+                                f"from {client_ip}"
+                            )
+                            return self._outer._json_response(
+                                {
+                                    "success": False,
+                                    "error": "Payload too large",
+                                },
+                                code="BAD_REQUEST",
+                            )
+
                         payload = request.payload.decode("utf-8")
                         effect = self._outer._parse_effect(payload)
                         if not effect:
