@@ -12,7 +12,7 @@ It acts as a high-performance translation matrix between abstract haptic metadat
 
 ---
 
-## ⚡ Architectural Blueprint
+##  Architectural Blueprint
 
 ```mermaid
 flowchart TD
@@ -58,7 +58,7 @@ flowchart TD
 ---
 
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Installation
 
@@ -116,7 +116,7 @@ if __name__ == "__main__":
 
 ---
 
-## 🛡️ Production Hardening Specs
+##  Production Hardening Specs
 
 ### 1. Per-Device Circuit Breaking
 When a device driver suffers consecutive network or write failures, its circuit breaker opens. Any subsequent command routed to that device is instantly rejected at the manager layer, preserving system resources and keeping the loop free:
@@ -133,7 +133,7 @@ Tactile feedback is time-sensitive. A haptic pulse that arrives late is useless.
 
 ---
 
-## 🧪 Observational Testing Suite
+##  Observational Testing Suite
 
 PlaySEM prioritizes "Observational Testing" over complex mocking. Our `playsem_system` fixture boots a full stack (Ingress Broker -> Dispatcher -> Manager -> Driver) completely in-process for rigorous verification.
 
@@ -158,7 +158,7 @@ async def test_cross_protocol_consistency(playsem_system):
 
 ---
 
-## 🛠️ Ecosystem Layout
+##  Ecosystem Layout
 
 - **[Platform Server (tools/test_server/)](tools/test_server/)**: A modular FastAPI, WebSocket, and MQTT dashboard server for testing external visual integrations.
 - **[Examples (examples/)](examples/)**: Complete, ready-to-run demonstration scripts for serial, MQTT, HTTP, and upnp environments.
@@ -166,7 +166,7 @@ async def test_cross_protocol_consistency(playsem_system):
 
 ---
 
-## 📝 License & Origins
+##  License & Origins
 
 - **License**: MIT
 - **Origins**: Modern Python translation and extension of the original Java PlaySEM by [Estevão Bissoli](https://github.com/estevaobissoli).

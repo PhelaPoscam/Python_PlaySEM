@@ -185,31 +185,9 @@ class DeviceManager:
         Returns:
             True if the command was sent successfully, False otherwise.
         """
-        if params is None:
-            params = {}
-
-        driver = self._resolve_driver(device_id)
-        if not driver:
-            logger.error(
-                f"No driver found for device_id '{device_id}'. Cannot send command."
-            )
-            return False
-
-        device_lock = self._get_device_lock(device_id)
-        with device_lock:
-            if not self._circuit_allows_request(device_id):
-                return False
-            try:
-                result = driver.send_command(device_id, command, params)
-                success = bool(self._resolve_maybe_async(result))
-                self._record_circuit_outcome(device_id, success)
-                return success
-            except Exception as e:
-                logger.error(
-                    f"Failed to send command to device '{device_id}': {e}"
-                )
-                self._record_circuit_failure(device_id, str(e))
-                return False
+        return self._run_awaitable_blocking(
+            self.async_send_command(device_id, command, params)
+        )
 
     async def async_send_command(
         self,
@@ -497,13 +475,19 @@ class DeviceManager:
 
     def _get_async_device_lock(self, device_id: str) -> asyncio.Lock:
         """Return the async lock that serializes async commands for one logical device."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
         with self._device_locks_guard:
             if not hasattr(self, "_async_device_locks"):
-                self._async_device_locks: dict[str, asyncio.Lock] = {}
-            lock = self._async_device_locks.get(device_id)
+                self._async_device_locks = {}
+            key = (loop, device_id)
+            lock = self._async_device_locks.get(key)
             if lock is None:
                 lock = asyncio.Lock()
-                self._async_device_locks[device_id] = lock
+                self._async_device_locks[key] = lock
             return lock
 
     def _circuit_enabled(self) -> bool:

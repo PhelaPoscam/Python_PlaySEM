@@ -113,7 +113,11 @@ class DeviceRegistry:
             If False (default), devices are visible across all protocols.
     """
 
-    def __init__(self, enable_protocol_isolation: bool = False):
+    def __init__(
+        self,
+        enable_protocol_isolation: bool = False,
+        ttl_seconds: Optional[float] = None,
+    ):
         """
         Initialize the device registry.
 
@@ -122,14 +126,19 @@ class DeviceRegistry:
                 When True, devices registered via MQTT are only visible to MQTT clients,
                 WebSocket devices only to WebSocket clients, etc.
                 When False (default), all devices are visible to all protocols.
+            ttl_seconds: Optional time-to-live in seconds. Devices not seen for
+                longer than this duration will be automatically pruned.
         """
         self._devices: Dict[str, DeviceInfo] = {}
         self._lock = threading.RLock()
         self._listeners: List[Callable] = []
         self._protocol_isolation = enable_protocol_isolation
+        self._ttl_seconds = ttl_seconds
 
         mode = "ISOLATED" if enable_protocol_isolation else "SHARED"
-        logger.info(f"Device Registry initialized (mode: {mode})")
+        logger.info(
+            f"Device Registry initialized (mode: {mode}, TTL: {ttl_seconds}s)"
+        )
 
     def register_device(
         self, device_data: Dict[str, Any], source_protocol: str
@@ -272,6 +281,29 @@ class DeviceRegistry:
             self._notify_listeners("device_updated", device)
             return True
 
+    def prune_stale_devices(self) -> None:
+        """
+        Prune devices from the registry that have exceeded the TTL expiration time.
+        """
+        if self._ttl_seconds is None:
+            return
+
+        with self._lock:
+            now = datetime.now()
+            expired_ids = []
+            for device_id, device in self._devices.items():
+                if (
+                    now - device.last_seen
+                ).total_seconds() > self._ttl_seconds:
+                    expired_ids.append(device_id)
+
+            for device_id in expired_ids:
+                device = self._devices.pop(device_id)
+                logger.info(
+                    f"Unregistered expired device: {device.name} ({device_id}) due to TTL expiration"
+                )
+                self._notify_listeners("device_unregistered", device)
+
     def get_device(
         self, device_id: str, requesting_protocol: Optional[str] = None
     ) -> Optional[DeviceInfo]:
@@ -286,6 +318,7 @@ class DeviceRegistry:
             DeviceInfo if found and accessible, None otherwise
         """
         with self._lock:
+            self.prune_stale_devices()
             device = self._devices.get(device_id)
             if device and self._protocol_isolation and requesting_protocol:
                 # In isolation mode, only return device if protocol matches
@@ -306,6 +339,7 @@ class DeviceRegistry:
             List of all DeviceInfo objects (filtered by protocol if isolation is enabled)
         """
         with self._lock:
+            self.prune_stale_devices()
             devices = list(self._devices.values())
 
             if self._protocol_isolation and requesting_protocol:
@@ -327,6 +361,7 @@ class DeviceRegistry:
             List of DeviceInfo objects supporting the protocol
         """
         with self._lock:
+            self.prune_stale_devices()
             return [
                 device
                 for device in self._devices.values()
@@ -344,6 +379,7 @@ class DeviceRegistry:
             List of DeviceInfo objects of specified type
         """
         with self._lock:
+            self.prune_stale_devices()
             return [
                 device
                 for device in self._devices.values()
@@ -361,6 +397,7 @@ class DeviceRegistry:
             List of DeviceInfo objects with specified capability
         """
         with self._lock:
+            self.prune_stale_devices()
             return [
                 device
                 for device in self._devices.values()
@@ -378,6 +415,7 @@ class DeviceRegistry:
             True if device exists, False otherwise
         """
         with self._lock:
+            self.prune_stale_devices()
             return device_id in self._devices
 
     def update_device_activity(self, device_id: str):
@@ -468,6 +506,7 @@ class DeviceRegistry:
             Dictionary with registry stats
         """
         with self._lock:
+            self.prune_stale_devices()
             # Get devices visible to this protocol
             devices = self.get_all_devices(requesting_protocol)
 
@@ -507,4 +546,5 @@ class DeviceRegistry:
             List of device dictionaries
         """
         with self._lock:
+            self.prune_stale_devices()
             return [device.to_dict() for device in self._devices.values()]

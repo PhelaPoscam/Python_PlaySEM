@@ -44,15 +44,21 @@ class MQTTServer:
         port: int = 1883,
         subscribe_topic: str = "effects/#",
         on_effect_broadcast: Optional[Callable] = None,
+        use_external_broker: bool = False,
+        external_host: Optional[str] = None,
+        external_port: Optional[int] = None,
     ):
         """
-        Initialize the embedded MQTT Broker.
+        Initialize the embedded MQTT Broker or external broker connection.
         """
         self.dispatcher = dispatcher
         self.host = host
         self.port = port
         self.subscribe_topic = subscribe_topic
         self.on_effect_broadcast = on_effect_broadcast
+        self.use_external_broker = use_external_broker
+        self.external_host = external_host
+        self.external_port = external_port
         self.broker = None
         self._is_running = False
         self._lock = threading.Lock()
@@ -67,23 +73,32 @@ class MQTTServer:
         self.main_loop = None
 
         logger.info(
-            f"Embedded MQTT Broker initialized - "
-            f"Host: {host}:{port}, Topic: {subscribe_topic}"
+            f"MQTT Broker Server initialized - "
+            f"Host: {host}:{port}, Topic: {subscribe_topic}, "
+            f"external: {use_external_broker}"
         )
 
     def start(self):
         """
-        Start the embedded MQTT Broker in a separate thread.
+        Start the MQTT Broker or client connection.
         """
         with self._lock:
             if self._is_running:
-                logger.warning("Embedded MQTT Broker already running")
+                logger.warning("MQTT Broker/Client already running")
                 return
 
             try:
                 self.main_loop = asyncio.get_running_loop()
             except RuntimeError:
                 self.main_loop = None
+
+            if self.use_external_broker:
+                logger.info(
+                    "Using external MQTT broker. Bypassing embedded broker startup."
+                )
+                self._is_running = True
+                self._start_external_client()
+                return
 
             logger.info(
                 f"Starting embedded MQTT broker on {self.host}:{self.port}"
@@ -157,44 +172,7 @@ class MQTTServer:
                 f"{self.host}:{self.port}"
             )
 
-            # Prefer callback API v2 when available to avoid
-            # deprecation warnings.
-            try:
-                self.internal_client = mqtt.Client(
-                    callback_api_version=mqtt.CallbackAPIVersion.VERSION2
-                )
-            except Exception:
-                self.internal_client = mqtt.Client()
-            self.internal_client.on_message = self._on_internal_message
-
-            # Subscribe upon successful connection to avoid duplicate
-            # or missed subscriptions.
-            # Support both paho-mqtt v1 and v2 API signatures
-            def _on_connect(client, userdata, flags, rc, properties=None):
-                try:
-                    client.subscribe(self.subscribe_topic, qos=0)
-                    logger.debug(
-                        "Internal MQTT client subscribed to "
-                        f"{self.subscribe_topic} (qos=0)"
-                    )
-                    # Signal readiness after successful subscribe
-                    if self.loop is not None:
-                        self._ready_event.set()
-                except Exception as e:
-                    logger.error(f"Internal MQTT subscribe error: {e}")
-
-            self.internal_client.on_connect = _on_connect
-
-            def _on_subscribe(
-                client, userdata, mid, granted_qos, properties=None
-            ):
-                try:
-                    self._subscribed.set()
-                    self._ready_event.set()
-                except Exception as e:
-                    logger.error(f"Internal MQTT on_subscribe error: {e}")
-
-            self.internal_client.on_subscribe = _on_subscribe
+            self._setup_client()
             # Use localhost for client connection instead of
             # 0.0.0.0 (server binding address).
             connect_host = "localhost" if self.host == "0.0.0.0" else self.host
@@ -203,6 +181,54 @@ class MQTTServer:
         except Exception as e:
             logger.error(f"Failed to start MQTT broker: {e}")
             self.broker = None
+
+    def _setup_client(self):
+        """Helper to configure the internal paho-mqtt client."""
+        # Prefer callback API v2 when available to avoid deprecation warnings.
+        try:
+            self.internal_client = mqtt.Client(
+                callback_api_version=mqtt.CallbackAPIVersion.VERSION2
+            )
+        except Exception:
+            self.internal_client = mqtt.Client()
+        self.internal_client.on_message = self._on_internal_message
+
+        def _on_connect(client, userdata, flags, rc, properties=None):
+            try:
+                client.subscribe(self.subscribe_topic, qos=0)
+                logger.debug(
+                    "Internal MQTT client subscribed to "
+                    f"{self.subscribe_topic} (qos=0)"
+                )
+                self._ready_event.set()
+            except Exception as e:
+                logger.error(f"Internal MQTT subscribe error: {e}")
+
+        self.internal_client.on_connect = _on_connect
+
+        def _on_subscribe(client, userdata, mid, granted_qos, properties=None):
+            try:
+                self._subscribed.set()
+                self._ready_event.set()
+            except Exception as e:
+                logger.error(f"Internal MQTT on_subscribe error: {e}")
+
+        self.internal_client.on_subscribe = _on_subscribe
+
+    def _start_external_client(self):
+        """Connects and starts the MQTT client for an external broker."""
+        try:
+            self._setup_client()
+            connect_host = self.external_host or "127.0.0.1"
+            connect_port = self.external_port or 1883
+            logger.info(
+                f"Connecting to external MQTT broker at {connect_host}:{connect_port}..."
+            )
+            self.internal_client.connect(connect_host, connect_port, 60)
+            self.internal_client.loop_start()
+        except Exception as e:
+            logger.error(f"Failed to connect to external MQTT broker: {e}")
+            self._is_running = False
 
     def _on_internal_message(self, client, userdata, msg):
         """
@@ -304,26 +330,27 @@ class MQTTServer:
 
     def stop(self):
         """
-        Stop the embedded MQTT Broker.
+        Stop the MQTT Broker/Client.
         """
         with self._lock:
             if not self._is_running:
-                logger.warning("Embedded MQTT Broker not running")
+                logger.warning("MQTT Broker/Client not running")
                 return
 
-            logger.info("Stopping embedded MQTT Broker...")
+            logger.info("Stopping MQTT Broker/Client...")
             if self.internal_client:
                 self.internal_client.loop_stop()
                 self.internal_client.disconnect()
 
-            self._stop_event.set()  # Signal the broker main loop to stop
+            if not self.use_external_broker:
+                self._stop_event.set()  # Signal the broker main loop to stop
 
-            # Wait for the thread to finish.
-            # It should now exit cleanly after broker shutdown.
-            self.thread.join(timeout=15)  # Increased timeout just in case
+                # Wait for the thread to finish.
+                # It should now exit cleanly after broker shutdown.
+                self.thread.join(timeout=15)  # Increased timeout just in case
 
             self._is_running = False
-            logger.info("Embedded MQTT Broker stopped")
+            logger.info("MQTT Broker/Client stopped")
 
     def is_running(self) -> bool:
         """Check if server is running."""

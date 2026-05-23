@@ -217,3 +217,41 @@ async def test_mqtt_explicit_message_id_is_deduped(effect_dispatcher):
 
     await asyncio.sleep(0.1)
     effect_dispatcher.async_dispatch_effect_metadata.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_external_broker_configuration(effect_dispatcher):
+    """Test that setting use_external_broker avoids starting the embedded broker and connects to external client."""
+    from unittest.mock import patch
+
+    with patch("paho.mqtt.client.Client") as mock_client_class:
+        mock_client_instance = MagicMock()
+        mock_client_class.return_value = mock_client_instance
+
+        server = MQTTServer(
+            dispatcher=effect_dispatcher,
+            use_external_broker=True,
+            external_host="192.168.1.50",
+            external_port=18833,
+        )
+
+        assert not server.is_running()
+
+        server.start()
+
+        assert server.is_running()
+        assert not hasattr(
+            server, "thread"
+        )  # embedded broker thread not started
+
+        # Verify client was configured and connected
+        mock_client_instance.connect.assert_called_once_with(
+            "192.168.1.50", 18833, 60
+        )
+        mock_client_instance.loop_start.assert_called_once()
+
+        server.stop()
+
+        assert not server.is_running()
+        mock_client_instance.loop_stop.assert_called_once()
+        mock_client_instance.disconnect.assert_called_once()

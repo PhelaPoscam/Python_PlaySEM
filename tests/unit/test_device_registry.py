@@ -408,6 +408,71 @@ class TestDeviceRegistry:
 
         assert len(self.registry.get_all_devices()) == 0
 
+    def test_device_registry_ttl(self):
+        """Test that devices are pruned from registry when TTL expires."""
+        import time
+
+        # Initialize registry with TTL of 0.1 seconds
+        ttl_registry = DeviceRegistry(ttl_seconds=0.1)
+
+        # Register device
+        ttl_registry.register_device(
+            {
+                "id": "ttl_dev_001",
+                "name": "TTL Device",
+                "type": "light",
+                "address": "addr1",
+            },
+            source_protocol="mqtt",
+        )
+
+        # Immediately query device, should exist
+        assert ttl_registry.device_exists("ttl_dev_001") is True
+        assert ttl_registry.get_device("ttl_dev_001") is not None
+
+        # Wait 0.15 seconds (exceeding TTL)
+        time.sleep(0.15)
+
+        # Query again, should be pruned
+        assert ttl_registry.get_device("ttl_dev_001") is None
+        assert ttl_registry.device_exists("ttl_dev_001") is False
+        assert len(ttl_registry.get_all_devices()) == 0
+
+    def test_device_registry_ttl_postpone(self):
+        """Test that updating device activity postpones TTL pruning."""
+        import time
+
+        # Initialize registry with TTL of 0.2 seconds
+        ttl_registry = DeviceRegistry(ttl_seconds=0.2)
+
+        ttl_registry.register_device(
+            {
+                "id": "ttl_dev_002",
+                "name": "TTL Device 2",
+                "type": "light",
+                "address": "addr2",
+            },
+            source_protocol="mqtt",
+        )
+
+        # Wait 0.12 seconds
+        time.sleep(0.12)
+
+        # Update last seen activity
+        ttl_registry.update_device_activity("ttl_dev_002")
+
+        # Wait another 0.12 seconds
+        time.sleep(0.12)
+
+        # Device should still exist because total elapsed since update is only 0.12s
+        assert ttl_registry.device_exists("ttl_dev_002") is True
+
+        # Wait another 0.12 seconds (total 0.24s since update)
+        time.sleep(0.12)
+
+        # Now it should be pruned
+        assert ttl_registry.device_exists("ttl_dev_002") is False
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
