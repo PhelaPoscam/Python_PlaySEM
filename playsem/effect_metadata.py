@@ -10,6 +10,7 @@ Supports multiple formats:
 import json
 import yaml
 import defusedxml.ElementTree as ET
+from xml.etree.ElementTree import Element
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 
@@ -320,7 +321,7 @@ class EffectMetadataParser:
         return timeline
 
     @staticmethod
-    def _parse_effect_element(elem: ET.Element) -> Optional[EffectMetadata]:
+    def _parse_effect_element(elem: Element) -> Optional[EffectMetadata]:
         """
         Parse a single effect element from XML.
 
@@ -467,7 +468,7 @@ class EffectMetadataParser:
 
     @staticmethod
     def _parse_int_attr(
-        elem: ET.Element, attr_names: list, default: Optional[int] = None
+        elem: Element, attr_names: list, default: Optional[int] = None
     ) -> Optional[int]:
         """Try to parse an integer from element attributes or child elements."""
         for name in attr_names:
@@ -494,7 +495,7 @@ class EffectMetadataParser:
         return default
 
     @staticmethod
-    def _get_child_text(elem: ET.Element, tag_names: list) -> Optional[str]:
+    def _get_child_text(elem: Element, tag_names: list) -> Optional[str]:
         """Get text content from child element with various possible tag names."""
         for tag in tag_names:
             child = (
