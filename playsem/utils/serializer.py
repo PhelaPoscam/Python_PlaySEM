@@ -37,8 +37,14 @@ def _sanitize_xml_tag(name: str) -> str:
     """Sanitize key to be a valid XML element name."""
     if not name:
         return "element"
-    first = name[0] if (name[0].isalpha() or name[0] == "_") else ("_" + name[0] if name[0].isalnum() else "_")
-    rest = "".join(c if (c.isalnum() or c in ("-", "_", ".")) else "_" for c in name[1:])
+    first = (
+        name[0]
+        if (name[0].isalpha() or name[0] == "_")
+        else ("_" + name[0] if name[0].isalnum() else "_")
+    )
+    rest = "".join(
+        c if (c.isalnum() or c in ("-", "_", ".")) else "_" for c in name[1:]
+    )
     return first + rest
 
 
@@ -87,8 +93,10 @@ def serialize_device_command(
         _build_xml_tree(ET.SubElement(root, "params"), params)
         return _tostring(root, encoding="utf-8").decode("utf-8")
 
-    return serialize_to_json({
-        "command": command,
-        "params": params,
-        "device_id": device_id,
-    })
+    return serialize_to_json(
+        {
+            "command": command,
+            "params": params,
+            "device_id": device_id,
+        }
+    )

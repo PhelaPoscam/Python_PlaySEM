@@ -42,9 +42,20 @@ class EffectType(str, Enum):
     CUSTOM = "custom"
 
 
-def _val_err(ptype: str, val: Any, min_v: Any = None, max_v: Any = None, enum_v: Any = None) -> Optional[str]:
+def _val_err(
+    ptype: str,
+    val: Any,
+    min_v: Any = None,
+    max_v: Any = None,
+    enum_v: Any = None,
+) -> Optional[str]:
     pt = ptype.value if hasattr(ptype, "value") else str(ptype)
-    t_map = {"integer": int, "float": (int, float), "boolean": bool, "string": str}
+    t_map = {
+        "integer": int,
+        "float": (int, float),
+        "boolean": bool,
+        "string": str,
+    }
     expected = t_map.get(pt)
     if expected is not None:
         if expected in (int, (int, float)) and isinstance(val, bool):
@@ -53,7 +64,11 @@ def _val_err(ptype: str, val: Any, min_v: Any = None, max_v: Any = None, enum_v:
             return f"must be {pt}"
     if pt == "enum" and enum_v and val not in enum_v:
         return f"must be one of {enum_v}"
-    if pt in ("integer", "float") and isinstance(val, (int, float)) and not isinstance(val, bool):
+    if (
+        pt in ("integer", "float")
+        and isinstance(val, (int, float))
+        and not isinstance(val, bool)
+    ):
         if min_v is not None and val < min_v:
             return f"below min value {min_v}"
         if max_v is not None and val > max_v:
@@ -110,7 +125,16 @@ class ParameterCapability:
         Returns:
             bool: True if value is valid, False otherwise
         """
-        return _val_err(self.type, value, self.min_value, self.max_value, self.enum_values) is None
+        return (
+            _val_err(
+                self.type,
+                value,
+                self.min_value,
+                self.max_value,
+                self.enum_values,
+            )
+            is None
+        )
 
 
 @dataclass
@@ -340,7 +364,14 @@ def validate_effect_parameters(
         return False, ["Invalid capability contract"]
 
     effects = capabilities.get("effects", [])
-    matched = next((e for e in effects if str(e.get("effect_type", "")).lower() == effect_type.lower()), None)
+    matched = next(
+        (
+            e
+            for e in effects
+            if str(e.get("effect_type", "")).lower() == effect_type.lower()
+        ),
+        None,
+    )
     if matched is None:
         return False, [f"Effect '{effect_type}' is not supported"]
 
