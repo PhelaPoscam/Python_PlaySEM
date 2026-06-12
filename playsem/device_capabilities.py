@@ -42,6 +42,25 @@ class EffectType(str, Enum):
     CUSTOM = "custom"
 
 
+def _val_err(ptype: str, val: Any, min_v: Any = None, max_v: Any = None, enum_v: Any = None) -> Optional[str]:
+    pt = ptype.value if hasattr(ptype, "value") else str(ptype)
+    t_map = {"integer": int, "float": (int, float), "boolean": bool, "string": str}
+    expected = t_map.get(pt)
+    if expected is not None:
+        if expected in (int, (int, float)) and isinstance(val, bool):
+            return f"must be {pt}"
+        if not isinstance(val, expected):
+            return f"must be {pt}"
+    if pt == "enum" and enum_v and val not in enum_v:
+        return f"must be one of {enum_v}"
+    if pt in ("integer", "float") and isinstance(val, (int, float)) and not isinstance(val, bool):
+        if min_v is not None and val < min_v:
+            return f"below min value {min_v}"
+        if max_v is not None and val > max_v:
+            return f"above max value {max_v}"
+    return None
+
+
 @dataclass
 class ParameterCapability:
     """
@@ -91,33 +110,7 @@ class ParameterCapability:
         Returns:
             bool: True if value is valid, False otherwise
         """
-        # Type validation
-        if self.type == ParameterType.INTEGER and not isinstance(value, int):
-            return False
-        elif self.type == ParameterType.FLOAT and not isinstance(
-            value, (int, float)
-        ):
-            return False
-        elif self.type == ParameterType.BOOLEAN and not isinstance(
-            value, bool
-        ):
-            return False
-        elif self.type == ParameterType.STRING and not isinstance(value, str):
-            return False
-
-        # Range validation for numeric types
-        if self.type in (ParameterType.INTEGER, ParameterType.FLOAT):
-            if self.min_value is not None and value < self.min_value:
-                return False
-            if self.max_value is not None and value > self.max_value:
-                return False
-
-        # Enum validation
-        if self.type == ParameterType.ENUM and self.enum_values:
-            if value not in self.enum_values:
-                return False
-
-        return True
+        return _val_err(self.type, value, self.min_value, self.max_value, self.enum_values) is None
 
 
 @dataclass
@@ -347,12 +340,7 @@ def validate_effect_parameters(
         return False, ["Invalid capability contract"]
 
     effects = capabilities.get("effects", [])
-    matched = None
-    for effect in effects:
-        if str(effect.get("effect_type", "")).lower() == effect_type.lower():
-            matched = effect
-            break
-
+    matched = next((e for e in effects if str(e.get("effect_type", "")).lower() == effect_type.lower()), None)
     if matched is None:
         return False, [f"Effect '{effect_type}' is not supported"]
 
@@ -369,43 +357,14 @@ def validate_effect_parameters(
             errors.append(f"Unknown parameter '{name}'")
             continue
 
-        ptype = definition.get("type")
-        min_value = definition.get("min_value")
-        max_value = definition.get("max_value")
-        enum_values = definition.get("enum_values")
-
-        if ptype == ParameterType.INTEGER.value and not isinstance(value, int):
-            errors.append(f"Parameter '{name}' must be integer")
-            continue
-        if ptype == ParameterType.FLOAT.value and not isinstance(
-            value, (int, float)
-        ):
-            errors.append(f"Parameter '{name}' must be float")
-            continue
-        if ptype == ParameterType.BOOLEAN.value and not isinstance(
-            value, bool
-        ):
-            errors.append(f"Parameter '{name}' must be boolean")
-            continue
-        if ptype == ParameterType.STRING.value and not isinstance(value, str):
-            errors.append(f"Parameter '{name}' must be string")
-            continue
-        if ptype == ParameterType.ENUM.value and enum_values:
-            if value not in enum_values:
-                errors.append(
-                    f"Parameter '{name}' must be one of {enum_values}"
-                )
-                continue
-
-        if min_value is not None and isinstance(value, (int, float)):
-            if value < min_value:
-                errors.append(
-                    f"Parameter '{name}' below min value {min_value}"
-                )
-        if max_value is not None and isinstance(value, (int, float)):
-            if value > max_value:
-                errors.append(
-                    f"Parameter '{name}' above max value {max_value}"
-                )
+        err = _val_err(
+            definition.get("type"),
+            value,
+            definition.get("min_value"),
+            definition.get("max_value"),
+            definition.get("enum_values"),
+        )
+        if err:
+            errors.append(f"Parameter '{name}' {err}")
 
     return len(errors) == 0, errors

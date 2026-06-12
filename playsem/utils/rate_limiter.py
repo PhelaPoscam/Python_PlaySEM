@@ -1,67 +1,14 @@
 """
 Rate limiting utilities for protocol servers.
 
-Provides simple token bucket and sliding window rate limiters
+Provides simple sliding window rate limiters
 to prevent DoS attacks and resource exhaustion.
 """
 
 import time
 import threading
-from typing import Dict, Tuple
+from typing import Dict
 from collections import defaultdict
-
-
-class TokenBucketLimiter:
-    """
-    Token bucket rate limiter for controlling request rates.
-
-    Allows burst traffic up to bucket capacity while maintaining
-    an average rate limit over time.
-    """
-
-    def __init__(self, rate: float, capacity: int):
-        """
-        Initialize token bucket limiter.
-
-        Args:
-            rate: Tokens added per second (average rate)
-            capacity: Maximum burst capacity
-        """
-        self.rate = rate
-        self.capacity = capacity
-        self.tokens = capacity
-        self.last_update = time.monotonic()
-        self._lock = threading.Lock()
-
-    def consume(self, tokens: int = 1) -> bool:
-        """
-        Try to consume tokens from the bucket.
-
-        Args:
-            tokens: Number of tokens to consume
-
-        Returns:
-            True if tokens were consumed, False if rate limited
-        """
-        with self._lock:
-            now = time.monotonic()
-            elapsed = now - self.last_update
-
-            # Add tokens based on elapsed time
-            self.tokens = min(self.capacity, self.tokens + elapsed * self.rate)
-            self.last_update = now
-
-            # Try to consume
-            if self.tokens >= tokens:
-                self.tokens -= tokens
-                return True
-            return False
-
-    def reset(self):
-        """Reset the bucket to full capacity."""
-        with self._lock:
-            self.tokens = self.capacity
-            self.last_update = time.monotonic()
 
 
 class SlidingWindowLimiter:
@@ -142,22 +89,3 @@ class SlidingWindowLimiter:
                 self._requests.pop(client_id, None)
             else:
                 self._requests.clear()
-
-
-def validate_payload_size(payload: bytes, max_size: int) -> Tuple[bool, str]:
-    """
-    Validate that a payload doesn't exceed the maximum size.
-
-    Args:
-        payload: Payload bytes to validate
-        max_size: Maximum allowed size in bytes
-
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
-    if len(payload) > max_size:
-        return (
-            False,
-            f"Payload size {len(payload)} exceeds maximum {max_size} bytes",
-        )
-    return True, ""
