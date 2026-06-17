@@ -22,8 +22,12 @@ import sys
 import asyncio
 import logging
 from pathlib import Path
-import qrcode
 import socket
+
+try:
+    import qrcode
+except ImportError:
+    qrcode = None  # ponytail: optional dep for QR generation
 
 # Add parent directory to path before importing local modules
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -99,11 +103,13 @@ async def main():
     print("\n" + "=" * 60)
     print("📱 Connect with your phone")
     print("=" * 60)
-    print("\nScan the QR code below to open the client:")
-
-    qr = qrcode.QRCode()
-    qr.add_data(client_url)
-    qr.print_ascii(invert=True)
+    if qrcode:
+        print("\nScan the QR code below to open the client:")
+        qr = qrcode.QRCode()
+        qr.add_data(client_url)
+        qr.print_ascii(invert=True)
+    else:
+        print("\nInstall 'qrcode' to see a QR code for the client URL.")
 
     print(f"\nOr open manually: {client_url}")
     # --- End of QR Code Generation ---
