@@ -28,7 +28,7 @@ class _QueuedEffect:
     attempts: int = 0
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DispatchResult:
     """Structured outcome for a dispatch attempt."""
 
@@ -113,6 +113,9 @@ class EffectDispatcher:
         self._sequence = count()
         self.dead_letter_queue: List[Dict[str, Any]] = []
         self._lock = threading.RLock()
+        self.metrics_lock = threading.Lock()
+        self.total_latency_ms = 0.0
+        self.dispatch_count = 0
 
         if self.failure_policy not in {"drop", "retry", "dead_letter"}:
             raise ValueError(
@@ -176,7 +179,13 @@ class EffectDispatcher:
                 )
             )
 
-        return self._dispatch_once(effect_name, parameters)
+        try:
+            return self._dispatch_once(effect_name, parameters)
+        except (ValueError, KeyError) as exc:
+            logger.warning(
+                "dispatch_effect failed for '%s': %s", effect_name, exc
+            )
+            return False
 
     def dispatch_effect_result(
         self,
@@ -212,7 +221,7 @@ class EffectDispatcher:
                 expires_at=expires_at,
             )
 
-        started = time.perf_counter()
+        started = time.monotonic()
         if self._is_ttl_expired(started, ttl_ms):
             return DispatchResult(
                 status="expired",
@@ -223,10 +232,11 @@ class EffectDispatcher:
                 latency_ms=0.0,
                 error="dispatch deadline expired",
             )
+        perf = time.perf_counter()
         try:
             outcome = self._dispatch_once_result(effect_name, parameters)
         except Exception as exc:
-            latency_ms = (time.perf_counter() - started) * 1000.0
+            latency_ms = (time.perf_counter() - perf) * 1000.0
             return DispatchResult(
                 status="failed",
                 accepted=False,
@@ -286,7 +296,7 @@ class EffectDispatcher:
                 expires_at=expires_at,
             )
 
-        started = time.perf_counter()
+        started = time.monotonic()
         if self._is_ttl_expired(started, ttl_ms):
             return DispatchResult(
                 status="expired",
@@ -297,12 +307,13 @@ class EffectDispatcher:
                 latency_ms=0.0,
                 error="dispatch deadline expired",
             )
+        perf = time.perf_counter()
         try:
             outcome = await self._async_dispatch_once_result(
                 effect_name, parameters
             )
         except Exception as exc:
-            latency_ms = (time.perf_counter() - started) * 1000.0
+            latency_ms = (time.perf_counter() - perf) * 1000.0
             return DispatchResult(
                 status="failed",
                 accepted=False,
@@ -514,10 +525,14 @@ class EffectDispatcher:
         return time.monotonic() + (max(0, ttl_ms) / 1000.0)
 
     def _is_ttl_expired(self, started: float, ttl_ms: Optional[int]) -> bool:
-        """Return True when a dispatch TTL is already exhausted."""
+        """Return True when a dispatch TTL is already exhausted.
+
+        Uses ``time.monotonic()`` so the check is immune to system clock
+        adjustments (NTP, leap seconds, etc.).
+        """
         if ttl_ms is None:
             return False
-        return (time.perf_counter() - started) * 1000.0 >= ttl_ms
+        return (time.monotonic() - started) * 1000.0 >= ttl_ms
 
     def _extract_ttl_ms(self, params: Dict[str, Any]) -> Optional[int]:
         """Extract optional dispatch TTL without mutating effect params."""
@@ -570,6 +585,9 @@ class EffectDispatcher:
                 )
             )
             latency_ms = (time.perf_counter() - started) * 1000.0
+            with self.metrics_lock:
+                self.total_latency_ms += latency_ms
+                self.dispatch_count += 1
             return DispatchResult(
                 status="dispatched" if delivered else "failed",
                 accepted=delivered,
@@ -583,6 +601,9 @@ class EffectDispatcher:
             )
         except Exception as exc:
             latency_ms = (time.perf_counter() - started) * 1000.0
+            with self.metrics_lock:
+                self.total_latency_ms += latency_ms
+                self.dispatch_count += 1
             return DispatchResult(
                 status="failed",
                 accepted=False,
@@ -656,6 +677,9 @@ class EffectDispatcher:
                 envelope
             )
             latency_ms = (time.perf_counter() - started) * 1000.0
+            with self.metrics_lock:
+                self.total_latency_ms += latency_ms
+                self.dispatch_count += 1
 
             return DispatchResult(
                 status=submit_result.get("status", "failed"),
@@ -670,6 +694,9 @@ class EffectDispatcher:
             )
         except Exception as exc:
             latency_ms = (time.perf_counter() - started) * 1000.0
+            with self.metrics_lock:
+                self.total_latency_ms += latency_ms
+                self.dispatch_count += 1
             return DispatchResult(
                 status="failed",
                 accepted=False,

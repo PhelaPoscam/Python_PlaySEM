@@ -4,7 +4,7 @@ import time
 from playsem.effect_metadata import EffectMetadata
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class CommandEnvelope:
     """
     Standardized payload for dispatching an effect to a device.

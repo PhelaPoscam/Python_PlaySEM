@@ -2,7 +2,7 @@
 """Shared retry policy helpers for connectivity drivers."""
 
 from dataclasses import dataclass
-from typing import List
+from typing import List, Generator, Tuple
 
 
 @dataclass
@@ -25,3 +25,9 @@ class RetryPolicy:
             values.append(min(delay, self.max_delay))
             delay = max(delay * self.backoff_factor, delay)
         return values
+
+    def attempts(self) -> Generator[Tuple[int, float], None, None]:
+        """Yield (attempt, delay) for retry loops."""
+        delays = self.delays()
+        for i in range(max(1, self.max_attempts)):
+            yield i + 1, delays[i] if i < len(delays) else 0.0

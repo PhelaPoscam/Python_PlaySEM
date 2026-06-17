@@ -31,11 +31,11 @@ The control panel allows you to start/stop protocol servers that external applic
 # Linux: sudo apt-get install mosquitto-clients
 # Mac: brew install mosquitto
 
-# Send a vibration effect
-mosquitto_pub -h localhost -p 1883 -t "playsem/effect" -m '{"effect_type":"vibration","intensity":80,"duration":1000}'
+# Send a vibration effect (subscribing to effects/#)
+mosquitto_pub -h localhost -p 1883 -t "effects/vibration" -m '{"effect_type":"vibration","intensity":80,"duration":1000}'
 
 # Send a light effect
-mosquitto_pub -h localhost -p 1883 -t "playsem/effect" -m '{"effect_type":"light","intensity":100,"duration":2000}'
+mosquitto_pub -h localhost -p 1883 -t "effects/light" -m '{"effect_type":"light","intensity":100,"duration":2000}'
 ```
 
 **Example using Python**:
@@ -46,13 +46,13 @@ import json
 client = mqtt.Client()
 client.connect("localhost", 1883, 60)
 
-# Send vibration effect
+# Send vibration effect (subscribing to effects/#)
 effect = {
     "effect_type": "vibration",
     "intensity": 80,
     "duration": 1000
 }
-client.publish("playsem/effect", json.dumps(effect))
+client.publish("effects/vibration", json.dumps(effect))
 client.disconnect()
 ```
 
@@ -71,11 +71,11 @@ client.disconnect()
 # Install coap-cli
 npm install -g coap-cli
 
-# Send a vibration effect
-echo '{"effect_type":"vibration","intensity":60,"duration":500}' | coap post coap://localhost/effect
+# Send a vibration effect (posting to effects resource)
+echo '{"effect_type":"vibration","intensity":60,"duration":500}' | coap post coap://localhost/effects
 
 # Send a wind effect
-echo '{"effect_type":"wind","intensity":70,"duration":1500}' | coap post coap://localhost/effect
+echo '{"effect_type":"wind","intensity":70,"duration":1500}' | coap post coap://localhost/effects
 ```
 
 **Example using Python**:
@@ -95,7 +95,7 @@ async def send_effect():
     
     request = Message(
         code=POST,
-        uri='coap://localhost/effect',
+        uri='coap://localhost/effects',
         payload=json.dumps(effect).encode('utf-8')
     )
     
@@ -118,12 +118,12 @@ asyncio.run(send_effect())
 **Example using curl**:
 ```bash
 # Send a vibration effect
-curl -X POST http://localhost:8080/api/effect \
+curl -X POST http://localhost:8080/api/effects \
   -H "Content-Type: application/json" \
   -d '{"effect_type":"vibration","intensity":80,"duration":1000}'
 
 # Send a light effect
-curl -X POST http://localhost:8080/api/effect \
+curl -X POST http://localhost:8080/api/effects \
   -H "Content-Type: application/json" \
   -d '{"effect_type":"light","intensity":100,"duration":2000}'
 
@@ -146,7 +146,7 @@ async def send_effect():
     
     async with aiohttp.ClientSession() as session:
         async with session.post(
-            "http://localhost:8080/api/effect", 
+            "http://localhost:8080/api/effects", 
             json=effect
         ) as response:
             print(f"Status: {response.status}")
@@ -160,7 +160,7 @@ if __name__ == "__main__":
 **Example using JavaScript**:
 ```javascript
 // Send effect using fetch
-fetch('http://localhost:8080/api/effect', {
+fetch('http://localhost:8080/api/effects', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -314,14 +314,14 @@ async def test_all_protocols():
     async with aiohttp.ClientSession() as session:
         # Test HTTP
         print("Testing HTTP...")
-        async with session.post("http://localhost:8080/api/effect", json=effect) as resp:
+        async with session.post("http://localhost:8080/api/effects", json=effect) as resp:
             print(f"HTTP: {resp.status}")
     
     # Test MQTT
     print("Testing MQTT...")
     mqtt_client = mqtt.Client()
     mqtt_client.connect("localhost", 1883, 60)
-    mqtt_client.publish("playsem/effect", json.dumps(effect))
+    mqtt_client.publish("effects/vibration", json.dumps(effect))
     mqtt_client.disconnect()
     print("MQTT: Published")
     
@@ -330,7 +330,7 @@ async def test_all_protocols():
     context = await Context.create_client_context()
     request = Message(
         code=POST,
-        uri='coap://localhost/effect',
+        uri='coap://localhost/effects',
         payload=json.dumps(effect).encode()
     )
     response = await context.request(request).response

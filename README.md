@@ -131,6 +131,16 @@ manager = DeviceManager(
 ### 2. Time-To-Live (TTL) Deadlines
 Tactile feedback is time-sensitive. A haptic pulse that arrives late is useless. PlaySEM solves this by tracking monotonic creation time in `CommandEnvelope`. If a command sits in a queue longer than its `deadline_ms`, the background worker discards it instantly rather than sending outdated signals to the hardware.
 
+### 3. Sync/Async Duality & Deadlock Prevention
+PlaySEM runs in both synchronous environments (e.g., legacy scripts) and asynchronous servers (e.g., FastAPI).
+* **Native Async**: Methods prefixed with `async_` (e.g., `async_send_command`) run directly on the active event loop.
+* **Threaded Bridge**: Synchronous methods (e.g., `send_command`) invoke a thread-safe bridge (`_run_awaitable_blocking`) that creates an isolated event loop in a dedicated thread if a loop is already running, avoiding nested loop deadlocks.
+
+### 4. CoAP Server (Experimental)
+PlaySEM contains an embedded CoAP Server for constrained IoT environments.
+* **CI Skipped**: Integration tests are skipped by default in CI environments due to UDP socket and `aiocoap` port binding constraints.
+* **Fault Tolerance**: The CoAP server is initialized within a `try/except` block; if port `5683` is occupied, it logs the error and allows the system to continue running other protocols.
+
 ---
 
 ##  Observational Testing Suite

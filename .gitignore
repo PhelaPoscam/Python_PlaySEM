@@ -61,4 +61,8 @@ server.err
 # --- Project Specific ---
 temp_java_project/
 .gemini_temp/
+.claude/
+.gemini/
 GEMINI.md
+CLAUDE.md
+TODO.md

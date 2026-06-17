@@ -11,7 +11,8 @@ To test:
 2. Run the test client: python examples/test_mqtt_client_public.py
    OR use mosquitto_pub directly:
 
-   mosquitto_pub -h test.mosquitto.org -t "effects/light" -m '{"effect_type":"light","timestamp":0,"duration":1000,"intensity":100}'
+   mosquitto_pub -h test.mosquitto.org -t "effects/light" \
+     -m '{"effect_type":"light","timestamp":0,"duration":1000,"intensity":100}'
 """
 
 import sys

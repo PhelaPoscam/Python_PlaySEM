@@ -85,18 +85,15 @@ def test_dispatch_effect_with_default_parameter(
 
 
 def test_dispatch_unknown_effect(dispatcher):
-    """Test that dispatching an unknown effect raises a ValueError."""
-    with pytest.raises(ValueError, match="Unknown effect: unknown_effect"):
-        dispatcher.dispatch_effect("unknown_effect", {})
+    """Test that dispatching an unknown effect returns False."""
+    result = dispatcher.dispatch_effect("unknown_effect", {})
+    assert result is False
 
 
 def test_dispatch_incomplete_effect_config(dispatcher):
-    """Test that an effect with missing 'command' raises a ValueError."""
-    with pytest.raises(
-        ValueError,
-        match="Effect 'incomplete_effect' missing device or command",
-    ):
-        dispatcher.dispatch_effect("incomplete_effect", {})
+    """Test that an effect with missing 'command' returns False."""
+    result = dispatcher.dispatch_effect("incomplete_effect", {})
+    assert result is False
 
 
 def test_dispatch_effect_metadata(dispatcher, mock_device_manager):

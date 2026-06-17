@@ -46,7 +46,7 @@ class DeviceManager:
         circuit_breaker_failure_threshold: Optional[int] = None,
         circuit_breaker_reset_timeout: float = 30.0,
         device_registry: Optional[DeviceRegistry] = None,
-    ):
+    ) -> None:
         """
         Initializes the DeviceManager.
 
@@ -72,6 +72,9 @@ class DeviceManager:
         self.device_to_driver: Dict[str, BaseDriver] = {}
         self._device_locks: Dict[str, threading.RLock] = {}
         self._device_locks_guard = threading.RLock()
+        self._async_device_locks: Dict[
+            tuple[Optional[asyncio.AbstractEventLoop], str], asyncio.Lock
+        ] = {}
         self._circuit_states: Dict[str, _CircuitState] = {}
         self.device_registry = device_registry
         self._queues: Dict[str, asyncio.PriorityQueue] = {}
@@ -129,7 +132,7 @@ class DeviceManager:
         """Resolve the driver for a device, falling back to default."""
         return self.device_to_driver.get(device_id) or self._default_driver
 
-    def _map_devices_to_drivers(self):
+    def _map_devices_to_drivers(self) -> None:
         """
         Builds a mapping from each deviceId to its corresponding driver instance
         using the loaded configuration.
@@ -253,14 +256,14 @@ class DeviceManager:
                     self._record_circuit_failure(device_id, str(e))
                 return False
 
-    async def start_async_workers(self):
+    async def start_async_workers(self) -> None:
         """Starts the per-device async background workers."""
         self._async_running = True
         logger.info("Starting async device workers.")
         for device_id in self.device_to_driver.keys():
             self._ensure_worker(device_id)
 
-    async def stop_async_workers(self):
+    async def stop_async_workers(self) -> None:
         """Stops all running async device workers."""
         self._async_running = False
         logger.info("Stopping async device workers.")
@@ -269,7 +272,7 @@ class DeviceManager:
         await asyncio.gather(*self._workers.values(), return_exceptions=True)
         self._workers.clear()
 
-    def _ensure_worker(self, device_id: str):
+    def _ensure_worker(self, device_id: str) -> None:
         """Ensure a queue and worker task exist for a given device_id."""
         if not self._async_running:
             return
@@ -311,7 +314,7 @@ class DeviceManager:
                 "error": "device queue full",
             }
 
-    async def _device_worker(self, device_id: str):
+    async def _device_worker(self, device_id: str) -> None:
         """Background worker that drains the queue for a single device."""
         queue = self._queues[device_id]
         logger.info(f"Async worker started for device '{device_id}'")
@@ -353,7 +356,7 @@ class DeviceManager:
 
             queue.task_done()
 
-    def connect_all(self):
+    def connect_all(self) -> None:
         """Connects all managed drivers."""
         logger.info("Connecting all drivers...")
         if self._default_driver is not None:
@@ -379,7 +382,7 @@ class DeviceManager:
                     f"Failed to connect driver for interface '{interface_name}': {e}"
                 )
 
-    async def async_connect_all(self):
+    async def async_connect_all(self) -> None:
         """Connects all managed drivers asynchronously."""
         logger.info("Connecting all drivers asynchronously...")
         drivers = self._all_drivers()
@@ -395,7 +398,7 @@ class DeviceManager:
                     f"Failed to connect driver {driver.get_driver_type()}: {e}"
                 )
 
-    def disconnect_all(self):
+    def disconnect_all(self) -> None:
         """Disconnects all managed drivers."""
         logger.info("Disconnecting all drivers...")
         if self._default_driver is not None:
@@ -421,7 +424,7 @@ class DeviceManager:
                     f"Failed to disconnect driver for interface '{interface_name}': {e}"
                 )
 
-    async def async_disconnect_all(self):
+    async def async_disconnect_all(self) -> None:
         """Disconnects all managed drivers asynchronously."""
         logger.info("Disconnecting all drivers asynchronously...")
         drivers = self._all_drivers()
@@ -438,7 +441,7 @@ class DeviceManager:
                 )
 
     # --- Backwards compatibility helpers ---
-    def connect(self):
+    def connect(self) -> None:
         """Connect single connectivity driver (legacy path)."""
         if self._default_driver is not None:
             try:
@@ -448,7 +451,7 @@ class DeviceManager:
             except Exception as exc:
                 logger.error(f"Default driver connect failed: {exc}")
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         """Disconnect single connectivity driver (legacy path)."""
         if self._default_driver is not None:
             try:
@@ -480,15 +483,27 @@ class DeviceManager:
         except RuntimeError:
             loop = None
 
+        key = (loop, device_id)
+
         with self._device_locks_guard:
-            if not hasattr(self, "_async_device_locks"):
-                self._async_device_locks = {}
-            key = (loop, device_id)
             lock = self._async_device_locks.get(key)
-            if lock is None:
-                lock = asyncio.Lock()
-                self._async_device_locks[key] = lock
-            return lock
+            if lock is not None:
+                return lock
+
+        # Create the lock outside the guard so we never block the event loop
+        # while holding a threading lock. If two coroutines race, the second
+        # will overwrite the first — both are fresh asyncio.Lock instances,
+        # so the dict update is harmless.
+        lock = asyncio.Lock()
+
+        with self._device_locks_guard:
+            # Another coroutine may have beaten us — use the existing one.
+            existing = self._async_device_locks.get(key)
+            if existing is not None:
+                return existing
+            self._async_device_locks[key] = lock
+
+        return lock
 
     def _circuit_enabled(self) -> bool:
         """Return whether per-device circuit breaking is enabled."""
@@ -603,19 +618,38 @@ class DeviceManager:
         return bool(self._resolve_maybe_async(status))
 
     def _run_awaitable_blocking(self, awaitable: Any) -> Any:
-        """Run awaitable in current thread or isolated loop thread."""
+        """Run awaitable in current thread or isolated loop thread.
+
+        When called from a thread that already has a running event loop
+        (e.g. a FastAPI handler), a fresh loop is created in a dedicated
+        thread so that ``asyncio.run`` dead-lock is avoided.
+        """
         try:
             asyncio.get_running_loop()
         except RuntimeError:
+            # No loop in this thread — safe to use asyncio.run directly.
             return asyncio.run(awaitable)
 
         holder: Dict[str, Any] = {}
 
-        def _runner():
+        def _runner() -> None:
+            """Create a brand-new event loop and run the coroutine."""
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
             try:
-                holder["result"] = asyncio.run(awaitable)
+                holder["result"] = new_loop.run_until_complete(awaitable)
             except Exception as exc:
                 holder["error"] = exc
+            finally:
+                # Cancel any orphaned tasks before closing the loop.
+                pending = asyncio.all_tasks(new_loop)
+                for task in pending:
+                    task.cancel()
+                if pending:
+                    new_loop.run_until_complete(
+                        asyncio.gather(*pending, return_exceptions=True)
+                    )
+                new_loop.close()
 
         thread = threading.Thread(target=_runner, daemon=True)
         thread.start()

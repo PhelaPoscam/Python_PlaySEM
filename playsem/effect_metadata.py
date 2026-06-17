@@ -15,7 +15,7 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 
 
-@dataclass
+@dataclass(slots=True)
 class EffectMetadata:
     """
     Represents a sensory effect with timing and parameters.
@@ -517,9 +517,27 @@ class EffectMetadataParser:
 
         Returns:
             EffectTimeline object
+
+        Raises:
+            FileNotFoundError: If the file does not exist.
+            PermissionError: If the file cannot be read.
+            ValueError: If the XML content is malformed.
         """
-        with open(filepath, "r", encoding="utf-8") as f:
-            xml_content = f.read()
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                xml_content = f.read()
+        except FileNotFoundError as exc:
+            raise FileNotFoundError(
+                f"XML effect file not found: {filepath}"
+            ) from exc
+        except PermissionError as exc:
+            raise PermissionError(
+                f"Permission denied reading XML effect file: {filepath}"
+            ) from exc
+        except OSError as exc:
+            raise OSError(
+                f"Cannot read XML effect file {filepath}: {exc}"
+            ) from exc
 
         return EffectMetadataParser.parse_mpegv_xml(xml_content)
 

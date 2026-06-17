@@ -207,7 +207,7 @@ class VirtualSerialDevice:
                     ).start()
 
                     return f"LIGHT:OK:{intensity}:{duration}"
-                except ValueError as e:
+                except ValueError:
                     return f"ERROR:Invalid light parameters"
 
         # VIBRATION effect

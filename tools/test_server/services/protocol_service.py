@@ -6,7 +6,6 @@ from typing import Any, Callable, Dict, List, Optional
 
 from playsem.effect_dispatcher import EffectDispatcher
 from playsem.protocol_servers import CoAPServer, MQTTServer, UPnPServer
-from playsem.effect_metadata import EffectMetadata
 
 logger = logging.getLogger(__name__)
 

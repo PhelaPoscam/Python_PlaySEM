@@ -59,17 +59,32 @@ pip install -e ".[server]"    # REST API / Platform Server
 from playsem import DeviceManager, EffectMetadata
 from playsem.config import ConfigLoader
 
-# Initialize device manager
-manager = DeviceManager()
-await manager.initialize("config/devices.yaml")
+# Initialize configuration loader
+loader = ConfigLoader(
+    devices_path="config/devices.yaml",
+    effects_path="config/effects.yaml"
+)
 
-# Create and send effect
+# Initialize device manager
+manager = DeviceManager(config_loader=loader)
+await manager.start_async_workers()
+
+# Create the EffectDispatcher
+dispatcher = EffectDispatcher(device_manager=manager)
+
+# Create effect
 effect = EffectMetadata(
     effect_type="vibration",
     intensity=80,
     duration=1000
 )
-await manager.send_effect("device_id", effect)
+
+# Dispatch asynchronously
+result = await dispatcher.async_dispatch_effect_metadata_result(effect)
+print(f"Dispatch status: {result.status} (Accepted: {result.accepted})")
+
+# Cleanup when done
+await manager.stop_async_workers()
 ```
 
 ### With Device Registry
@@ -105,33 +120,48 @@ mqtt_devices = registry.get_all_devices(requesting_protocol="mqtt")
 
 ### DeviceManager
 
-Manages device lifecycle and effect routing.
+Manages device lifecycle and routes commands to concrete driver instances.
 
 ```python
 from playsem import DeviceManager
+from playsem.config.loader import ConfigLoader
 
-manager = DeviceManager()
-await manager.initialize("config/devices.yaml")
+loader = ConfigLoader(devices_path="config/devices.yaml")
+manager = DeviceManager(config_loader=loader)
 
-# Send effect to specific device
-await manager.send_effect("device_id", effect)
+# Send command to specific device (sync)
+success = manager.send_command(
+    device_id="device_123",
+    command="vibration",
+    params={"intensity": 80, "duration": 1000}
+)
 
-# Broadcast effect to all devices of a type
-await manager.broadcast_effect("light", effect)
-
-# Get connected devices
-devices = manager.get_devices()
+# Send command to specific device asynchronously
+success = await manager.async_send_command(
+    device_id="device_123",
+    command="vibration",
+    params={"intensity": 80, "duration": 1000}
+)
 ```
 
 ### EffectDispatcher
 
-Routes effects to appropriate devices based on capabilities.
+Routes effects to appropriate devices based on capabilities, resolving parameter mappings (e.g. from intensity/duration values) dynamically.
 
 ```python
 from playsem import EffectDispatcher
+from playsem.effect_metadata import EffectMetadata
 
 dispatcher = EffectDispatcher(device_manager)
-await dispatcher.dispatch_effect(effect)
+
+# Dispatch effect using EffectMetadata object (async)
+success = await dispatcher.async_dispatch_effect_metadata(effect)
+
+# Or dispatch by effect name and parameters (async)
+success = await dispatcher.async_dispatch_effect(
+    "vibration",
+    {"intensity": 80, "duration": 1000}
+)
 ```
 
 ### EffectMetadata
@@ -319,12 +349,18 @@ devices = config["devices"]
 
 | Method | Description |
 | :-- | :-- |
-| `initialize(config)` | Load devices from configuration |
-| `send_effect(device_id, effect)` | Send effect to specific device |
-| `broadcast_effect(device_type, effect)` | Send effect to all devices of type |
-| `get_devices()` | Get list of connected devices |
-| `add_device(device_config)` | Add device dynamically |
-| `remove_device(device_id)` | Remove device |
+| `__init__(drivers, config_loader, ...)` | Initialize manager with optional drivers and config loader |
+| `send_command(device_id, command, params)` | Send command to specific device (sync) |
+| `async_send_command(device_id, command, params)` | Send command to specific device (async) |
+| `connect_all()` | Connect all driver instances |
+| `async_connect_all()` | Connect all driver instances (async) |
+| `disconnect_all()` | Disconnect all driver instances |
+| `async_disconnect_all()` | Disconnect all driver instances (async) |
+| `start_async_workers()` | Start background async worker tasks for per-device queues |
+| `stop_async_workers()` | Stop background async worker tasks |
+| `get_device_capabilities(device_id)` | Get capabilities dictionary for device |
+| `get_device_info(device_id)` | Get configuration dictionary for device |
+| `discover_all_devices()` | Discover devices across registered scanners |
 
 ### DeviceRegistry Methods
 

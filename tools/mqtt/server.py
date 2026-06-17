@@ -15,7 +15,7 @@ Prerequisites:
 To test:
 1. Run this script: python examples/mqtt_server_demo.py
 2. In another terminal, publish effects:
-   
+
    mosquitto_pub -t "effects/light" -m \\
      '{"effect_type":"light","timestamp":0,"duration":1000,\\
       "intensity":100}'

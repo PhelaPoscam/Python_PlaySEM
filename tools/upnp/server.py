@@ -13,18 +13,14 @@ discover the server on your local network.
 """
 
 import asyncio
-import sys
 import logging
-import socket
+import sys
 from pathlib import Path
-
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from playsem.protocol_servers import UPnPServer
 from playsem.effect_dispatcher import EffectDispatcher
 from playsem.device_manager import DeviceManager
-from playsem.effect_metadata import EffectMetadata
 from playsem.drivers.mock_driver import (
     MockLightDevice,
     MockWindDevice,

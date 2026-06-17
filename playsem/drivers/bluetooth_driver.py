@@ -287,10 +287,9 @@ class BluetoothDriver(AsyncBaseDriver, BaseDiscovery):
             return False
 
         self._last_connect_timeout = timeout
-        delays = self.retry_policy.delays()
         max_attempts = max(1, self.retry_policy.max_attempts)
 
-        for attempt in range(1, max_attempts + 1):
+        for attempt, delay in self.retry_policy.attempts():
             self._reconnect_attempts = attempt
             try:
                 logger.info(
@@ -341,10 +340,8 @@ class BluetoothDriver(AsyncBaseDriver, BaseDiscovery):
 
             self._is_connected = False
             self._client = None
-            if attempt < max_attempts:
-                delay = delays[attempt - 1] if attempt - 1 < len(delays) else 0
-                if delay > 0:
-                    await asyncio.sleep(delay)
+            if delay > 0:
+                await asyncio.sleep(delay)
 
         return False
 

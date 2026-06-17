@@ -35,6 +35,7 @@ from typing import Dict, List, Optional, Callable, Any
 from dataclasses import dataclass, field
 from datetime import datetime
 import threading
+import weakref
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +132,7 @@ class DeviceRegistry:
         """
         self._devices: Dict[str, DeviceInfo] = {}
         self._lock = threading.RLock()
-        self._listeners: List[Callable] = []
+        self._listeners: List[weakref.ref] = []
         self._protocol_isolation = enable_protocol_isolation
         self._ttl_seconds = ttl_seconds
 
@@ -433,14 +434,18 @@ class DeviceRegistry:
         """
         Add a listener for device events.
 
+        Uses a weak reference so that listeners are automatically dropped
+        when the callee is garbage-collected, preventing reference cycles.
+
         Args:
             callback: Function called on device events
                      Signature: callback(event_type: str, device: DeviceInfo)
                      Event types: "device_registered", "device_updated", "device_unregistered"
         """
         with self._lock:
-            if callback not in self._listeners:
-                self._listeners.append(callback)
+            ref = weakref.ref(callback)
+            if ref not in self._listeners:
+                self._listeners.append(ref)
                 logger.debug(
                     f"Added device registry listener: {callback.__name__}"
                 )
@@ -453,19 +458,34 @@ class DeviceRegistry:
             callback: Function to remove
         """
         with self._lock:
-            if callback in self._listeners:
-                self._listeners.remove(callback)
+            ref = weakref.ref(callback)
+            if ref in self._listeners:
+                self._listeners.remove(ref)
                 logger.debug(
                     f"Removed device registry listener: {callback.__name__}"
                 )
 
     def _notify_listeners(self, event_type: str, device: DeviceInfo):
-        """Notify all listeners of a device event."""
-        for listener in self._listeners:
+        """Notify all listeners of a device event, pruning dead refs."""
+        dead_refs: List[weakref.ref] = []
+        for ref in self._listeners:
+            listener = ref()
+            if listener is None:
+                dead_refs.append(ref)
+                continue
             try:
                 listener(event_type, device)
             except Exception as e:
                 logger.error(f"Error in device registry listener: {e}")
+
+        # Prune dead references outside the iteration
+        if dead_refs:
+            with self._lock:
+                for ref in dead_refs:
+                    try:
+                        self._listeners.remove(ref)
+                    except ValueError:
+                        pass
 
     def is_protocol_isolation_enabled(self) -> bool:
         """

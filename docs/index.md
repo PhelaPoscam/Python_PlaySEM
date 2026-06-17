@@ -41,13 +41,6 @@ See [LIBRARY.md](LIBRARY.md) for complete documentation
 
 - [guides/production_hardening.md](guides/production_hardening.md) - Production deployment checklist and release gates
 
-### Architecture Decisions & Phase Reports
-
-- [guides/archive/phase1_baseline_report.md](guides/archive/phase1_baseline_report.md) - Baseline test status and risk notes
-- [guides/archive/phase2_scope_lock.md](guides/archive/phase2_scope_lock.md) - Driver resilience scope and acceptance criteria
-- [guides/archive/phase4_async_consistency.md](guides/archive/phase4_async_consistency.md) - Async consistency decision and rollout plan
-- [guides/archive/phase5_hardware_capability_contract.md](guides/archive/phase5_hardware_capability_contract.md) - Capability contract design and rollout
-
 ### API Reference
 
 - [LIBRARY.md](LIBRARY.md) - Complete API documentation
@@ -60,7 +53,7 @@ See [LIBRARY.md](LIBRARY.md) for complete documentation
 ✅ **Protocol Servers** - MQTT, CoAP, WebSocket, HTTP, UPnP  
 ✅ **Device Registry** - Multi-protocol device management  
 ✅ **Effect System** - Metadata and timeline support  
-✅ **Comprehensive Tests** - 51+ core library tests passing  
+✅ **Comprehensive Tests** - 199+ unit and integration tests passing  
 ✅ **Production Ready** - Stable API, well-documented
 
 ---

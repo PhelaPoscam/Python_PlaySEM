@@ -87,5 +87,7 @@ def test_dispatcher_capability_validation_blocks_invalid_params():
         }
     }
 
-    with pytest.raises(ValueError, match="Capability validation failed"):
-        dispatcher.dispatch_effect("light", {"intensity": 130})
+    result = dispatcher.dispatch_effect_result("light", {"intensity": 130})
+    assert result.status == "failed"
+    assert result.error is not None
+    assert "Capability validation failed" in result.error

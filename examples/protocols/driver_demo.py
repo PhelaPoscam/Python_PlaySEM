@@ -22,7 +22,6 @@ project_root = Path(__file__).resolve().parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-import time
 import logging
 
 from playsem.drivers.serial_driver import SerialDriver
@@ -56,8 +55,8 @@ def demo_list_ports():
         print(f"   Hardware ID: {port['hwid']}")
 
         if "vid" in port and "pid" in port:
-            vid_val = port['vid']
-            pid_val = port['pid']
+            vid_val = port["vid"]
+            pid_val = port["pid"]
             vid_str = f"{vid_val:04x}" if vid_val is not None else "None"
             pid_str = f"{pid_val:04x}" if pid_val is not None else "None"
             print(f"   VID:PID: {vid_str}:{pid_str}")

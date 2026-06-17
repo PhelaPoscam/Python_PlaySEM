@@ -372,10 +372,9 @@ class MQTTDriver(BaseDriver):
         thread.start()
 
     def _reconnect_loop(self):
-        delays = self.retry_policy.delays()
         max_attempts = max(1, self.retry_policy.max_attempts)
         try:
-            for attempt in range(1, max_attempts + 1):
+            for attempt, delay in self.retry_policy.attempts():
                 self._reconnect_attempts = attempt
                 try:
                     self.client.reconnect()
@@ -392,14 +391,8 @@ class MQTTDriver(BaseDriver):
                         f"MQTT reconnect attempt {attempt}/{max_attempts} "
                         f"failed: {e}"
                     )
-                    if attempt < max_attempts:
-                        delay = (
-                            delays[attempt - 1]
-                            if attempt - 1 < len(delays)
-                            else 0
-                        )
-                        if delay > 0:
-                            time.sleep(delay)
+                    if delay > 0:
+                        time.sleep(delay)
             logger.error("MQTT reconnect exhausted retry budget")
         finally:
             with self._reconnect_lock:

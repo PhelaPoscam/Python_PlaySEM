@@ -54,7 +54,7 @@ class MockSerialDevice(MockDeviceBase):
         )
 
 
-def main():
+async def main():
     """Main function to demonstrate using MockConnectivityDriver for testing."""
     print("\n" + "=" * 60)
     print("🔌 Mock Serial Driver Demo")
@@ -65,7 +65,7 @@ def main():
     mock_driver = MockConnectivityDriver(
         interface_name="mock_serial_bus", data_format="json"
     )
-    mock_driver.connect()
+    await mock_driver.connect()
     log.info("Mock driver connected.")
 
     # 2. Create and register a mock device
@@ -80,7 +80,7 @@ def main():
 
     # 3. Send a 'PING' command to the device
     print("\n3. Sending 'PING' command to 'virtual-serial-01'...")
-    mock_driver.send_command(
+    await mock_driver.send_command(
         device_id="virtual-serial-01", command="PING", params={}
     )
 
@@ -100,7 +100,7 @@ def main():
     print("\n5. Sending 'SET_EFFECT' command with parameters...")
     command = "SET_EFFECT"
     params = {"name": "RAINBOW", "speed": 90}
-    mock_driver.send_command(
+    await mock_driver.send_command(
         device_id="virtual-serial-01", command=command, params=params
     )
 
@@ -118,7 +118,7 @@ def main():
 
     # 7. Disconnect the driver
     print("\n7. Disconnecting mock driver...")
-    mock_driver.disconnect()
+    await mock_driver.disconnect()
     log.info("Mock driver disconnected.")
 
     print("\n" + "=" * 60)
@@ -127,4 +127,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+
+    asyncio.run(main())

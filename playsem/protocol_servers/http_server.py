@@ -19,7 +19,7 @@ from fastapi import (
 )
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 import uvicorn
 
@@ -299,6 +299,77 @@ class HTTPServer:
                 uptime_seconds=uptime,
                 effects_processed=self._effects_processed,
             )
+
+        @self._app.get(
+            "/metrics",
+            response_class=PlainTextResponse,
+            summary="Prometheus Metrics",
+            description="Expose Prometheus-compatible system metrics",
+        )
+        async def get_metrics():
+            metrics = []
+
+            # Dispatcher queue size
+            q_size = 0
+            if hasattr(self.dispatcher, "get_queue_size"):
+                q_size = self.dispatcher.get_queue_size()
+            metrics.append(
+                "# HELP playsem_dispatcher_queue_depth Current managed queue size of the effect dispatcher."
+            )
+            metrics.append("# TYPE playsem_dispatcher_queue_depth gauge")
+            metrics.append(f"playsem_dispatcher_queue_depth {q_size}")
+
+            # Device queues and circuits
+            metrics.append(
+                "# HELP playsem_device_queue_depth Current queue size for a specific device worker."
+            )
+            metrics.append("# TYPE playsem_device_queue_depth gauge")
+
+            metrics.append(
+                "# HELP playsem_device_circuit_state Current circuit breaker state "
+                "of a device (1 if active, 0 otherwise)."
+            )
+            metrics.append("# TYPE playsem_device_circuit_state gauge")
+
+            dm = getattr(self.dispatcher, "device_manager", None)
+            if dm:
+                # Device queues
+                for dev_id, q in getattr(dm, "_queues", {}).items():
+                    metrics.append(
+                        f'playsem_device_queue_depth{{device_id="{dev_id}"}} {q.qsize()}'
+                    )
+
+                # Circuit states
+                for dev_id in getattr(dm, "device_to_driver", {}):
+                    cs = getattr(dm, "_circuit_states", {}).get(dev_id)
+                    state = cs.state if cs else "closed"
+                    for s in ["closed", "open", "half-open"]:
+                        val = 1 if state == s else 0
+                        metrics.append(
+                            f'playsem_device_circuit_state{{device_id="{dev_id}",state="{s}"}} {val}'
+                        )
+
+            # Dispatch latency
+            total_latency = 0.0
+            count = 0
+            if hasattr(self.dispatcher, "total_latency_ms"):
+                with getattr(self.dispatcher, "metrics_lock"):
+                    total_latency = self.dispatcher.total_latency_ms
+                    count = self.dispatcher.dispatch_count
+
+            metrics.append(
+                "# HELP playsem_dispatch_latency_ms_sum Total sensory effect dispatch latency in milliseconds."
+            )
+            metrics.append("# TYPE playsem_dispatch_latency_ms_sum counter")
+            metrics.append(f"playsem_dispatch_latency_ms_sum {total_latency}")
+
+            metrics.append(
+                "# HELP playsem_dispatch_latency_ms_count Total number of dispatched effects."
+            )
+            metrics.append("# TYPE playsem_dispatch_latency_ms_count counter")
+            metrics.append(f"playsem_dispatch_latency_ms_count {count}")
+
+            return "\n".join(metrics) + "\n"
 
         @self._app.get(
             "/api/devices",

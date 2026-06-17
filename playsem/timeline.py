@@ -6,6 +6,7 @@ Provides precise timing control for multimedia applications like
 video players, ensuring effects are triggered at exact timestamps.
 """
 
+import asyncio
 import time
 import threading
 from typing import List, Callable, Optional, Dict, Any
@@ -19,13 +20,13 @@ class ScheduledEffect:
     """Represents an effect scheduled for execution."""
 
     effect: EffectMetadata
-    scheduled_time: float  # absolute time (time.time())
+    scheduled_time: float  # absolute time (time.monotonic())
     executed: bool = False
 
 
 class Timeline:
     """
-    Timeline scheduler for synchronized effect rendering.
+    Async-native timeline scheduler for synchronized effect rendering.
 
     Manages a timeline of effects and triggers them at precise timestamps.
     Supports play, pause, stop, seek, and event-based triggering.
@@ -59,8 +60,8 @@ class Timeline:
         self.pause_time: Optional[float] = None
         self.current_position = 0  # milliseconds
 
-        self._thread: Optional[threading.Thread] = None
-        self._stop_event = threading.Event()
+        self._task: Optional[asyncio.Task] = None
+        self._stop_event = asyncio.Event()
         self._lock = threading.RLock()
 
         # Callbacks for timeline events
@@ -81,7 +82,7 @@ class Timeline:
             self.scheduled_effects = []
             self.current_position = 0
 
-    def start(self):
+    async def start(self):
         """Start playing the timeline from current position."""
         with self._lock:
             if self.is_running:
@@ -92,18 +93,16 @@ class Timeline:
 
             self.is_running = True
             self.is_paused = False
-            self.start_time = time.time() - (self.current_position / 1000.0)
+            self.start_time = time.monotonic() - (
+                self.current_position / 1000.0
+            )
 
             # Schedule all effects that haven't been executed
             self._schedule_effects()
 
-            # Start scheduler thread
+            # Start scheduler task
             self._stop_event.clear()
-            self._thread = threading.Thread(
-                target=self._run_scheduler,
-                daemon=False,  # Non-daemon to allow proper cleanup
-            )
-            self._thread.start()
+            self._task = asyncio.create_task(self._run_scheduler())
 
             if self.on_start_callback:
                 self.on_start_callback()
@@ -115,7 +114,7 @@ class Timeline:
                 return
 
             self.is_paused = True
-            self.pause_time = time.time()
+            self.pause_time = time.monotonic()
 
     def resume(self):
         """Resume timeline playback from pause."""
@@ -129,10 +128,10 @@ class Timeline:
 
             self.is_paused = False
             # Adjust start time to account for pause duration
-            pause_duration = time.time() - self.pause_time
+            pause_duration = time.monotonic() - self.pause_time
             self.start_time += pause_duration
 
-    def stop(self):
+    async def stop(self):
         """Stop timeline playback and reset to beginning."""
         with self._lock:
             if not self.is_running:
@@ -142,12 +141,19 @@ class Timeline:
             self.is_paused = False
             self._stop_event.set()
 
-        # Wait for thread to finish (outside lock to avoid deadlock)
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=1.0)
+        # Wait for task to finish (outside lock to avoid deadlock)
+        if self._task and not self._task.done():
+            try:
+                await asyncio.wait_for(self._task, timeout=1.0)
+            except asyncio.TimeoutError:
+                self._task.cancel()
+                try:
+                    await self._task
+                except asyncio.CancelledError:
+                    pass
 
         with self._lock:
-            self._thread = None
+            self._task = None
             self.current_position = 0
             self.start_time = None
             self.scheduled_effects = []
@@ -155,7 +161,7 @@ class Timeline:
             if self.on_stop_callback:
                 self.on_stop_callback()
 
-    def seek(self, position_ms: int):
+    async def seek(self, position_ms: int):
         """
         Seek to a specific position in the timeline.
 
@@ -168,14 +174,14 @@ class Timeline:
 
             was_running = self.is_running
             if was_running:
-                self.stop()
+                await self.stop()
 
             self.current_position = max(
                 0, min(position_ms, self.timeline.total_duration)
             )
 
             if was_running:
-                self.start()
+                await self.start()
 
     def get_position(self) -> int:
         """
@@ -191,11 +197,11 @@ class Timeline:
             if self.is_paused and self.pause_time:
                 elapsed = self.pause_time - self.start_time
             else:
-                elapsed = time.time() - self.start_time
+                elapsed = time.monotonic() - self.start_time
 
             return int(elapsed * 1000)
 
-    def add_event_effect(self, effect: EffectMetadata):
+    async def add_event_effect(self, effect: EffectMetadata):
         """
         Add an event-based effect (triggered immediately).
 
@@ -206,7 +212,7 @@ class Timeline:
             raise ValueError("Effect must have event_id for event triggering")
 
         # Execute immediately
-        self._execute_effect(effect)
+        await self._execute_effect(effect)
 
     def add_effect(self, effect: EffectMetadata):
         """
@@ -231,7 +237,7 @@ class Timeline:
                 current_pos = self.get_position()
                 if effect.timestamp >= current_pos:
                     time_offset = (effect.timestamp - current_pos) / 1000.0
-                    scheduled_time = time.time() + time_offset
+                    scheduled_time = time.monotonic() + time_offset
                     self.scheduled_effects.append(
                         ScheduledEffect(
                             effect=effect,
@@ -272,7 +278,7 @@ class Timeline:
         if not self.timeline:
             return
 
-        current_time = time.time()
+        current_time = time.monotonic()
         scheduled_effects = []
 
         for effect in self.timeline.effects:
@@ -294,14 +300,14 @@ class Timeline:
 
         self.scheduled_effects = scheduled_effects
 
-    def _run_scheduler(self):
-        """Main scheduler loop (runs in background thread)."""
+    async def _run_scheduler(self):
+        """Main scheduler loop (runs as asyncio task)."""
         while not self._stop_event.is_set():
             if self.is_paused:
-                time.sleep(self.tick_interval)
+                await asyncio.sleep(self.tick_interval)
                 continue
 
-            current_time = time.time()
+            current_time = time.monotonic()
             to_execute = []
             complete = False
 
@@ -312,14 +318,12 @@ class Timeline:
                     self.current_position = int(elapsed * 1000)
 
                 # Check for effects to execute
-                # We iterate over a copy of self.scheduled_effects to avoid concurrent modification issues
                 for scheduled in list(self.scheduled_effects):
                     if (
                         not scheduled.executed
                         and current_time >= scheduled.scheduled_time
                     ):
                         to_execute.append(scheduled)
-                        # Mark executed under lock to prevent double execution
                         scheduled.executed = True
 
                 # Check if timeline is complete
@@ -330,18 +334,18 @@ class Timeline:
                     self.is_running = False
                     complete = True
 
-            # Execute effects outside of the lock to avoid blocking/deadlocks in callbacks or dispatchers
+            # Execute effects outside of the lock
             for scheduled in to_execute:
-                self._execute_effect(scheduled.effect)
+                await self._execute_effect(scheduled.effect)
 
             if complete:
                 if self.on_complete_callback:
                     self.on_complete_callback()
                 break
 
-            time.sleep(self.tick_interval)
+            await asyncio.sleep(self.tick_interval)
 
-    def _execute_effect(self, effect: EffectMetadata):
+    async def _execute_effect(self, effect: EffectMetadata):
         """
         Execute a single effect.
 
@@ -349,7 +353,7 @@ class Timeline:
             effect: EffectMetadata to execute
         """
         try:
-            self.dispatcher.dispatch_effect_metadata(effect)
+            await self.dispatcher.async_dispatch_effect_metadata(effect)
 
             if (
                 self.process_managed_queue
