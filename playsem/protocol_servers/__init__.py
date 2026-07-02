@@ -2,41 +2,32 @@
 Protocol servers for receiving sensory effect requests.
 """
 
-# Optional protocol servers (require extra dependencies)
-try:
-    from .coap_server import CoAPServer
-except ImportError:
-    CoAPServer = None  # type: ignore
+from playsem.utils import _optional_import
 
-try:
-    from .http_server import HTTPServer
-except ImportError:
-    HTTPServer = None  # type: ignore
+CoAPServer = _optional_import(
+    "playsem.protocol_servers.coap_server", "CoAPServer"
+)
+HTTPServer = _optional_import(
+    "playsem.protocol_servers.http_server", "HTTPServer"
+)
+MQTTServer = _optional_import(
+    "playsem.protocol_servers.mqtt_server", "MQTTServer"
+)
+UPnPServer = _optional_import(
+    "playsem.protocol_servers.upnp_server", "UPnPServer"
+)
+WebSocketServer = _optional_import(
+    "playsem.protocol_servers.websocket_server", "WebSocketServer"
+)
 
-try:
-    from .mqtt_server import MQTTServer
-except ImportError:
-    MQTTServer = None  # type: ignore
-
-try:
-    from .upnp_server import UPnPServer
-except ImportError:
-    UPnPServer = None  # type: ignore
-
-try:
-    from .websocket_server import WebSocketServer
-except ImportError:
-    WebSocketServer = None  # type: ignore
-
-__all__ = []
-
-if CoAPServer is not None:
-    __all__.append("CoAPServer")
-if HTTPServer is not None:
-    __all__.append("HTTPServer")
-if MQTTServer is not None:
-    __all__.append("MQTTServer")
-if UPnPServer is not None:
-    __all__.append("UPnPServer")
-if WebSocketServer is not None:
-    __all__.append("WebSocketServer")
+__all__ = [
+    name
+    for name in (
+        "CoAPServer",
+        "HTTPServer",
+        "MQTTServer",
+        "UPnPServer",
+        "WebSocketServer",
+    )
+    if globals()[name] is not None
+]

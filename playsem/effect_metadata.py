@@ -287,16 +287,15 @@ class EffectMetadataParser:
 
         timeline = EffectTimeline()
 
-        # Try different common root element names
-        sensory_effects = (
-            root.findall(".//SensoryEffect")
-            + root.findall(".//SensoryEffects")
-            + root.findall(".//Effect")
-            + root.findall(".//effect")
+        sensory_effects = root.findall(".//SensoryEffect") + root.findall(
+            ".//SensoryEffects"
         )
+        if not sensory_effects:
+            sensory_effects = root.findall(".//Effect") + root.findall(
+                ".//effect"
+            )
 
         for se_elem in sensory_effects:
-            # Parse effect from element or its children
             effect = EffectMetadataParser._parse_effect_element(se_elem)
             if effect:
                 timeline.add_effect(effect)
@@ -312,7 +311,9 @@ class EffectMetadataParser:
                 pass
 
         # Parse metadata from separate elements
-        metadata_elem = root.find(".//metadata") or root.find(".//Metadata")
+        metadata_elem = root.find(".//metadata")
+        if metadata_elem is None:
+            metadata_elem = root.find(".//Metadata")
         if metadata_elem is not None:
             for child in metadata_elem:
                 timeline.metadata[child.tag] = child.text
@@ -344,8 +345,9 @@ class EffectMetadataParser:
         )
 
         if not effect_type:
-            # Check if element itself contains Effect child
-            effect_child = elem.find(".//Effect") or elem.find(".//effect")
+            effect_child = elem.find(".//Effect")
+            if effect_child is None:
+                effect_child = elem.find(".//effect")
             if effect_child is not None:
                 return EffectMetadataParser._parse_effect_element(effect_child)
             return None
@@ -480,12 +482,11 @@ class EffectMetadataParser:
                 except (ValueError, TypeError):
                     pass
 
-            # Try as child element
-            child = (
-                elem.find(name)
-                or elem.find(name.lower())
-                or elem.find(name.upper())
-            )
+            child = elem.find(name)
+            if child is None:
+                child = elem.find(name.lower())
+            if child is None:
+                child = elem.find(name.upper())
             if child is not None and child.text:
                 try:
                     return int(float(child.text))
@@ -496,13 +497,12 @@ class EffectMetadataParser:
 
     @staticmethod
     def _get_child_text(elem: Element, tag_names: list) -> Optional[str]:
-        """Get text content from child element with various possible tag names."""
         for tag in tag_names:
-            child = (
-                elem.find(tag)
-                or elem.find(tag.lower())
-                or elem.find(tag.upper())
-            )
+            child = elem.find(tag)
+            if child is None:
+                child = elem.find(tag.lower())
+            if child is None:
+                child = elem.find(tag.upper())
             if child is not None and child.text:
                 return child.text.strip()
         return None

@@ -8,11 +8,12 @@ Available Drivers:
     - MockDriver: Testing/simulation devices
 """
 
-from playsem.drivers.base_driver import BaseDriver, BaseDiscovery
-from playsem.drivers.retry_policy import RetryPolicy
-from playsem.drivers.rgb_light_driver import RGBLightDriver
-from playsem.drivers.upnp_discovery import UPnPDiscovery
-from playsem.drivers.mock_driver import (
+from playsem.utils import _optional_import
+from playsem.drivers.base_driver import BaseDriver, BaseDiscovery  # noqa: F401
+from playsem.drivers.retry_policy import RetryPolicy  # noqa: F401
+from playsem.drivers.rgb_light_driver import RGBLightDriver  # noqa: F401
+from playsem.drivers.upnp_discovery import UPnPDiscovery  # noqa: F401
+from playsem.drivers.mock_driver import (  # noqa: F401
     MockConnectivityDriver,
     MockLightDevice,
     MockVibrationDevice,
@@ -20,21 +21,13 @@ from playsem.drivers.mock_driver import (
     MockScentDevice,
 )
 
-# Optional drivers (require extra dependencies)
-try:
-    from playsem.drivers.serial_driver import SerialDriver
-except ImportError:
-    SerialDriver = None  # type: ignore
-
-try:
-    from playsem.drivers.mqtt_driver import MQTTDriver
-except ImportError:
-    MQTTDriver = None  # type: ignore
-
-try:
-    from playsem.drivers.bluetooth_driver import BluetoothDriver
-except ImportError:
-    BluetoothDriver = None  # type: ignore
+SerialDriver = _optional_import(
+    "playsem.drivers.serial_driver", "SerialDriver"
+)
+MQTTDriver = _optional_import("playsem.drivers.mqtt_driver", "MQTTDriver")
+BluetoothDriver = _optional_import(
+    "playsem.drivers.bluetooth_driver", "BluetoothDriver"
+)
 
 __all__ = [
     "BaseDriver",
@@ -47,11 +40,8 @@ __all__ = [
     "MockVibrationDevice",
     "MockWindDevice",
     "MockScentDevice",
+] + [
+    name
+    for name in ("SerialDriver", "MQTTDriver", "BluetoothDriver")
+    if globals()[name] is not None
 ]
-
-if SerialDriver is not None:
-    __all__.append("SerialDriver")
-if MQTTDriver is not None:
-    __all__.append("MQTTDriver")
-if BluetoothDriver is not None:
-    __all__.append("BluetoothDriver")

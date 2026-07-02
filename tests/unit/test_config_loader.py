@@ -1,46 +1,252 @@
 # tests/test_config_loader.py
 
-from playsem.config.loader import load_config, DeviceDefinition
+import json
+import pytest
+
+from playsem.config.loader import (
+    ConfigLoader,
+    DeviceDefinition,
+    Config,
+    load_config,
+    load_effects_yaml,
+)
 
 
-def test_load_config_minimal(tmp_path):
-    xml_content = """
-    <SERendererConfig>
-      <communicationServiceBroker>upnpService</communicationServiceBroker>
-      <metadataParser>mpegvParser</metadataParser>
-      <lightDevice>mockLight</lightDevice>
-      <windDevice>mockWind</windDevice>
-      <vibrationDevice>mockVibration</vibrationDevice>
-      <scentDevice>mockScent</scentDevice>
+class TestLoadConfig:
+    def test_minimal(self, tmp_path):
+        xml_content = """<SERendererConfig>
+  <communicationServiceBroker>upnpService</communicationServiceBroker>
+  <metadataParser>mpegvParser</metadataParser>
+  <lightDevice>mockLight</lightDevice>
+  <windDevice>mockWind</windDevice>
+  <vibrationDevice>mockVibration</vibrationDevice>
+  <scentDevice>mockScent</scentDevice>
+  <devices>
+    <device>
+      <id>mockLight</id>
+      <deviceClass>my.package.MockLightDevice</deviceClass>
+      <connectivityInterface>mockInterface</connectivityInterface>
+      <properties><delay>800</delay></properties>
+    </device>
+  </devices>
+</SERendererConfig>"""
+        xml_file = tmp_path / "test_config.xml"
+        xml_file.write_text(xml_content)
+        config = load_config(str(xml_file))
+        assert config.metadata_parser == "mpegvParser"
+        assert len(config.devices) == 1
+        dev = config.devices[0]
+        assert isinstance(dev, DeviceDefinition)
+        assert dev.id == "mockLight"
+        assert dev.properties.get("delay") == "800"
 
-      <devices>
-        <device>
-          <id>mockLight</id>
-          <deviceClass>my.package.MockLightDevice</deviceClass>
-          <connectivityInterface>mockInterface</connectivityInterface>
-          <properties>
-            <delay>800</delay>
-          </properties>
-        </device>
-      </devices>
-    </SERendererConfig>
-    """
-    xml_file = tmp_path / "test_config.xml"
-    xml_file.write_text(xml_content)
+    def test_missing_file(self, tmp_path):
+        with pytest.raises(FileNotFoundError):
+            load_config(str(tmp_path / "nonexistent.xml"))
 
-    config = load_config(str(xml_file))
+    def test_multiple_devices(self, tmp_path):
+        xml = """<SERendererConfig>
+  <communicationServiceBroker>upnpService</communicationServiceBroker>
+  <metadataParser>mpegvParser</metadataParser>
+  <lightDevice>l1</lightDevice>
+  <windDevice>w1</windDevice>
+  <vibrationDevice>v1</vibrationDevice>
+  <scentDevice>s1</scentDevice>
+  <devices>
+    <device><id>d1</id><deviceClass>a.b.C</deviceClass><connectivityInterface>if1</connectivityInterface></device>
+    <device><id>d2</id><deviceClass>x.y.Z</deviceClass><connectivityInterface>if2</connectivityInterface></device>
+  </devices>
+</SERendererConfig>"""
+        p = tmp_path / "c.xml"
+        p.write_text(xml)
+        c = load_config(str(p))
+        assert len(c.devices) == 2
+        assert c.devices[1].id == "d2"
 
-    assert config.communication_service_broker == "upnpService"
-    assert config.metadata_parser == "mpegvParser"
-    assert config.light_device == "mockLight"
-    assert config.wind_device == "mockWind"
-    assert config.vibration_device == "mockVibration"
-    assert config.scent_device == "mockScent"
+    def test_single_device_not_in_list(self, tmp_path):
+        xml = """<SERendererConfig>
+  <devices>
+    <device><id>only</id><deviceClass>One</deviceClass><connectivityInterface>if1</connectivityInterface></device>
+  </devices>
+</SERendererConfig>"""
+        p = tmp_path / "c.xml"
+        p.write_text(xml)
+        c = load_config(str(p))
+        assert len(c.devices) == 1
 
-    assert len(config.devices) == 1
-    device = config.devices[0]
-    assert isinstance(device, DeviceDefinition)
-    assert device.id == "mockLight"
-    assert device.device_class == "my.package.MockLightDevice"
-    assert device.connectivity_interface == "mockInterface"
-    assert device.properties.get("delay") == "800"
+
+class TestLoadEffectsYaml:
+    def test_loads_yaml(self, tmp_path):
+        p = tmp_path / "e.yaml"
+        p.write_text("light:\n  device: mockLight\n  command: set_brightness")
+        data = load_effects_yaml(str(p))
+        assert data["light"]["device"] == "mockLight"
+
+    def test_empty_yaml(self, tmp_path):
+        p = tmp_path / "e.yaml"
+        p.write_text("")
+        data = load_effects_yaml(str(p))
+        assert data == {}
+
+
+class TestConfigLoader:
+    @pytest.fixture
+    def cfg_dir(self, tmp_path):
+        devices = tmp_path / "devices.yaml"
+        devices.write_text(
+            "devices:\n  - id: d1\n    deviceClass: MockLight\n    connectivityInterface: mock\n"
+        )
+        effects = tmp_path / "effects.yaml"
+        effects.write_text(
+            "vibration:\n  device: v1\n  command: set_intensity\n"
+        )
+        protocols = tmp_path / "protocols.yaml"
+        protocols.write_text("mqtt:\n  enabled: true\n")
+        return str(devices), str(effects), str(protocols)
+
+    def test_loads_yaml_configs(self, cfg_dir):
+        loader = ConfigLoader(*cfg_dir)
+        assert loader.devices_config["devices"][0]["id"] == "d1"
+        assert loader.effects_config["vibration"]["command"] == "set_intensity"
+        assert loader.protocols_config["mqtt"]["enabled"] is True
+
+    def test_loads_json(self, tmp_path):
+        d = tmp_path / "d.json"
+        d.write_text(json.dumps({"key": "val"}))
+        e = tmp_path / "e.yaml"
+        e.write_text("effects: {}")
+        p = tmp_path / "p.yaml"
+        p.write_text("protocols: {}")
+        loader = ConfigLoader(str(d), str(e), str(p))
+        assert loader.devices_config == {"key": "val"}
+
+    def test_playsem_xml_transform(self, tmp_path):
+        xml = """<configuration>
+  <devices>
+    <device><id>d1</id><deviceClass>com.thing.LightDevice</deviceClass><connectivityInterface>MQTT</connectivityInterface></device>
+    <device><id>d2</id><deviceClass>com.thing.WindDevice</deviceClass><connectivityInterface>SERIAL</connectivityInterface></device>
+  </devices>
+  <connectivityInterfaces>
+    <connectivityInterface><id>MQTT</id><properties><broker>localhost</broker></properties></connectivityInterface>
+    <connectivityInterface><id>SERIAL</id><properties><serialPort>COM5</serialPort><baudRate>115200</baudRate></properties></connectivityInterface>
+  </connectivityInterfaces>
+</configuration>"""
+        d = tmp_path / "d.xml"
+        d.write_text(xml)
+        e = tmp_path / "e.yaml"
+        e.write_text("effects: {}")
+        p = tmp_path / "p.yaml"
+        p.write_text("protocols: {}")
+        loader = ConfigLoader(str(d), str(e), str(p))
+        devs = loader.devices_config["devices"]
+        assert len(devs) == 2
+        assert devs[0]["deviceClass"] == "Light"
+        assert devs[1]["deviceClass"] == "Fan"
+        ifaces = loader.devices_config["connectivityInterfaces"]
+        assert ifaces[1]["port"] == "COM5"
+        assert ifaces[1]["baudrate"] == 115200
+
+    def test_xml_transform_single_device(self, tmp_path):
+        xml = """<configuration>
+  <devices>
+    <device><id>d1</id><deviceClass>com.MockDevice</deviceClass><connectivityInterface>MQTT</connectivityInterface></device>
+  </devices>
+  <connectivityInterfaces>
+    <connectivityInterface><id>MQTT</id></connectivityInterface>
+  </connectivityInterfaces>
+</configuration>"""
+        d = tmp_path / "d.xml"
+        d.write_text(xml)
+        e = tmp_path / "e.yaml"
+        e.write_text("{}")
+        p = tmp_path / "p.yaml"
+        p.write_text("{}")
+        loader = ConfigLoader(str(d), str(e), str(p))
+        assert len(loader.devices_config["devices"]) == 1
+
+    def test_map_java_class_wind(self, tmp_path):
+        xml = """<configuration>
+  <devices>
+    <device><id>w1</id><deviceClass>com.foo.wind.v2.WindDevice</deviceClass><connectivityInterface>MQTT</connectivityInterface></device>
+  </devices>
+  <connectivityInterfaces>
+    <connectivityInterface><id>MQTT</id></connectivityInterface>
+  </connectivityInterfaces>
+</configuration>"""
+        d = tmp_path / "d.xml"
+        d.write_text(xml)
+        e = tmp_path / "e.yaml"
+        e.write_text("{}")
+        p = tmp_path / "p.yaml"
+        p.write_text("{}")
+        loader = ConfigLoader(str(d), str(e), str(p))
+        assert loader.devices_config["devices"][0]["deviceClass"] == "Fan"
+
+    def test_map_java_class_scent(self, tmp_path):
+        xml = """<configuration>
+  <devices>
+    <device><id>s1</id><deviceClass>com.scent.ScentDevice</deviceClass><connectivityInterface>MQTT</connectivityInterface></device>
+  </devices>
+  <connectivityInterfaces>
+    <connectivityInterface><id>MQTT</id></connectivityInterface>
+  </connectivityInterfaces>
+</configuration>"""
+        d = tmp_path / "d.xml"
+        d.write_text(xml)
+        e = tmp_path / "e.yaml"
+        e.write_text("{}")
+        p = tmp_path / "p.yaml"
+        p.write_text("{}")
+        loader = ConfigLoader(str(d), str(e), str(p))
+        assert loader.devices_config["devices"][0]["deviceClass"] == "Scent"
+
+    def test_map_java_class_fallback(self, tmp_path):
+        xml = """<configuration>
+  <devices>
+    <device><id>u1</id><deviceClass>com.unknown.Xyz</deviceClass><connectivityInterface>MQTT</connectivityInterface></device>
+  </devices>
+  <connectivityInterfaces>
+    <connectivityInterface><id>MQTT</id></connectivityInterface>
+  </connectivityInterfaces>
+</configuration>"""
+        d = tmp_path / "d.xml"
+        d.write_text(xml)
+        e = tmp_path / "e.yaml"
+        e.write_text("{}")
+        p = tmp_path / "p.yaml"
+        p.write_text("{}")
+        loader = ConfigLoader(str(d), str(e), str(p))
+        assert (
+            loader.devices_config["devices"][0]["deviceClass"]
+            == "GenericDevice"
+        )
+
+    def test_missing_file(self, tmp_path):
+        with pytest.raises(FileNotFoundError):
+            ConfigLoader(
+                str(tmp_path / "nope.yaml"),
+                str(tmp_path / "e.yaml"),
+                str(tmp_path / "p.yaml"),
+            )
+
+    def test_unsupported_format(self, tmp_path):
+        d = tmp_path / "d.txt"
+        d.write_text("hello")
+        e = tmp_path / "e.yaml"
+        e.write_text("{}")
+        p = tmp_path / "p.yaml"
+        p.write_text("{}")
+        with pytest.raises(ValueError, match="Unsupported"):
+            ConfigLoader(str(d), str(e), str(p))
+
+    def test_config_dataclass(self):
+        c = Config(
+            communication_service_broker="upnp",
+            metadata_parser="mpegv",
+            light_device="l",
+            wind_device="w",
+            vibration_device="v",
+            scent_device="s",
+        )
+        assert c.communication_service_broker == "upnp"
+        assert len(c.devices) == 0
