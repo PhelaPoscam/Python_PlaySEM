@@ -210,10 +210,11 @@ class HTTPServer:
 
         # Setup API key security if enabled
         if self.api_key:
+            api_key = self.api_key
             api_key_header = APIKeyHeader(name="X-API-Key", auto_error=True)
 
             async def verify_api_key(key: str = Security(api_key_header)):
-                if not hmac.compare_digest(key, self.api_key):
+                if not hmac.compare_digest(key, api_key):
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail="Invalid API key",

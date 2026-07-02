@@ -9,7 +9,7 @@ from xml.etree.ElementTree import tostring as _tostring
 from datetime import datetime, date
 from decimal import Decimal
 from uuid import UUID
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 
 def json_default(obj: Any) -> Any:
@@ -73,7 +73,7 @@ def serialize_to_xml(tag_name: str, data: Dict[str, Any]) -> str:
     """Serialize a dictionary of key-values to an XML string."""
     root = ET.Element(tag_name)
     _build_xml_tree(root, data)
-    return _tostring(root, encoding="utf-8").decode("utf-8")
+    return cast(str, _tostring(root, encoding="utf-8").decode("utf-8"))
 
 
 def serialize_device_command(
@@ -91,7 +91,7 @@ def serialize_device_command(
         ET.SubElement(root, "deviceId").text = device_id
         ET.SubElement(root, "name").text = command
         _build_xml_tree(ET.SubElement(root, "params"), params)
-        return _tostring(root, encoding="utf-8").decode("utf-8")
+        return cast(str, _tostring(root, encoding="utf-8").decode("utf-8"))
 
     return serialize_to_json(
         {

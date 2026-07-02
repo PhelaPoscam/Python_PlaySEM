@@ -50,7 +50,7 @@ def _val_err(
     enum_v: Any = None,
 ) -> Optional[str]:
     pt = ptype.value if hasattr(ptype, "value") else str(ptype)
-    t_map = {
+    t_map: dict[str, type | tuple[type, ...]] = {
         "integer": int,
         "float": (int, float),
         "boolean": bool,

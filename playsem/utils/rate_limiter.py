@@ -7,7 +7,7 @@ to prevent DoS attacks and resource exhaustion.
 
 import time
 import threading
-from typing import Dict
+from typing import Dict, Optional
 from collections import defaultdict
 
 
@@ -77,7 +77,7 @@ class SlidingWindowLimiter:
             ]
             return max(0, self.max_requests - len(self._requests[client_id]))
 
-    def reset(self, client_id: str = None):
+    def reset(self, client_id: Optional[str] = None):
         """
         Reset rate limiter for a client or all clients.
 

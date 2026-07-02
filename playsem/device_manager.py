@@ -83,7 +83,7 @@ class DeviceManager:
         self.dead_letter_queue: List[CommandEnvelope] = []
         self._scanners: List[BaseDiscovery] = []
         self.drivers_by_interface: Dict[str, BaseDriver] = {}
-        self._default_driver: Optional[BaseDriver] = None
+        self._default_driver: Optional[Any] = None
         self.config_loader: Optional[ConfigLoader] = config_loader
         self.connectivity_driver = connectivity_driver
 
@@ -188,9 +188,10 @@ class DeviceManager:
         Returns:
             True if the command was sent successfully, False otherwise.
         """
-        return self._run_awaitable_blocking(
+        result: Any = self._run_awaitable_blocking(
             self.async_send_command(device_id, command, params)
         )
+        return bool(result)
 
     async def async_send_command(
         self,

@@ -2,7 +2,7 @@
 
 Welcome to PlaySEM - A Python library for orchestrating multisensory effects!
 
-**Current Version**: 1.0.0 (Production Release)
+**Current Version**: 0.1.0 (Alpha)
 
 ---
 
@@ -54,7 +54,7 @@ See [LIBRARY.md](LIBRARY.md) for complete documentation
 ✅ **Device Registry** - Multi-protocol device management  
 ✅ **Effect System** - Metadata and timeline support  
 ✅ **Comprehensive Tests** - 199+ unit and integration tests passing  
-✅ **Production Ready** - Stable API, well-documented
+✅ **Alpha Release** - Evolving API, active development
 
 ---
 
