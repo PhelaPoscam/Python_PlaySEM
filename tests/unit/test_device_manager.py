@@ -1,5 +1,6 @@
 # tests/test_device_manager.py
 
+import asyncio
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -179,3 +180,198 @@ def test_single_driver_mode():
     mock_connectivity_driver.send_command.assert_called_once_with(
         "any_device", "set_power", params
     )
+
+
+class TestAsyncWorkers:
+    @pytest.fixture
+    def manager_with_driver(self):
+        """DeviceManager with a single mock driver, async workers running."""
+        driver = MagicMock(spec=BaseDriver)
+        driver.get_interface_name.return_value = "mock"
+        driver.get_driver_type.return_value = "mock"
+        driver.send_command.return_value = True
+        driver.is_connected.return_value = True
+
+        loader = MagicMock(spec=ConfigLoader)
+        loader.load_devices_config.return_value = {
+            "devices": [
+                {
+                    "deviceId": "dev1",
+                    "connectivityInterface": "mock",
+                }
+            ]
+        }
+
+        manager = DeviceManager(drivers=[driver], config_loader=loader)
+        return manager, driver
+
+    @pytest.mark.asyncio
+    async def test_async_submit_envelope_queues_by_priority(
+        self, manager_with_driver
+    ):
+        """Envelopes with lower priority numbers are processed first."""
+        manager, driver = manager_with_driver
+        await manager.start_async_workers()
+
+        from playsem.command_envelope import CommandEnvelope
+        from playsem.effect_metadata import EffectMetadata
+
+        env_high = CommandEnvelope(
+            effect=EffectMetadata(effect_type="light"),
+            device_id="dev1",
+            command="on",
+            params={},
+            priority=5,
+        )
+        env_low = CommandEnvelope(
+            effect=EffectMetadata(effect_type="wind"),
+            device_id="dev1",
+            command="on",
+            params={},
+            priority=1,
+        )
+        env_med = CommandEnvelope(
+            effect=EffectMetadata(effect_type="vibration"),
+            device_id="dev1",
+            command="on",
+            params={},
+            priority=10,
+        )
+
+        await manager.async_submit_envelope(env_high)
+        await manager.async_submit_envelope(env_low)
+        await manager.async_submit_envelope(env_med)
+
+        # Give workers time to process
+        await asyncio.sleep(0.2)
+        await manager.stop_async_workers()
+
+        calls = driver.send_command.call_args_list
+        # Priority order: 1 (wind), 5 (light), 10 (vibration)
+        assert calls[0][0][1] == "on"  # wind
+        assert calls[1][0][1] == "on"  # light
+        assert calls[2][0][1] == "on"  # vibration
+
+    @pytest.mark.asyncio
+    async def test_envelope_best_effort_no_retry(self, manager_with_driver):
+        """best_effort delivery mode does not retry on failure."""
+        manager, driver = manager_with_driver
+        driver.send_command.return_value = False
+        await manager.start_async_workers()
+
+        from playsem.command_envelope import CommandEnvelope
+        from playsem.effect_metadata import EffectMetadata
+
+        env = CommandEnvelope(
+            effect=EffectMetadata(effect_type="light"),
+            device_id="dev1",
+            command="on",
+            params={},
+            delivery_mode="best_effort",
+        )
+        await manager.async_submit_envelope(env)
+        await asyncio.sleep(0.2)
+        await manager.stop_async_workers()
+
+        driver.send_command.assert_called_once()
+        assert len(manager.dead_letter_queue) == 1
+
+    @pytest.mark.asyncio
+    async def test_envelope_at_least_once_retries(self, manager_with_driver):
+        """at_least_once delivery mode retries up to 3 times."""
+        manager, driver = manager_with_driver
+        driver.send_command.side_effect = [False, False, True]
+        await manager.start_async_workers()
+
+        from playsem.command_envelope import CommandEnvelope
+        from playsem.effect_metadata import EffectMetadata
+
+        env = CommandEnvelope(
+            effect=EffectMetadata(effect_type="light"),
+            device_id="dev1",
+            command="on",
+            params={},
+            delivery_mode="at_least_once",
+        )
+        await manager.async_submit_envelope(env)
+        await asyncio.sleep(0.5)
+        await manager.stop_async_workers()
+
+        assert driver.send_command.call_count == 3
+
+
+class TestCircuitBreaker:
+    @pytest.fixture
+    def manager_with_cb(self):
+        """DeviceManager with circuit breaker enabled."""
+        driver = MagicMock(spec=BaseDriver)
+        driver.get_interface_name.return_value = "mock"
+        driver.get_driver_type.return_value = "mock"
+        driver.send_command.return_value = True
+        driver.is_connected.return_value = True
+
+        loader = MagicMock(spec=ConfigLoader)
+        loader.load_devices_config.return_value = {
+            "devices": [{"deviceId": "dev1", "connectivityInterface": "mock"}]
+        }
+
+        manager = DeviceManager(
+            drivers=[driver],
+            config_loader=loader,
+            circuit_breaker_failure_threshold=2,
+            circuit_breaker_reset_timeout=0.1,
+        )
+        return manager, driver
+
+    def test_circuit_opens_after_threshold(self, manager_with_cb):
+        """After N consecutive failures, circuit opens and blocks commands."""
+        manager, driver = manager_with_cb
+        driver.send_command.return_value = False
+
+        manager.send_command("dev1", "on")
+        manager.send_command("dev1", "on")
+
+        info = manager.get_circuit_info("dev1")
+        assert info["state"] == "open"
+
+        # Third command should be blocked
+        result = manager.send_command("dev1", "on")
+        assert result is False
+        # Driver still only called twice (third was blocked)
+        assert driver.send_command.call_count == 2
+
+    def test_circuit_half_open_allows_probe(self, manager_with_cb):
+        """After reset timeout, a probe request is allowed through."""
+        manager, driver = manager_with_cb
+        driver.send_command.return_value = False
+
+        manager.send_command("dev1", "on")
+        manager.send_command("dev1", "on")
+
+        import time
+
+        time.sleep(0.15)  # Wait past reset_timeout (0.1s)
+
+        # Third request is allowed as a probe (driver called 3 times)
+        manager.send_command("dev1", "on")
+        assert driver.send_command.call_count == 3
+
+    def test_circuit_closes_on_success(self, manager_with_cb):
+        """A successful command in half-open closes the circuit."""
+        manager, driver = manager_with_cb
+        driver.send_command.return_value = False
+
+        manager.send_command("dev1", "on")
+        manager.send_command("dev1", "on")
+
+        import time
+
+        time.sleep(0.15)
+
+        # Success in half-open should close the circuit
+        driver.send_command.return_value = True
+        manager.send_command("dev1", "on")
+
+        info = manager.get_circuit_info("dev1")
+        assert info["state"] == "closed"
+        assert info["failures"] == 0

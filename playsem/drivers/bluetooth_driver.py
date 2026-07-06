@@ -31,13 +31,13 @@ except ImportError:
     BleakClient = Any  # type: ignore
     BleakGATTCharacteristic = Any  # type: ignore
 
-from .base_driver import AsyncBaseDriver, BaseDiscovery
+from .base_driver import BaseDriver, BaseDiscovery
 from .retry_policy import RetryPolicy
 
 logger = logging.getLogger(__name__)
 
 
-class BluetoothDriver(AsyncBaseDriver, BaseDiscovery):
+class BluetoothDriver(BaseDriver, BaseDiscovery):
     """
     Bluetooth Low Energy (BLE) driver for wireless devices.
 
@@ -445,7 +445,7 @@ class BluetoothDriver(AsyncBaseDriver, BaseDiscovery):
             logger.debug(
                 f"Read {len(data)} bytes from {uuid[:8]}: {data.hex()}"
             )
-            return data
+            return bytes(data)
 
         except Exception as e:
             logger.error(f"Read failed from {uuid}: {e}")
@@ -619,7 +619,7 @@ class BluetoothDriver(AsyncBaseDriver, BaseDiscovery):
         return info
 
     async def is_connected(self) -> bool:
-        """Check if device is connected (AsyncBaseDriver interface)."""
+        """Check if device is connected (BaseDriver interface)."""
         return self._is_connected and self._client is not None
 
     async def send_text(
@@ -647,7 +647,7 @@ class BluetoothDriver(AsyncBaseDriver, BaseDiscovery):
         """
         return await self.write_characteristic(uuid, command.encode(encoding))
 
-    # AsyncBaseDriver interface implementation
+    # BaseDriver interface implementation
     async def send_command(
         self,
         device_id: str,
@@ -655,7 +655,7 @@ class BluetoothDriver(AsyncBaseDriver, BaseDiscovery):
         params: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """
-        Send command to device (AsyncBaseDriver interface).
+        Send command to device (BaseDriver interface).
 
         For BLE devices, device_id is treated as the characteristic UUID.
         Commands are sent as JSON or text.

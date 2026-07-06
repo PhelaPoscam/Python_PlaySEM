@@ -3,90 +3,7 @@
 import json
 import pytest
 
-from playsem.config.loader import (
-    ConfigLoader,
-    DeviceDefinition,
-    Config,
-    load_config,
-    load_effects_yaml,
-)
-
-
-class TestLoadConfig:
-    def test_minimal(self, tmp_path):
-        xml_content = """<SERendererConfig>
-  <communicationServiceBroker>upnpService</communicationServiceBroker>
-  <metadataParser>mpegvParser</metadataParser>
-  <lightDevice>mockLight</lightDevice>
-  <windDevice>mockWind</windDevice>
-  <vibrationDevice>mockVibration</vibrationDevice>
-  <scentDevice>mockScent</scentDevice>
-  <devices>
-    <device>
-      <id>mockLight</id>
-      <deviceClass>my.package.MockLightDevice</deviceClass>
-      <connectivityInterface>mockInterface</connectivityInterface>
-      <properties><delay>800</delay></properties>
-    </device>
-  </devices>
-</SERendererConfig>"""
-        xml_file = tmp_path / "test_config.xml"
-        xml_file.write_text(xml_content)
-        config = load_config(str(xml_file))
-        assert config.metadata_parser == "mpegvParser"
-        assert len(config.devices) == 1
-        dev = config.devices[0]
-        assert isinstance(dev, DeviceDefinition)
-        assert dev.id == "mockLight"
-        assert dev.properties.get("delay") == "800"
-
-    def test_missing_file(self, tmp_path):
-        with pytest.raises(FileNotFoundError):
-            load_config(str(tmp_path / "nonexistent.xml"))
-
-    def test_multiple_devices(self, tmp_path):
-        xml = """<SERendererConfig>
-  <communicationServiceBroker>upnpService</communicationServiceBroker>
-  <metadataParser>mpegvParser</metadataParser>
-  <lightDevice>l1</lightDevice>
-  <windDevice>w1</windDevice>
-  <vibrationDevice>v1</vibrationDevice>
-  <scentDevice>s1</scentDevice>
-  <devices>
-    <device><id>d1</id><deviceClass>a.b.C</deviceClass><connectivityInterface>if1</connectivityInterface></device>
-    <device><id>d2</id><deviceClass>x.y.Z</deviceClass><connectivityInterface>if2</connectivityInterface></device>
-  </devices>
-</SERendererConfig>"""
-        p = tmp_path / "c.xml"
-        p.write_text(xml)
-        c = load_config(str(p))
-        assert len(c.devices) == 2
-        assert c.devices[1].id == "d2"
-
-    def test_single_device_not_in_list(self, tmp_path):
-        xml = """<SERendererConfig>
-  <devices>
-    <device><id>only</id><deviceClass>One</deviceClass><connectivityInterface>if1</connectivityInterface></device>
-  </devices>
-</SERendererConfig>"""
-        p = tmp_path / "c.xml"
-        p.write_text(xml)
-        c = load_config(str(p))
-        assert len(c.devices) == 1
-
-
-class TestLoadEffectsYaml:
-    def test_loads_yaml(self, tmp_path):
-        p = tmp_path / "e.yaml"
-        p.write_text("light:\n  device: mockLight\n  command: set_brightness")
-        data = load_effects_yaml(str(p))
-        assert data["light"]["device"] == "mockLight"
-
-    def test_empty_yaml(self, tmp_path):
-        p = tmp_path / "e.yaml"
-        p.write_text("")
-        data = load_effects_yaml(str(p))
-        assert data == {}
+from playsem.config.loader import ConfigLoader
 
 
 class TestConfigLoader:
@@ -238,15 +155,3 @@ class TestConfigLoader:
         p.write_text("{}")
         with pytest.raises(ValueError, match="Unsupported"):
             ConfigLoader(str(d), str(e), str(p))
-
-    def test_config_dataclass(self):
-        c = Config(
-            communication_service_broker="upnp",
-            metadata_parser="mpegv",
-            light_device="l",
-            wind_device="w",
-            vibration_device="v",
-            scent_device="s",
-        )
-        assert c.communication_service_broker == "upnp"
-        assert len(c.devices) == 0

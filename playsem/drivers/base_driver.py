@@ -149,7 +149,3 @@ class BaseDriver(ABC):
         # Default implementation returns None
         # Subclasses should override to provide actual capabilities
         return None
-
-
-# Alias for backward compatibility
-AsyncBaseDriver = BaseDriver

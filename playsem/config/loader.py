@@ -2,97 +2,12 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import xmltodict
-from dataclasses import dataclass, field
 import yaml
 
 logger = logging.getLogger(__name__)
-
-
-# --- Backwards-compatibility data models and functions ---
-@dataclass
-class DeviceDefinition:
-    id: str
-    device_class: str
-    connectivity_interface: str
-    properties: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class Config:
-    communication_service_broker: str = ""
-    metadata_parser: str = ""
-    light_device: str = ""
-    wind_device: str = ""
-    vibration_device: str = ""
-    scent_device: str = ""
-    devices: List[DeviceDefinition] = field(default_factory=list)
-
-
-def load_config(path: str) -> Config:
-    """
-    Legacy loader for SERendererConfig-style XML files used in tests.
-
-    Returns a Config instance populated from the XML.
-    """
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = xmltodict.parse(f.read(), disable_entities=True)
-    except FileNotFoundError:
-        logger.error(f"Configuration file not found: {path}")
-        raise
-
-    root = data.get("SERendererConfig", {})
-
-    cfg = Config(
-        communication_service_broker=root.get(
-            "communicationServiceBroker", ""
-        ),
-        metadata_parser=root.get("metadataParser", ""),
-        light_device=root.get("lightDevice", ""),
-        wind_device=root.get("windDevice", ""),
-        vibration_device=root.get("vibrationDevice", ""),
-        scent_device=root.get("scentDevice", ""),
-    )
-
-    devices_node = root.get("devices", {}) or {}
-    device_list = devices_node.get("device", [])
-    if not isinstance(device_list, list):
-        device_list = [device_list]
-
-    for dev in device_list:
-        if not dev:
-            continue
-        props_node = dev.get("properties", {}) or {}
-        # Flatten properties (keep direct children of <properties>)
-        props: Dict[str, Any] = {}
-        if isinstance(props_node, dict):
-            for k, v in props_node.items():
-                # xmltodict may wrap values; ensure plain strings where possible
-                props[k] = v
-
-        cfg.devices.append(
-            DeviceDefinition(
-                id=dev.get("id", ""),
-                device_class=dev.get("deviceClass", ""),
-                connectivity_interface=dev.get("connectivityInterface", ""),
-                properties=props,
-            )
-        )
-
-    return cfg
-
-
-def load_effects_yaml(path: str) -> Dict[str, Any]:
-    """
-    Legacy helper used by EffectDispatcher to load effects.yaml.
-    Returns the parsed YAML as a dict (or empty dict if file is empty).
-    """
-    with open(path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-    return data or {}
 
 
 class ConfigLoader:

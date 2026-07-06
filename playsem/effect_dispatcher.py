@@ -7,8 +7,10 @@ import threading
 from dataclasses import dataclass
 from itertools import count
 from typing import Dict, Any, Optional, List
+
+import yaml
+
 from playsem.device_manager import DeviceManager
-from playsem.config.loader import load_effects_yaml
 from playsem.device_capabilities import validate_effect_parameters
 from playsem.effect_metadata import EffectMetadata
 from playsem.command_envelope import CommandEnvelope
@@ -103,7 +105,7 @@ class EffectDispatcher:
                 an unbounded queue.
         """
         self.device_manager = device_manager
-        self.effects_config = {}
+        self.effects_config: Dict[str, Any] = {}
         self.managed_mode = managed_mode
         self.failure_policy = failure_policy
         self.max_dispatch_retries = max(0, max_dispatch_retries)
@@ -127,7 +129,8 @@ class EffectDispatcher:
         # Load effects configuration if path provided
         if effects_config_path:
             try:
-                self.effects_config = load_effects_yaml(effects_config_path)
+                with open(effects_config_path, "r", encoding="utf-8") as f:
+                    self.effects_config = yaml.safe_load(f) or {}
             except FileNotFoundError:
                 # Fallback to hardcoded mappings
                 self._use_default_mappings()
@@ -334,10 +337,6 @@ class EffectDispatcher:
         Args:
             effect: EffectMetadata containing effect details
         """
-        if effect.effect_type == "reconfigure":
-            self._reconfigure_system(effect.parameters)
-            return True
-
         # Merge intensity into parameters if present
         params = effect.parameters.copy()
         if effect.intensity is not None:
@@ -356,16 +355,6 @@ class EffectDispatcher:
         self, effect: EffectMetadata, priority: int = 5
     ) -> DispatchResult:
         """Dispatch EffectMetadata and return a structured outcome."""
-        if effect.effect_type == "reconfigure":
-            self._reconfigure_system(effect.parameters)
-            return DispatchResult(
-                status="reconfigured",
-                accepted=True,
-                delivered=True,
-                effect=effect.effect_type,
-                attempts=1,
-            )
-
         params = effect.parameters.copy()
         if effect.intensity is not None:
             params["intensity"] = effect.intensity
@@ -390,16 +379,6 @@ class EffectDispatcher:
         self, effect: EffectMetadata, priority: int = 5
     ) -> DispatchResult:
         """Asynchronously dispatch EffectMetadata and return a structured outcome."""
-        if effect.effect_type == "reconfigure":
-            self._reconfigure_system(effect.parameters)
-            return DispatchResult(
-                status="reconfigured",
-                accepted=True,
-                delivered=True,
-                effect=effect.effect_type,
-                attempts=1,
-            )
-
         params = effect.parameters.copy()
         if effect.intensity is not None:
             params["intensity"] = effect.intensity
@@ -550,19 +529,16 @@ class EffectDispatcher:
         """Dispatch a single effect immediately and return success."""
         return self._dispatch_once_result(effect_name, parameters).delivered
 
-    def _dispatch_once_result(
+    def _resolve_effect(
         self, effect_name: str, parameters: Dict[str, Any]
-    ) -> DispatchResult:
-        """Dispatch a single effect immediately and return details."""
-        started = time.perf_counter()
+    ) -> tuple[str, str, Dict[str, Any]]:
+        """Resolve effect config and return (device_id, command, mapped_params)."""
         effect_config = self.effects_config.get("effects", {}).get(effect_name)
-
         if not effect_config:
             raise ValueError(f"Unknown effect: {effect_name}")
 
         device_id = effect_config.get("device")
         command = effect_config.get("command")
-
         if not device_id or not command:
             raise ValueError(
                 f"Effect '{effect_name}' missing device or command config"
@@ -578,16 +554,31 @@ class EffectDispatcher:
                 params=mapped_params,
             )
 
+        return device_id, command, mapped_params
+
+    def _record_metrics(self, started: float) -> float:
+        """Record dispatch latency and return latency in ms."""
+        latency_ms = (time.perf_counter() - started) * 1000.0
+        with self.metrics_lock:
+            self.total_latency_ms += latency_ms
+            self.dispatch_count += 1
+        return latency_ms
+
+    def _dispatch_once_result(
+        self, effect_name: str, parameters: Dict[str, Any]
+    ) -> DispatchResult:
+        """Dispatch a single effect immediately and return details."""
+        started = time.perf_counter()
         try:
+            device_id, command, mapped_params = self._resolve_effect(
+                effect_name, parameters
+            )
             delivered = bool(
                 self.device_manager.send_command(
                     device_id, command, mapped_params
                 )
             )
-            latency_ms = (time.perf_counter() - started) * 1000.0
-            with self.metrics_lock:
-                self.total_latency_ms += latency_ms
-                self.dispatch_count += 1
+            latency_ms = self._record_metrics(started)
             return DispatchResult(
                 status="dispatched" if delivered else "failed",
                 accepted=delivered,
@@ -600,17 +591,12 @@ class EffectDispatcher:
                 error=None if delivered else "device manager returned False",
             )
         except Exception as exc:
-            latency_ms = (time.perf_counter() - started) * 1000.0
-            with self.metrics_lock:
-                self.total_latency_ms += latency_ms
-                self.dispatch_count += 1
+            latency_ms = self._record_metrics(started)
             return DispatchResult(
                 status="failed",
                 accepted=False,
                 delivered=False,
                 effect=effect_name,
-                device_id=device_id,
-                command=command,
                 attempts=1,
                 latency_ms=latency_ms,
                 error=str(exc),
@@ -621,66 +607,41 @@ class EffectDispatcher:
     ) -> DispatchResult:
         """Asynchronously dispatch a single effect immediately and return details."""
         started = time.perf_counter()
-        effect_config = self.effects_config.get("effects", {}).get(effect_name)
-
-        if not effect_config:
-            raise ValueError(f"Unknown effect: {effect_name}")
-
-        device_id = effect_config.get("device")
-        command = effect_config.get("command")
-
-        if not device_id or not command:
-            raise ValueError(
-                f"Effect '{effect_name}' missing device or command config"
-            )
-
-        mapped_params = self._map_parameters(effect_config, parameters)
-
-        if self.validate_capabilities:
-            self._validate_capability_for_effect(
-                device_id=device_id,
-                effect_name=effect_name,
-                effect_config=effect_config,
-                params=mapped_params,
-            )
-
-        # Optional TTL mapped to deadline_ms
-        deadline_ms = None
-        if "ttl_ms" in mapped_params:
-            try:
-                ttl_val = int(mapped_params["ttl_ms"])
-                if ttl_val > 0:
-                    deadline_ms = ttl_val
-            except (ValueError, TypeError):
-                pass
-
-        # Optional delivery mode based on failure policy
-        delivery_mode = (
-            "at_least_once"
-            if self.failure_policy in ("retry", "dead_letter")
-            else "best_effort"
-        )
-
-        envelope = CommandEnvelope(
-            effect=EffectMetadata(
-                effect_type=effect_name, parameters=mapped_params
-            ),
-            device_id=device_id,
-            command=command,
-            params=mapped_params,
-            deadline_ms=deadline_ms,
-            delivery_mode=delivery_mode,  # type: ignore[arg-type]
-        )
-
         try:
+            device_id, command, mapped_params = self._resolve_effect(
+                effect_name, parameters
+            )
+
+            deadline_ms = None
+            if "ttl_ms" in mapped_params:
+                try:
+                    ttl_val = int(mapped_params["ttl_ms"])
+                    if ttl_val > 0:
+                        deadline_ms = ttl_val
+                except (ValueError, TypeError):
+                    pass
+
+            delivery_mode = (
+                "at_least_once"
+                if self.failure_policy in ("retry", "dead_letter")
+                else "best_effort"
+            )
+
+            envelope = CommandEnvelope(
+                effect=EffectMetadata(
+                    effect_type=effect_name, parameters=mapped_params
+                ),
+                device_id=device_id,
+                command=command,
+                params=mapped_params,
+                deadline_ms=deadline_ms,
+                delivery_mode=delivery_mode,  # type: ignore[arg-type]
+            )
+
             submit_result = await self.device_manager.async_submit_envelope(
                 envelope
             )
-            latency_ms = (time.perf_counter() - started) * 1000.0
-            with self.metrics_lock:
-                self.total_latency_ms += latency_ms
-                self.dispatch_count += 1
-
+            latency_ms = self._record_metrics(started)
             return DispatchResult(
                 status=submit_result.get("status", "failed"),
                 accepted=submit_result.get("accepted", False),
@@ -693,17 +654,12 @@ class EffectDispatcher:
                 error=submit_result.get("error"),
             )
         except Exception as exc:
-            latency_ms = (time.perf_counter() - started) * 1000.0
-            with self.metrics_lock:
-                self.total_latency_ms += latency_ms
-                self.dispatch_count += 1
+            latency_ms = self._record_metrics(started)
             return DispatchResult(
                 status="failed",
                 accepted=False,
                 delivered=False,
                 effect=effect_name,
-                device_id=device_id,
-                command=command,
                 attempts=1,
                 latency_ms=latency_ms,
                 error=str(exc),
@@ -729,41 +685,15 @@ class EffectDispatcher:
         if not capabilities:
             return
 
-        capability_effect = effect_config.get("capability_effect")
-        inferred = capability_effect or effect_name.split("_")[0]
         is_valid, errors = validate_effect_parameters(
             capabilities=capabilities,
-            effect_type=inferred,
+            effect_type=effect_name,
             params=params,
         )
         if not is_valid:
             raise ValueError(
                 "Capability validation failed: " + "; ".join(errors)
             )
-
-    def _reconfigure_system(self, config_data: Dict[str, Any]):
-        """
-        Reconfigures the system based on new settings.
-        This method updates DeviceManager settings and potentially
-        signals for ProtocolServer settings updates.
-        """
-        logger.info(f"Received reconfigure command with data: {config_data}")
-
-        # Reconfigure DeviceManager if relevant data is present
-        if "device_manager" in config_data:
-            reconfigure_fn = getattr(self.device_manager, "reconfigure", None)
-            if callable(reconfigure_fn):
-                if reconfigure_fn(config_data["device_manager"]):
-                    logger.info("DeviceManager reconfigured successfully.")
-                else:
-                    logger.warning(
-                        "DeviceManager reconfiguration failed or not "
-                        "supported."
-                    )
-
-        # TODO: Implement signaling for ProtocolServer reconfiguration
-        # This would likely involve a callback to the ControlPanelServer
-        # or a similar managing entity.
 
     def _map_parameters(
         self, effect_config: Dict[str, Any], parameters: Dict[str, Any]
