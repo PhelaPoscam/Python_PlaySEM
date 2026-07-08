@@ -77,8 +77,17 @@ Experiment with sensory effects instantly without physical hardware or configura
 # Launch the interactive Virtual Lab REPL for direct mock device control
 python examples/virtual_lab.py
 
-# Run a coordinated multi-sensory thunderstorm demo scene
-python examples/scenes/thunderstorm.py
+```
+ 
+### Physical Hardware Integration (Arduino Example)
+
+Connect and drive real physical hardware (e.g. an Arduino controlling a PWM fan) over USB Serial:
+
+```bash
+# Upload examples/hardware/fan_controller/fan_controller.ino to an Arduino Uno/Nano
+# Then run the serial fan control demo:
+python examples/hardware/serial_fan_demo.py --list
+python examples/hardware/serial_fan_demo.py --port COM3
 ```
 
 ### Async Dispatch Example
