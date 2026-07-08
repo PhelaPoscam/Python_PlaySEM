@@ -67,7 +67,18 @@ flowchart TD
 pip install -e .
 
 # Full installation (FastAPI, amqtt, aiocoap, websockets)
-pip install -e ".[all]"
+```
+ 
+### Interactive Virtual Device Lab & Demo Scenes
+
+Experiment with sensory effects instantly without physical hardware or configuration files using simulated devices:
+
+```bash
+# Launch the interactive Virtual Lab REPL for direct mock device control
+python examples/virtual_lab.py
+
+# Run a coordinated multi-sensory thunderstorm demo scene
+python examples/scenes/thunderstorm.py
 ```
 
 ### Async Dispatch Example
