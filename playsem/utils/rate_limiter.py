@@ -47,13 +47,18 @@ class SlidingWindowLimiter:
 
         with self._lock:
             # Remove old requests outside the window
-            self._requests[client_id] = [
+            remaining = [
                 ts for ts in self._requests[client_id] if ts > window_start
             ]
+            if remaining:
+                self._requests[client_id] = remaining
+            else:
+                self._requests.pop(client_id, None)
 
             # Check if under limit
-            if len(self._requests[client_id]) < self.max_requests:
-                self._requests[client_id].append(now)
+            if len(remaining) < self.max_requests:
+                remaining.append(now)
+                self._requests[client_id] = remaining
                 return True
             return False
 
@@ -72,10 +77,14 @@ class SlidingWindowLimiter:
 
         with self._lock:
             # Remove old requests
-            self._requests[client_id] = [
+            remaining = [
                 ts for ts in self._requests[client_id] if ts > window_start
             ]
-            return max(0, self.max_requests - len(self._requests[client_id]))
+            if remaining:
+                self._requests[client_id] = remaining
+            else:
+                self._requests.pop(client_id, None)
+            return max(0, self.max_requests - len(remaining))
 
     def reset(self, client_id: Optional[str] = None):
         """

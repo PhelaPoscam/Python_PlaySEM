@@ -188,10 +188,16 @@ class DeviceManager:
         Returns:
             True if the command was sent successfully, False otherwise.
         """
-        result: Any = self._run_awaitable_blocking(
-            self.async_send_command(device_id, command, params)
-        )
-        return bool(result)
+        try:
+            result: Any = self._run_awaitable_blocking(
+                self.async_send_command(device_id, command, params)
+            )
+            return bool(result)
+        except Exception as e:
+            logger.error(
+                f"Exception in send_command for device '{device_id}': {e}"
+            )
+            return False
 
     async def async_send_command(
         self,
@@ -277,12 +283,16 @@ class DeviceManager:
         """Ensure a queue and worker task exist for a given device_id."""
         if not self._async_running:
             return
-        if device_id not in self._queues:
-            self._queues[device_id] = asyncio.PriorityQueue(maxsize=100)
-        if device_id not in self._workers or self._workers[device_id].done():
-            self._workers[device_id] = asyncio.create_task(
-                self._device_worker(device_id)
-            )
+        with self._device_locks_guard:
+            if device_id not in self._queues:
+                self._queues[device_id] = asyncio.PriorityQueue(maxsize=100)
+            if (
+                device_id not in self._workers
+                or self._workers[device_id].done()
+            ):
+                self._workers[device_id] = asyncio.create_task(
+                    self._device_worker(device_id)
+                )
 
     async def async_submit_envelope(self, envelope: CommandEnvelope) -> Any:
         """
@@ -659,12 +669,13 @@ class DeviceManager:
             thread.join()
         else:
             thread.join(timeout=self.async_bridge_timeout)
-
-        if thread.is_alive():
-            raise TimeoutError(
-                "Async bridge execution timed out after "
-                f"{self.async_bridge_timeout} second(s)"
-            )
+            if thread.is_alive():
+                logger.warning(
+                    "Async bridge execution exceeded timeout of "
+                    f"{self.async_bridge_timeout}s. Waiting for "
+                    "completion to avoid orphaned thread corruption."
+                )
+                thread.join()
 
         if "error" in holder:
             raise holder["error"]

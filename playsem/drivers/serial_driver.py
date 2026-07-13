@@ -117,6 +117,7 @@ class SerialDriver(BaseDriver, BaseDiscovery):
         self._read_thread: Optional[threading.Thread] = None
         self._stop_reading = threading.Event()
         self._write_lock = threading.RLock()
+        self._serial_lock = threading.RLock()
         self._reconnect_attempts = 0
         self._last_reconnect_error: Optional[str] = None
 
@@ -351,7 +352,8 @@ class SerialDriver(BaseDriver, BaseDiscovery):
             except Exception as e:
                 logger.error(f"Error closing {self.port}: {e}")
             finally:
-                self._serial = None
+                with self._serial_lock:
+                    self._serial = None
 
         self._is_connected = False
 
@@ -443,27 +445,18 @@ class SerialDriver(BaseDriver, BaseDiscovery):
             return False
 
     def read_bytes(self, size: int = 1) -> Optional[bytes]:
-        """
-        Read bytes from device.
-
-        Args:
-            size: Number of bytes to read
-
-        Returns:
-            Bytes read, or None if error/timeout
-
-        Example:
-            >>> response = driver.read_bytes(4)
-            >>> if response:
-            ...     print(f"Response: {response.hex()}")
-            Response: ff0064aa
-        """
-        if not self._is_connected or not self._serial:
+        if not self._is_connected:
             logger.error("Cannot read: not connected")
             return None
 
+        with self._serial_lock:
+            serial_port = self._serial
+
+        if not serial_port:
+            return None
+
         try:
-            data = self._serial.read(size)
+            data = serial_port.read(size)
             if data:
                 logger.debug(f"Read {len(data)} bytes: {data.hex()}")
             return data if data else None
@@ -473,26 +466,17 @@ class SerialDriver(BaseDriver, BaseDiscovery):
             return None
 
     def read_line(self, encoding: str = "utf-8") -> Optional[str]:
-        """
-        Read one line from device (until newline).
+        if not self._is_connected:
+            return None
 
-        Args:
-            encoding: Text encoding (default: 'utf-8')
+        with self._serial_lock:
+            serial_port = self._serial
 
-        Returns:
-            Line as string (without newline), or None if error/timeout
-
-        Example:
-            >>> line = driver.read_line()
-            >>> if line:
-            ...     print(f"Device says: {line}")
-            Device says: READY
-        """
-        if not self._is_connected or not self._serial:
+        if not serial_port:
             return None
 
         try:
-            data = self._serial.readline()
+            data = serial_port.readline()
             if data:
                 return str(data.decode(encoding).strip())
             return None
@@ -516,12 +500,16 @@ class SerialDriver(BaseDriver, BaseDiscovery):
     def _read_loop(self):
         """Background loop for reading data."""
         while not self._stop_reading.is_set():
-            if not self._is_connected or not self._serial:
+            with self._serial_lock:
+                serial_port = self._serial
+                connected = self._is_connected
+
+            if not connected or not serial_port:
                 break
 
             try:
-                if self._serial.in_waiting > 0:
-                    data = self._serial.read(self._serial.in_waiting)
+                if serial_port.in_waiting > 0:
+                    data = serial_port.read(serial_port.in_waiting)
                     if data and self.on_data_received:
                         self.on_data_received(data)
             except Exception as e:

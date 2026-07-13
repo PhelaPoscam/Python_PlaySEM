@@ -241,6 +241,16 @@ class WebSocketServer:
 
             # Handle messages from client
             async for message in websocket:
+                # Reject binary frames
+                if not isinstance(message, str):
+                    logger.warning(
+                        f"Binary frame received from {client_id}, closing connection"
+                    )
+                    await websocket.close(
+                        code=1003, reason="Binary frames not supported"
+                    )
+                    return
+
                 # Validate message size
                 if len(message) > self.max_message_size:
                     logger.warning(

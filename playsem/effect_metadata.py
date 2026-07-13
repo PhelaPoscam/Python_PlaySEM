@@ -122,6 +122,12 @@ class EffectMetadataParser:
             }
         """
         data = json.loads(json_str)
+        if "effect_type" not in data:
+            raise ValueError(
+                "Missing required field 'effect_type' in JSON payload"
+            )
+        if "effect_type" not in data:
+            raise ValueError("Missing required field 'effect_type'")
         return EffectMetadata(
             effect_type=data["effect_type"],
             timestamp=data.get("timestamp", 0),
@@ -144,6 +150,10 @@ class EffectMetadataParser:
             EffectMetadata object
         """
         data = yaml.safe_load(yaml_str)
+        if "effect_type" not in data:
+            raise ValueError(
+                "Missing required field 'effect_type' in YAML payload"
+            )
         return EffectMetadata(
             effect_type=data["effect_type"],
             timestamp=data.get("timestamp", 0),

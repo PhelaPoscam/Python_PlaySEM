@@ -209,7 +209,7 @@ class CoAPServer:
         """Parse effect from JSON or YAML payload string."""
         try:
             return EffectMetadataParser.parse_json(payload)
-        except (json.JSONDecodeError, ValueError):
+        except (json.JSONDecodeError, ValueError, KeyError, TypeError):
             try:
                 return EffectMetadataParser.parse_yaml(payload)
             except Exception as e:

@@ -355,6 +355,10 @@ class MQTTDriver(BaseDriver):
                 f"{mqtt.error_string(rc)}"
             )
             if self.auto_reconnect:
+                try:
+                    self.client.loop_stop()
+                except Exception:
+                    pass
                 self._trigger_reconnect()
 
     def _trigger_reconnect(self):

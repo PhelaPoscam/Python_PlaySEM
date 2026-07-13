@@ -9,10 +9,13 @@ video players, ensuring effects are triggered at exact timestamps.
 import asyncio
 import time
 import threading
+import logging
 from typing import List, Callable, Optional, Dict, Any
 from dataclasses import dataclass
 from .effect_metadata import EffectMetadata, EffectTimeline
 from .effect_dispatcher import EffectDispatcher
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -366,7 +369,9 @@ class Timeline:
                 self.on_effect_callback(effect)
 
         except Exception as e:
-            print(f"Error executing effect {effect.effect_type}: {e}")
+            logger.exception(
+                f"Error executing effect {effect.effect_type}: {e}"
+            )
 
     def set_callbacks(
         self,

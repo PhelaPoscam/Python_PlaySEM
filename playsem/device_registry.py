@@ -65,7 +65,7 @@ class DeviceInfo:
     address: str
     protocols: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
-    connection_mode: str = "direct"
+    connection_mode: str = "isolated"
     metadata: Dict[str, Any] = field(default_factory=dict)
     registered_at: datetime = field(default_factory=datetime.now)
     last_seen: datetime = field(default_factory=datetime.now)

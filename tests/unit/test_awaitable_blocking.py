@@ -49,9 +49,14 @@ async def test_awaitable_blocking_from_running_loop():
 
 @pytest.mark.asyncio
 async def test_awaitable_blocking_timeout():
-    """Verify that timeout raises TimeoutError and does not block indefinitely."""
-    # Set async_bridge_timeout to 0.05 seconds
+    """Verify that timed-out bridge joins to completion rather than abandoning thread."""
     manager = DeviceManager(client=MagicMock(), async_bridge_timeout=0.05)
 
-    with pytest.raises(TimeoutError, match="Async bridge execution timed out"):
-        manager._run_awaitable_blocking(slow_coro())
+    start = time.monotonic()
+    result = manager._run_awaitable_blocking(slow_coro())
+    elapsed = time.monotonic() - start
+
+    assert result == "done"
+    assert (
+        elapsed >= 1.0
+    )  # Thread was allowed to complete rather than being abandoned
