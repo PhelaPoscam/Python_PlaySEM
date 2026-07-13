@@ -24,7 +24,7 @@ from playsem.config.loader import ConfigLoader
 
 
 @pytest.fixture
-async def full_system(tmp_path):
+async def full_system(tmp_path, request):
     """Boot the complete PlaySEM stack with a real mock driver."""
     config_dir = tmp_path / "config"
     config_dir.mkdir()
@@ -82,19 +82,23 @@ effects:
         device_manager=manager, effects_config_path=str(effects_file)
     )
 
-    # Find a free port for MQTT
-    import socket
+    use_mqtt = "TestMqttPath" in request.node.nodeid
+    if use_mqtt:
+        import socket
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(("127.0.0.1", 0))
-    mqtt_port = sock.getsockname()[1]
-    sock.close()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(("127.0.0.1", 0))
+        mqtt_port = sock.getsockname()[1]
+        sock.close()
 
-    mqtt_server = MQTTServer(
-        dispatcher=dispatcher, host="127.0.0.1", port=mqtt_port
-    )
-    mqtt_server.start()
-    await asyncio.wait_for(mqtt_server.wait_until_ready(), timeout=5.0)
+        mqtt_server = MQTTServer(
+            dispatcher=dispatcher, host="127.0.0.1", port=mqtt_port
+        )
+        mqtt_server.start()
+        await asyncio.wait_for(mqtt_server.wait_until_ready(), timeout=5.0)
+    else:
+        mqtt_server = None
+        mqtt_port = None
 
     class System:
         pass
@@ -108,7 +112,8 @@ effects:
 
     yield system
 
-    mqtt_server.stop()
+    if mqtt_server:
+        mqtt_server.stop()
     await manager.stop_async_workers()
 
 

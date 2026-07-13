@@ -124,6 +124,10 @@ class MQTTServer:
             logger.error(f"MQTT broker failed to start or run: {e}")
             self._is_running = False
         finally:
+            try:
+                self.loop.run_until_complete(self.loop.shutdown_asyncgens())
+            except Exception:
+                pass
             self.loop.close()  # Close the loop cleanly
 
     async def _start_broker(self):
@@ -312,10 +316,14 @@ class MQTTServer:
         """
         Main loop for the broker, waits for a stop signal.
         """
-        await asyncio.to_thread(self._stop_event.wait)
+        while not self._stop_event.is_set():
+            await asyncio.sleep(0.05)
         logger.info("Stop event received, initiating amqtt broker shutdown.")
         if self.broker:
-            await self.broker.shutdown()
+            try:
+                await self.broker.shutdown()
+            except Exception as e:
+                logger.debug(f"amqtt broker shutdown note: {e}")
         logger.info("amqtt broker shutdown complete.")
 
     async def wait_until_ready(self):
@@ -342,7 +350,7 @@ class MQTTServer:
 
             if not self.use_external_broker:
                 self._stop_event.set()
-                self.thread.join(timeout=5.0)
+                self.thread.join(timeout=1.5)
 
             self._is_running = False
             logger.info("MQTT Broker/Client stopped")
