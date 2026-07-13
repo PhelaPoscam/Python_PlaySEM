@@ -58,7 +58,6 @@ server = [
     "uvicorn>=0.24.0",
     "python-multipart>=0.0.6",
     "aiohttp-cors>=0.7.0",
-    "beautifulsoup4>=4.12.0",
     "aiohttp>=3.8.0",
 ]
 all = [
@@ -75,7 +74,6 @@ all = [
     "uvicorn>=0.24.0",
     "python-multipart>=0.0.6",
     "aiohttp-cors>=0.7.0",
-    "beautifulsoup4>=4.12.0",
 ]
 dev = [
     "pytest>=7.4.0",
@@ -86,8 +84,6 @@ dev = [
     "flake8>=6.0.0",
     "mypy>=1.0.0",
     "httpx>=0.27.0",
-    "playwright>=1.46.0",
-    "pytest-playwright",
     "types-PyYAML",
     "aiohttp>=3.8.0",
 ]
