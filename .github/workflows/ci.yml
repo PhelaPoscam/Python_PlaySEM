@@ -33,22 +33,10 @@ jobs:
         cache: 'pip'
         cache-dependency-path: pyproject.toml
 
-    - name: Cache Playwright browsers
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/ms-playwright
-        key: ${{ runner.os }}-playwright-v1
-        restore-keys: |
-          ${{ runner.os }}-playwright-
-
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -e .[dev,all]
-
-    - name: Install Playwright Browsers
-      run: |
-        python -m playwright install --with-deps
 
     - name: Run protocol smoke tests (HTTP, WebSocket, MQTT, CoAP, UPnP)
       run: |
@@ -70,22 +58,10 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
 
-    - name: Cache Playwright browsers
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/ms-playwright
-        key: ${{ runner.os }}-playwright-v1
-        restore-keys: |
-          ${{ runner.os }}-playwright-
-
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -e .[dev,all]
-
-    - name: Install Playwright Browsers
-      run: |
-        python -m playwright install --with-deps
 
     - name: Run tests with coverage
       run: |
@@ -148,10 +124,6 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e .[dev,all]
-
-    - name: Install Playwright Browsers
-      run: |
-        python -m playwright install --with-deps
 
     - name: Run live integration tests
       run: |
