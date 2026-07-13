@@ -334,10 +334,9 @@ class HTTPServer:
 
             dm = getattr(self.dispatcher, "device_manager", None)
             if dm:
-                # Device queues
-                for dev_id, q in getattr(dm, "_queues", {}).items():
+                for dev_id, depth in dm.get_queue_depths().items():
                     metrics.append(
-                        f'playsem_device_queue_depth{{device_id="{dev_id}"}} {q.qsize()}'
+                        f'playsem_device_queue_depth{{device_id="{dev_id}"}} {depth}'
                     )
 
                 # Circuit states

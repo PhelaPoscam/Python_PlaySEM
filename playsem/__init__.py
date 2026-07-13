@@ -10,7 +10,10 @@ from .timeline import Timeline
 from .drivers.base_driver import BaseDiscovery
 from .drivers.upnp_discovery import UPnPDiscovery
 
+from .config.loader import ConfigLoader
+
 __all__ = [
+    "ConfigLoader",
     "DeviceManager",
     "EffectDispatcher",
     "DispatchResult",

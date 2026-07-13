@@ -85,6 +85,7 @@ class MQTTDriver(BaseDriver):
         self._reconnect_in_progress = False
         self._reconnect_attempts = 0
         self._last_reconnect_error: Optional[str] = None
+        self._connect_event = threading.Event()
 
         # Create MQTT client
         callback_api_version = getattr(mqtt, "CallbackAPIVersion", None)
@@ -131,9 +132,12 @@ class MQTTDriver(BaseDriver):
                     f"Connecting to MQTT broker {self.broker}:{self.port} "
                     f"(attempt {attempt}/{max_attempts})"
                 )
+                self._connect_event.clear()
                 self.client.connect(self.broker, self.port)
-                self.client.loop_start()  # Start background thread
+                self.client.loop_start()
+                self._is_connected = True
                 self._last_reconnect_error = None
+                logger.info("MQTT connection initiated successfully")
                 return True
             except Exception as e:
                 self._last_reconnect_error = str(e)
@@ -334,10 +338,12 @@ class MQTTDriver(BaseDriver):
             self._is_connected = True
             logger.info("Connected to MQTT broker")
         else:
+            self._is_connected = False
             logger.error(
                 f"MQTT connection failed with code {rc}: "
                 f"{mqtt.connack_string(rc)}"
             )
+        self._connect_event.set()
 
     def _on_disconnect(self, client, userdata, *args):
         """Callback when disconnected from broker."""
@@ -347,6 +353,7 @@ class MQTTDriver(BaseDriver):
         )
         rc = self._reason_code_to_int(reason_code)
         self._is_connected = False
+        self._connect_event.set()
         if rc == 0:
             logger.info("Disconnected from MQTT broker")
         else:
@@ -382,7 +389,7 @@ class MQTTDriver(BaseDriver):
                 self._reconnect_attempts = attempt
                 try:
                     self.client.reconnect()
-                    self.client.loop_start()  # Restart the network loop after reconnect
+                    self.client.loop_start()
                     self._last_reconnect_error = None
                     logger.info(
                         f"MQTT reconnect succeeded on attempt {attempt}/"

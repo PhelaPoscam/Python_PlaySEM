@@ -106,6 +106,8 @@ class EffectDispatcher:
         """
         self.device_manager = device_manager
         self.effects_config: Dict[str, Any] = {}
+        self._effects_config_path = effects_config_path
+        self._effects_config_loaded = False
         self.managed_mode = managed_mode
         self.failure_policy = failure_policy
         self.max_dispatch_retries = max(0, max_dispatch_retries)
@@ -128,14 +130,25 @@ class EffectDispatcher:
 
         # Load effects configuration if path provided
         if effects_config_path:
+            self._effects_config_path = effects_config_path
+        else:
+            self._use_default_mappings()
+            self._effects_config_loaded = True
+
+    def _load_effects_config(self) -> None:
+        """Load effects config from disk. Deferred to avoid blocking the event loop in __init__."""
+        if self._effects_config_loaded:
+            return
+        path = self._effects_config_path
+        if path:
             try:
-                with open(effects_config_path, "r", encoding="utf-8") as f:
+                with open(path, "r", encoding="utf-8") as f:
                     self.effects_config = yaml.safe_load(f) or {}
             except FileNotFoundError:
-                # Fallback to hardcoded mappings
                 self._use_default_mappings()
         else:
             self._use_default_mappings()
+        self._effects_config_loaded = True
 
     def _use_default_mappings(self):
         """Set up default hardcoded effect mappings as fallback."""
@@ -533,6 +546,7 @@ class EffectDispatcher:
         self, effect_name: str, parameters: Dict[str, Any]
     ) -> tuple[str, str, Dict[str, Any]]:
         """Resolve effect config and return (device_id, command, mapped_params)."""
+        self._load_effects_config()
         effect_config = self.effects_config.get("effects", {}).get(effect_name)
         if not effect_config:
             raise ValueError(f"Unknown effect: {effect_name}")
@@ -737,4 +751,5 @@ class EffectDispatcher:
         Returns:
             List of effect names
         """
+        self._load_effects_config()
         return list(self.effects_config.get("effects", {}).keys())

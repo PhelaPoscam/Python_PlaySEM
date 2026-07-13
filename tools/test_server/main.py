@@ -35,11 +35,25 @@ from tools.test_server.env_loader import load_env
 # Load environment variables from .env if present
 load_env()
 
+
+def _env_int(key: str, default: int) -> int:
+    val = os.environ.get(key)
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        print(
+            f"Warning: {key}={val} is not an integer, using default {default}"
+        )
+        return default
+
+
 # --- Configurable Ports (can be overridden by environment variables) ---
-DEFAULT_SERVER_PORT = int(os.environ.get("PLAYSEM_SERVER_PORT", 8090))
-DEFAULT_MQTT_PORT = int(os.environ.get("PLAYSEM_MQTT_PORT", 1883))
-DEFAULT_COAP_PORT = int(os.environ.get("PLAYSEM_COAP_PORT", 5683))
-DEFAULT_UPNP_HTTP_PORT = int(os.environ.get("PLAYSEM_UPNP_HTTP_PORT", 8008))
+DEFAULT_SERVER_PORT = _env_int("PLAYSEM_SERVER_PORT", 8090)
+DEFAULT_MQTT_PORT = _env_int("PLAYSEM_MQTT_PORT", 1883)
+DEFAULT_COAP_PORT = _env_int("PLAYSEM_COAP_PORT", 5683)
+DEFAULT_UPNP_HTTP_PORT = _env_int("PLAYSEM_UPNP_HTTP_PORT", 8008)
 # --------------------------------------------------------------------
 
 
@@ -164,8 +178,12 @@ class ControlPanelServer:
                 await self.upnp_server.start()
                 await self.upnp_server.wait_until_ready()
                 self.upnp_ready = True
+                host, port = (
+                    self.upnp_server.http_host,
+                    self.upnp_server.http_port,
+                )
                 print(
-                    f"[BOOT] Embedded UPnP server started at http://{self.upnp_server.http_host}:{self.upnp_server.http_port}"
+                    f"[BOOT] Embedded UPnP server started at http://{host}:{port}"
                 )
             except Exception as e:
                 print(f"[BOOT] Failed to start embedded UPnP server: {e}")
@@ -349,7 +367,8 @@ class ControlPanelServer:
                         connection_mode = data.get("connection_mode", "direct")
 
                         print(
-                            f"[REGISTER] Device: {device_name} ({device_id}) Type: {device_type} Mode: {connection_mode}"
+                            f"[REGISTER] Device: {device_name} ({device_id}) "
+                            f"Type: {device_type} Mode: {connection_mode}"
                         )
 
                         await self._ensure_protocol_servers(
@@ -441,7 +460,7 @@ class ControlPanelServer:
                         for conn in self.active_connections:
                             try:
                                 await conn.send_json(message)
-                            except:
+                            except Exception:
                                 pass
 
                         # Send confirmation to the registering device
@@ -515,7 +534,8 @@ class ControlPanelServer:
                         self.effects_sent += 1
 
                         print(
-                            f"[SEND_EFFECT] Device found: {device.device_name}, has websocket: {device.websocket is not None}"
+                            f"[SEND_EFFECT] Device found: {device.device_name}, "
+                            f"has websocket: {device.websocket is not None}"
                         )
 
                         # Send effect to the device's WebSocket
@@ -653,7 +673,7 @@ class ControlPanelServer:
                     for conn in self.active_connections:
                         try:
                             await conn.send_json(message)
-                        except:
+                        except Exception:
                             pass
             except Exception as e:
                 print(f"WebSocket error: {e}")

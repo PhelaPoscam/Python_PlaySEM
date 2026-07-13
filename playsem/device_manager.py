@@ -126,7 +126,8 @@ class DeviceManager:
     @connectivity_driver.setter
     def connectivity_driver(self, value: Optional[Any]) -> None:
         self._connectivity_driver = value
-        self._default_driver = value
+        if not self.device_to_driver:
+            self._default_driver = value
 
     def _resolve_driver(self, device_id: str) -> Optional[Any]:
         """Resolve the driver for a device, falling back to default."""
@@ -498,23 +499,10 @@ class DeviceManager:
 
         with self._device_locks_guard:
             lock = self._async_device_locks.get(key)
-            if lock is not None:
-                return lock
-
-        # Create the lock outside the guard so we never block the event loop
-        # while holding a threading lock. If two coroutines race, the second
-        # will overwrite the first — both are fresh asyncio.Lock instances,
-        # so the dict update is harmless.
-        lock = asyncio.Lock()
-
-        with self._device_locks_guard:
-            # Another coroutine may have beaten us — use the existing one.
-            existing = self._async_device_locks.get(key)
-            if existing is not None:
-                return existing
-            self._async_device_locks[key] = lock
-
-        return lock
+            if lock is None:
+                lock = asyncio.Lock()
+                self._async_device_locks[key] = lock
+            return lock
 
     def _circuit_enabled(self) -> bool:
         """Return whether per-device circuit breaking is enabled."""
@@ -600,6 +588,10 @@ class DeviceManager:
                 f"{state.failures} failure(s): {error}"
             )
         self._sync_circuit_state_to_registry(device_id, state)
+
+    def get_queue_depths(self) -> Dict[str, int]:
+        """Return per-device queue depths for monitoring."""
+        return {dev_id: q.qsize() for dev_id, q in self._queues.items()}
 
     def get_circuit_info(self, device_id: str) -> Dict[str, Any]:
         """Return circuit breaker status for a device."""

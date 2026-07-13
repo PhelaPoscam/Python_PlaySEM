@@ -367,16 +367,18 @@ class SerialDriver(BaseDriver, BaseDiscovery):
         Returns:
             True if send successful, False otherwise
         """
-        if not self._is_connected or not self._serial:
-            logger.error("Cannot send: not connected")
-            return False
+        with self._serial_lock:
+            if not self._is_connected or not self._serial:
+                logger.error("Cannot send: not connected")
+                return False
+            serial_port = self._serial
 
         try:
 
             def _write():
                 with self._write_lock:
-                    bytes_written = self._serial.write(data)
-                    self._serial.flush()  # Ensure data is transmitted
+                    bytes_written = serial_port.write(data)
+                    serial_port.flush()
                 return bytes_written
 
             bytes_written = await asyncio.to_thread(_write)

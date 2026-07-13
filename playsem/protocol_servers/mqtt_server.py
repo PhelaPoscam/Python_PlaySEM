@@ -264,9 +264,6 @@ class MQTTServer:
 
             effect = self._parse_effect(payload_str)
             if effect:
-                # Submit the effect to the async dispatch queue instead of blocking
-                import asyncio
-
                 dispatch_loop = (
                     self.main_loop
                     if (
@@ -276,18 +273,20 @@ class MQTTServer:
                     else self.loop
                 )
 
-                if dispatch_loop is not None:
-                    asyncio.run_coroutine_threadsafe(
-                        self.dispatcher.async_dispatch_effect_metadata(effect),
-                        dispatch_loop,
+                if dispatch_loop is None:
+                    logger.error(
+                        "MQTT effect dropped: no dispatch loop available"
                     )
-                logger.info(
-                    "Effect "
-                    f"'{effect.effect_type}' "
-                    "executed successfully via MQTT"
+                    return
+
+                asyncio.run_coroutine_threadsafe(
+                    self.dispatcher.async_dispatch_effect_metadata(effect),
+                    dispatch_loop,
                 )
-                if self.on_effect_broadcast and dispatch_loop is not None:
-                    # Run async callback in the dispatch loop
+                logger.info(
+                    "Effect " f"'{effect.effect_type}' " "submitted via MQTT"
+                )
+                if self.on_effect_broadcast:
                     asyncio.run_coroutine_threadsafe(
                         self.on_effect_broadcast(effect, "mqtt_broadcast"),
                         dispatch_loop,
@@ -313,11 +312,10 @@ class MQTTServer:
         """
         Main loop for the broker, waits for a stop signal.
         """
-        while not self._stop_event.is_set():
-            await asyncio.sleep(0.1)
+        await asyncio.to_thread(self._stop_event.wait)
         logger.info("Stop event received, initiating amqtt broker shutdown.")
         if self.broker:
-            await self.broker.shutdown()  # Await the broker shutdown
+            await self.broker.shutdown()
         logger.info("amqtt broker shutdown complete.")
 
     async def wait_until_ready(self):
@@ -343,11 +341,8 @@ class MQTTServer:
                 self.internal_client.disconnect()
 
             if not self.use_external_broker:
-                self._stop_event.set()  # Signal the broker main loop to stop
-
-                # Wait for the thread to finish.
-                # It should now exit cleanly after broker shutdown.
-                self.thread.join(timeout=15)  # Increased timeout just in case
+                self._stop_event.set()
+                self.thread.join(timeout=5.0)
 
             self._is_running = False
             logger.info("MQTT Broker/Client stopped")

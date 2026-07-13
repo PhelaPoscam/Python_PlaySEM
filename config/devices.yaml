@@ -3,7 +3,7 @@
 
 devices:
   # Mock Light Device (LED/RGB lighting)
-  - id: mockLight
+  - deviceId: mockLight
     deviceClass: device_driver.mock_driver.MockLightDevice
     connectivityInterface: mockInterface
     properties:
@@ -11,7 +11,7 @@ devices:
       description: "Mock RGB LED light device for testing"
     
   # Mock Wind Device (Fan)
-  - id: mockWind
+  - deviceId: mockWind
     deviceClass: device_driver.mock_driver.MockWindDevice
     connectivityInterface: mockInterface
     properties:
@@ -19,7 +19,7 @@ devices:
       description: "Mock fan device for wind effects"
     
   # Mock Vibration Device (Haptic actuator)
-  - id: mockVibration
+  - deviceId: mockVibration
     deviceClass: device_driver.mock_driver.MockVibrationDevice
     connectivityInterface: mockInterface
     properties:
@@ -27,7 +27,7 @@ devices:
       description: "Mock vibration motor for haptic feedback"
     
   # Mock Scent Device (Smell diffuser)
-  - id: mockScent
+  - deviceId: mockScent
     deviceClass: device_driver.mock_driver.MockScentDevice
     connectivityInterface: mockInterface
     properties:
@@ -78,21 +78,21 @@ connectivityInterfaces:
 # Example device configurations with different connectivity types:
 #
 # MQTT Light Device:
-# - id: mqttLight
+# - deviceId: mqttLight
 #   deviceClass: device_driver.mock_driver.MockLightDevice
 #   connectivityInterface: mqttBroker
 #   properties:
 #     topic: devices/light_001
 #
 # Serial Arduino Device:
-# - id: arduinoFan
+# - deviceId: arduinoFan
 #   deviceClass: device_driver.serial_driver.SerialDevice
 #   connectivityInterface: serialUSB
 #   properties:
 #     device_id: fan_001
 #
 # Bluetooth Haptic Device:
-# - id: bleVibrator
+# - deviceId: bleVibrator
 #   deviceClass: device_driver.bluetooth_driver.BluetoothDevice
 #   connectivityInterface: bluetoothLE
 #   properties:

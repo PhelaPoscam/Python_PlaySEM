@@ -292,9 +292,13 @@ class UPnPServer:
             if hasattr(socket, "SO_REUSEPORT"):
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
             sock.bind(("", self.SSDP_PORT))
-            self._transport, _ = await loop.create_datagram_endpoint(
-                lambda: self._SSDPProtocol(self), sock=sock
-            )
+            try:
+                self._transport, _ = await loop.create_datagram_endpoint(
+                    lambda: self._SSDPProtocol(self), sock=sock
+                )
+            except Exception:
+                sock.close()
+                raise
 
             # 2. Start the HTTP server for XML files
             app = web.Application()

@@ -32,7 +32,7 @@ class EffectMetadata:
 
     effect_type: str
     timestamp: int = 0  # milliseconds
-    duration: int = 0  # milliseconds
+    duration: int = 1000  # milliseconds
     intensity: Optional[int] = None
     location: str = "everywhere"
     parameters: Dict[str, Any] = field(default_factory=dict)
@@ -126,8 +126,6 @@ class EffectMetadataParser:
             raise ValueError(
                 "Missing required field 'effect_type' in JSON payload"
             )
-        if "effect_type" not in data:
-            raise ValueError("Missing required field 'effect_type'")
         return EffectMetadata(
             effect_type=data["effect_type"],
             timestamp=data.get("timestamp", 0),

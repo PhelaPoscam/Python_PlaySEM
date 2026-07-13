@@ -18,14 +18,21 @@ class ConfigLoader:
     """
 
     def __init__(
-        self, devices_path: str, effects_path: str, protocols_path: str
+        self,
+        devices_path: str,
+        effects_path: str,
+        protocols_path: str | None = None,
     ):
         """
         Initializes the ConfigLoader and loads all specified configurations.
         """
         self.devices_config = self._load_config_file(devices_path)
         self.effects_config = self._load_config_file(effects_path)
-        self.protocols_config = self._load_config_file(protocols_path)
+        self.protocols_config = (
+            self._load_config_file(protocols_path)
+            if protocols_path is not None
+            else {}
+        )
 
     def load_devices_config(self) -> Dict[str, Any]:
         return self.devices_config

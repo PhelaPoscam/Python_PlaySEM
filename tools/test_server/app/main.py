@@ -25,10 +25,24 @@ from tools.test_server.env_loader import load_env
 # Load environment variables from .env if present
 load_env()
 
-DEFAULT_SERVER_PORT = int(os.environ.get("PLAYSEM_SERVER_PORT", 8090))
-DEFAULT_MQTT_PORT = int(os.environ.get("PLAYSEM_MQTT_PORT", 1883))
-DEFAULT_COAP_PORT = int(os.environ.get("PLAYSEM_COAP_PORT", 5683))
-DEFAULT_UPNP_HTTP_PORT = int(os.environ.get("PLAYSEM_UPNP_HTTP_PORT", 8008))
+
+def _env_int(key: str, default: int) -> int:
+    val = os.environ.get(key)
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        print(
+            f"Warning: {key}={val} is not an integer, using default {default}"
+        )
+        return default
+
+
+DEFAULT_SERVER_PORT = _env_int("PLAYSEM_SERVER_PORT", 8090)
+DEFAULT_MQTT_PORT = _env_int("PLAYSEM_MQTT_PORT", 1883)
+DEFAULT_COAP_PORT = _env_int("PLAYSEM_COAP_PORT", 5683)
+DEFAULT_UPNP_HTTP_PORT = _env_int("PLAYSEM_UPNP_HTTP_PORT", 8008)
 
 
 def _can_receive_broadcast(

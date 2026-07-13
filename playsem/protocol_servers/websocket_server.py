@@ -140,9 +140,18 @@ class WebSocketServer:
                 logger.info("WebSocket SSL/TLS enabled")
 
             # Start WebSocket server
-            self._server = await websockets.serve(
-                self._handle_client, self.host, self.port, ssl=ssl_context
-            )
+            try:
+                self._server = await websockets.serve(
+                    self._handle_client, self.host, self.port, ssl=ssl_context
+                )
+            except NotImplementedError:
+                logger.error(
+                    "websockets.serve() not supported on this platform "
+                    "(e.g. Windows without signal handler support)"
+                )
+                raise RuntimeError(
+                    "WebSocket server not supported on this platform"
+                ) from None
 
             with self._lock:
                 self._is_running = True

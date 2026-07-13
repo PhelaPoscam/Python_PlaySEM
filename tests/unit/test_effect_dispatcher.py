@@ -39,13 +39,10 @@ def sample_effects_config():
 @pytest.fixture
 def dispatcher(mock_device_manager, sample_effects_config):
     """Fixture for an EffectDispatcher initialized with mock config."""
-    with (
-        patch("builtins.open") as mock_open,
-        patch("playsem.effect_dispatcher.yaml.safe_load") as mock_load,
-    ):
-        mock_load.return_value = sample_effects_config
-        dispatcher = EffectDispatcher(mock_device_manager, "dummy/path.yaml")
-        return dispatcher
+    dispatcher = EffectDispatcher(mock_device_manager, "dummy/path.yaml")
+    dispatcher.effects_config = sample_effects_config
+    dispatcher._effects_config_loaded = True
+    return dispatcher
 
 
 def test_dispatch_effect_simple(dispatcher, mock_device_manager):
@@ -133,9 +130,14 @@ def test_get_supported_effects(dispatcher, sample_effects_config):
 
 def test_fallback_to_default_mappings(mock_device_manager):
     """Test that the dispatcher uses default mappings if config fails to load."""
+    dispatcher = EffectDispatcher(mock_device_manager, "bad/path.yaml")
+    dispatcher.effects_config = None
+    dispatcher._effects_config_loaded = False
+    dispatcher._effects_config_path = "bad/path.yaml"
+    # _load_effects_config will call open which fails, then fall back
     with patch("builtins.open") as mock_open:
         mock_open.side_effect = FileNotFoundError
-        dispatcher = EffectDispatcher(mock_device_manager, "bad/path.yaml")
+        dispatcher._load_effects_config()
 
     # Check that a default effect can be dispatched
     dispatcher.dispatch_effect("light", {"intensity": 123})

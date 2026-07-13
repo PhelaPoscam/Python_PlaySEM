@@ -32,7 +32,14 @@ import asyncio
 import sys
 from pathlib import Path
 
-_project_root = Path(__file__).resolve().parents[2]
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+_project_root = Path(__file__).resolve()
+for parent in _project_root.parents:
+    if (parent / "pyproject.toml").exists():
+        _project_root = parent
+        break
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
