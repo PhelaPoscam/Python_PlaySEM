@@ -18,6 +18,14 @@ def pytest_configure(config):
         sys.path.insert(0, str(root_dir))
 
 
+def pytest_collection_modifyitems(items):
+    """Automatically mark network integration tests."""
+    for item in items:
+        parts = Path(str(item.fspath)).parts
+        if "integration" in parts or "protocols" in parts:
+            item.add_marker(pytest.mark.integration)
+
+
 @pytest.fixture(scope="session")
 def live_server():
     """

@@ -8,8 +8,8 @@ from playsem.utils.rate_limiter import SlidingWindowLimiter
 
 
 def test_sliding_window_limiter():
-    # Max 2 requests in a 1-second window
-    limiter = SlidingWindowLimiter(max_requests=2, window_seconds=1.0)
+    # Max 2 requests in a 0.1-second window
+    limiter = SlidingWindowLimiter(max_requests=2, window_seconds=0.1)
     client = "client_1"
 
     # Initial remaining count
@@ -30,8 +30,8 @@ def test_sliding_window_limiter():
     # Different client should not be affected
     assert limiter.allow("client_2") is True
 
-    # Wait for window to slide (1.1 seconds)
-    time.sleep(1.1)
+    # Wait for window to slide (0.12 seconds)
+    time.sleep(0.12)
 
     # Should allow requests again
     assert limiter.get_remaining(client) == 2

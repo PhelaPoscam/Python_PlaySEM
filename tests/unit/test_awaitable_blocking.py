@@ -17,7 +17,7 @@ async def failing_coro():
 
 
 async def slow_coro():
-    await asyncio.sleep(1.0)
+    await asyncio.sleep(0.08)
     return "done"
 
 
@@ -50,7 +50,7 @@ async def test_awaitable_blocking_from_running_loop():
 @pytest.mark.asyncio
 async def test_awaitable_blocking_timeout():
     """Verify that timed-out bridge joins to completion rather than abandoning thread."""
-    manager = DeviceManager(client=MagicMock(), async_bridge_timeout=0.05)
+    manager = DeviceManager(client=MagicMock(), async_bridge_timeout=0.02)
 
     start = time.monotonic()
     result = manager._run_awaitable_blocking(slow_coro())
@@ -58,5 +58,5 @@ async def test_awaitable_blocking_timeout():
 
     assert result == "done"
     assert (
-        elapsed >= 1.0
+        elapsed >= 0.08
     )  # Thread was allowed to complete rather than being abandoned
