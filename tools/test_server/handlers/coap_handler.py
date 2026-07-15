@@ -26,9 +26,7 @@ class CoAPConfig:
 
 
 class CoAPHandler:
-    def __init__(
-        self, global_dispatcher=None, config: Optional[CoAPConfig] = None
-    ):
+    def __init__(self, global_dispatcher=None, config: Optional[CoAPConfig] = None):
         self.dispatcher = global_dispatcher
         self.config = config or CoAPConfig()
 
@@ -43,9 +41,7 @@ class CoAPHandler:
             ctx = await Context.create_client_context()
             msg = Message(code=Code.POST, uri=self.config.uri, payload=payload)
             if media_types_rev:
-                msg.opt.content_format = media_types_rev.get(
-                    "application/json", 50
-                )
+                msg.opt.content_format = media_types_rev.get("application/json", 50)
             await ctx.request(msg).response
             await ctx.shutdown()
             return True

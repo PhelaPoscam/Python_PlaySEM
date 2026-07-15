@@ -168,9 +168,7 @@ async def demo_notifications(driver: BluetoothDriver, uuid: str):
         """Handle incoming notifications."""
         nonlocal notification_count
         notification_count += 1
-        print(
-            f"  📨 Notification #{notification_count}: {data.hex()} ({bytes(data)})"
-        )
+        print(f"  📨 Notification #{notification_count}: {data.hex()} ({bytes(data)})")
 
     print(f"\n🔔 Subscribing to notifications on {uuid[:8]}...")
 

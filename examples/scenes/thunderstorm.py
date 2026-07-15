@@ -344,9 +344,7 @@ async def main() -> None:
     print(C_BRIGHT + _B + "  PlaySEM — Thunderstorm Scene Demo" + _R)
     print(C_BRIGHT + _B + "=" * 60 + _R)
     print(f"  {_D}All devices are simulated. No hardware required.{_R}")
-    print(
-        f"  {_D}{len(cues)} cues across {total_ms / 1000:.0f}s timeline.{_R}"
-    )
+    print(f"  {_D}{len(cues)} cues across {total_ms / 1000:.0f}s timeline.{_R}")
 
     print(
         render_device_states(

@@ -43,9 +43,7 @@ def _env_int(key: str, default: int) -> int:
     try:
         return int(val)
     except (ValueError, TypeError):
-        print(
-            f"Warning: {key}={val} is not an integer, using default {default}"
-        )
+        print(f"Warning: {key}={val} is not an integer, using default {default}")
         return default
 
 
@@ -93,12 +91,8 @@ class ControlPanelServer:
         self.start_time = datetime.now()
         self.active_connections: List[WebSocket] = []
         self.clients = set()  # WebSocket clients for broadcasts
-        self.web_clients: Dict[str, WebSocket] = (
-            {}
-        )  # Device-id keyed websockets
-        self.effect_inbox: List[dict] = (
-            []
-        )  # simple HTTP inbox for observed effects
+        self.web_clients: Dict[str, WebSocket] = {}  # Device-id keyed websockets
+        self.effect_inbox: List[dict] = []  # simple HTTP inbox for observed effects
         # Protocol handlers
         self.http_handler = HTTPHandler(config=HTTPConfig())
         self.coap_handler = CoAPHandler(config=CoAPConfig())
@@ -129,7 +123,8 @@ class ControlPanelServer:
 
         def dispatch_effect_metadata(self, effect):
             print(
-                f"[DISPATCH] Effect received by embedded server: {getattr(effect, 'effect_type', 'unknown')}"
+                "[DISPATCH] Effect received by embedded server: "
+                f"{getattr(effect, 'effect_type', 'unknown')}"
             )
 
     async def _ensure_protocol_servers(self, protocols: List[str]):
@@ -162,7 +157,8 @@ class ControlPanelServer:
                 await self.coap_server.start()
                 self.coap_ready = True
                 print(
-                    f"[BOOT] Embedded CoAP server started on coap://0.0.0.0:{self.coap_port}/effects"
+                    "[BOOT] Embedded CoAP server started on "
+                    f"coap://0.0.0.0:{self.coap_port}/effects"
                 )
             except Exception as e:
                 print(f"[BOOT] Failed to start embedded CoAP server: {e}")
@@ -182,9 +178,7 @@ class ControlPanelServer:
                     self.upnp_server.http_host,
                     self.upnp_server.http_port,
                 )
-                print(
-                    f"[BOOT] Embedded UPnP server started at http://{host}:{port}"
-                )
+                print(f"[BOOT] Embedded UPnP server started at http://{host}:{port}")
             except Exception as e:
                 print(f"[BOOT] Failed to start embedded UPnP server: {e}")
                 self.upnp_ready = False  # Ensure not marked ready on failure
@@ -203,9 +197,7 @@ class ControlPanelServer:
             if protocol == "mqtt":
                 # Endpoint overrides config
                 cfg = (
-                    MQTTConfig(
-                        **{**self.mqtt_handler.config.__dict__, **endpoint}
-                    )
+                    MQTTConfig(**{**self.mqtt_handler.config.__dict__, **endpoint})
                     if endpoint
                     else self.mqtt_handler.config
                 )
@@ -213,9 +205,7 @@ class ControlPanelServer:
                 return await handler.send(effect_msg)
             if protocol == "http":
                 cfg = (
-                    HTTPConfig(
-                        **{**self.http_handler.config.__dict__, **endpoint}
-                    )
+                    HTTPConfig(**{**self.http_handler.config.__dict__, **endpoint})
                     if endpoint
                     else self.http_handler.config
                 )
@@ -223,9 +213,7 @@ class ControlPanelServer:
                 return await handler.send(effect_msg)
             if protocol == "coap":
                 cfg = (
-                    CoAPConfig(
-                        **{**self.coap_handler.config.__dict__, **endpoint}
-                    )
+                    CoAPConfig(**{**self.coap_handler.config.__dict__, **endpoint})
                     if endpoint
                     else self.coap_handler.config
                 )
@@ -236,9 +224,7 @@ class ControlPanelServer:
                 try:
                     import serial
                 except ImportError:
-                    print(
-                        "[PROTO] Serial send skipped: pyserial not installed"
-                    )
+                    print("[PROTO] Serial send skipped: pyserial not installed")
                     return False
 
                 port = endpoint.get("port") if endpoint else None
@@ -250,16 +236,12 @@ class ControlPanelServer:
                 effect_type = effect_msg.get("effect_type", "UNKNOWN").upper()
                 intensity = int(effect_msg.get("intensity", 0))
                 duration = int(effect_msg.get("duration", 0))
-                command = (
-                    f"EFFECT:{effect_type}:{intensity}:{duration}\n".encode(
-                        "utf-8"
-                    )
+                command = f"EFFECT:{effect_type}:{intensity}:{duration}\n".encode(
+                    "utf-8"
                 )
 
                 def _send():
-                    with serial.Serial(
-                        port=port, baudrate=baudrate, timeout=1
-                    ) as ser:
+                    with serial.Serial(port=port, baudrate=baudrate, timeout=1) as ser:
                         ser.write(command)
                     return True
 
@@ -270,9 +252,7 @@ class ControlPanelServer:
                     return False
             if protocol == "upnp":
                 cfg = (
-                    UPnPConfig(
-                        **{**self.upnp_handler.config.__dict__, **endpoint}
-                    )
+                    UPnPConfig(**{**self.upnp_handler.config.__dict__, **endpoint})
                     if endpoint
                     else self.upnp_handler.config
                 )
@@ -359,9 +339,7 @@ class ControlPanelServer:
 
                     elif msg_type in ("create_device", "register_device"):
                         # Create a new device (from super_receiver registration)
-                        device_id = data.get(
-                            "device_id", f"device_{len(self.devices)}"
-                        )
+                        device_id = data.get("device_id", f"device_{len(self.devices)}")
                         device_name = data.get("device_name", device_id)
                         device_type = data.get("device_type", "unknown")
                         connection_mode = data.get("connection_mode", "direct")
@@ -371,9 +349,7 @@ class ControlPanelServer:
                             f"Type: {device_type} Mode: {connection_mode}"
                         )
 
-                        await self._ensure_protocol_servers(
-                            data.get("protocols", [])
-                        )
+                        await self._ensure_protocol_servers(data.get("protocols", []))
 
                         # Build/augment protocol endpoints
                         provided_endpoints = (
@@ -412,8 +388,12 @@ class ControlPanelServer:
                                 "http" in data.get("protocols", [])
                                 and "http" not in endpoints
                             ):
+                                inbox_url = (
+                                    f"http://localhost:{DEFAULT_SERVER_PORT}"
+                                    "/api/effects/inbox"
+                                )
                                 endpoints["http"] = {
-                                    "url": f"http://localhost:{DEFAULT_SERVER_PORT}/api/effects/inbox",
+                                    "url": inbox_url,
                                 }
                             if (
                                 "upnp" in data.get("protocols", [])
@@ -434,7 +414,9 @@ class ControlPanelServer:
                             connection_mode=connection_mode,
                             metadata={"protocol_endpoints": endpoints},
                         )
-                        device.websocket = websocket  # Track which connection owns this device
+                        device.websocket = (
+                            websocket  # Track which connection owns this device
+                        )
                         self.devices[device_id] = device
                         device_id_on_this_conn = device_id
 
@@ -517,9 +499,7 @@ class ControlPanelServer:
                             continue
 
                         if device_id not in self.devices:
-                            print(
-                                f"[SEND_EFFECT] Device {device_id} not found!"
-                            )
+                            print(f"[SEND_EFFECT] Device {device_id} not found!")
                             await websocket.send_json(
                                 {
                                     "type": "effect_result",
@@ -546,12 +526,8 @@ class ControlPanelServer:
                             or data.get("modality")
                             or "vibration"
                         )
-                        intensity = effect.get(
-                            "intensity", data.get("intensity", 50)
-                        )
-                        duration = effect.get(
-                            "duration", data.get("duration", 500)
-                        )
+                        intensity = effect.get("intensity", data.get("intensity", 50))
+                        duration = effect.get("duration", data.get("duration", 500))
 
                         chosen_protocol = data.get("protocol", "websocket")
 
@@ -593,7 +569,8 @@ class ControlPanelServer:
                         if not sent and device.websocket:
                             try:
                                 print(
-                                    f"[SEND_EFFECT] Sending effect to device connection: {effect_msg}"
+                                    "[SEND_EFFECT] Sending effect to device "
+                                    f"connection: {effect_msg}"
                                 )
                                 await device.websocket.send_json(effect_msg)
                                 sent = True
@@ -605,7 +582,7 @@ class ControlPanelServer:
                                     f"[SEND_EFFECT] Failed to send to device websocket: {e}"
                                 )
 
-                        # Fallback: broadcast to all other connections (e.g., if device websocket changed)
+                        # Fallback: broadcast to other connections (if device ws changed)
                         if not sent:
                             print(
                                 "[SEND_EFFECT] Fallback broadcast to other connections"
@@ -642,17 +619,12 @@ class ControlPanelServer:
                         )
 
                     elif msg_type == "stop_protocol_server":
-                        await self.stop_protocol_server(
-                            websocket, data.get("protocol")
-                        )
+                        await self.stop_protocol_server(websocket, data.get("protocol"))
 
             except WebSocketDisconnect:
                 self.active_connections.remove(websocket)
                 # Mark device as disconnected if one was registered on this connection
-                if (
-                    device_id_on_this_conn
-                    and device_id_on_this_conn in self.devices
-                ):
+                if device_id_on_this_conn and device_id_on_this_conn in self.devices:
                     del self.devices[device_id_on_this_conn]
                     # Broadcast updated device list
                     message = {
@@ -697,9 +669,7 @@ class ControlPanelServer:
             """Register a device."""
             device_id = body.get("device_id")
             if not device_id:
-                raise HTTPException(
-                    status_code=400, detail="device_id required"
-                )
+                raise HTTPException(status_code=400, detail="device_id required")
 
             await self._ensure_protocol_servers(body.get("protocols", []))
             provided_endpoints = (
@@ -709,41 +679,27 @@ class ControlPanelServer:
                 or {}
             )
             endpoints = (
-                provided_endpoints
-                if isinstance(provided_endpoints, dict)
-                else {}
+                provided_endpoints if isinstance(provided_endpoints, dict) else {}
             )
             if isinstance(endpoints, dict):
-                if (
-                    "mqtt" in body.get("protocols", [])
-                    and "mqtt" not in endpoints
-                ):
+                if "mqtt" in body.get("protocols", []) and "mqtt" not in endpoints:
                     endpoints["mqtt"] = {
                         "host": "localhost",
                         "port": self.mqtt_port,
                         "topic": f"effects/{device_id}",
                         "ws_port": 9001,
                     }
-                if (
-                    "coap" in body.get("protocols", [])
-                    and "coap" not in endpoints
-                ):
+                if "coap" in body.get("protocols", []) and "coap" not in endpoints:
                     endpoints["coap"] = {
                         "host": "localhost",
                         "port": self.coap_port,
                         "path": "effects",
                     }
-                if (
-                    "http" in body.get("protocols", [])
-                    and "http" not in endpoints
-                ):
+                if "http" in body.get("protocols", []) and "http" not in endpoints:
                     endpoints["http"] = {
                         "url": f"http://localhost:{DEFAULT_SERVER_PORT}/api/effects/inbox"
                     }
-                if (
-                    "upnp" in body.get("protocols", [])
-                    and "upnp" not in endpoints
-                ):
+                if "upnp" in body.get("protocols", []) and "upnp" not in endpoints:
                     endpoints["upnp"] = {
                         "control_url": f"http://localhost:{self.upnp_http_port}/control"
                     }
@@ -794,9 +750,7 @@ class ControlPanelServer:
             effect = body.get("effect", {})
 
             if not device_id:
-                raise HTTPException(
-                    status_code=400, detail="device_id required"
-                )
+                raise HTTPException(status_code=400, detail="device_id required")
 
             if device_id not in self.devices:
                 raise HTTPException(
@@ -860,9 +814,7 @@ class ControlPanelServer:
             """Load and register a device from YAML config."""
             config_file = body.get("file")
             if not config_file:
-                raise HTTPException(
-                    status_code=400, detail="file parameter required"
-                )
+                raise HTTPException(status_code=400, detail="file parameter required")
 
             config_dir = Path(__file__).resolve().parents[2] / "config"
             yaml_path = config_dir / config_file
@@ -917,9 +869,7 @@ class ControlPanelServer:
                     "protocols": protocols,
                 }
             except yaml.YAMLError as e:
-                raise HTTPException(
-                    status_code=400, detail=f"YAML parse error: {e}"
-                )
+                raise HTTPException(status_code=400, detail=f"YAML parse error: {e}")
             except Exception as e:
                 raise HTTPException(
                     status_code=500, detail=f"Failed to load device: {e}"
@@ -939,9 +889,7 @@ class ControlPanelServer:
                         "protocols": d.protocols,
                         "connection_mode": d.connection_mode,
                         "connected": d.connected,
-                        "protocol_endpoints": d.metadata.get(
-                            "protocol_endpoints", {}
-                        ),
+                        "protocol_endpoints": d.metadata.get("protocol_endpoints", {}),
                     }
                     for d in self.devices.values()
                 ]
@@ -967,21 +915,11 @@ class ControlPanelServer:
         """Serialize device-like object to dict for API/WS responses."""
         return {
             "id": getattr(device, "device_id", getattr(device, "id", None)),
-            "device_id": getattr(
-                device, "device_id", getattr(device, "id", None)
-            ),
-            "device_name": getattr(
-                device, "device_name", getattr(device, "name", "")
-            ),
-            "device_type": getattr(
-                device, "device_type", getattr(device, "type", "")
-            ),
-            "name": getattr(
-                device, "device_name", getattr(device, "name", "")
-            ),
-            "type": getattr(
-                device, "device_type", getattr(device, "type", "")
-            ),
+            "device_id": getattr(device, "device_id", getattr(device, "id", None)),
+            "device_name": getattr(device, "device_name", getattr(device, "name", "")),
+            "device_type": getattr(device, "device_type", getattr(device, "type", "")),
+            "name": getattr(device, "device_name", getattr(device, "name", "")),
+            "type": getattr(device, "device_type", getattr(device, "type", "")),
             "capabilities": getattr(device, "capabilities", []),
             "protocols": getattr(device, "protocols", []),
             "connection_mode": getattr(device, "connection_mode", "direct"),
@@ -1010,16 +948,12 @@ class ControlPanelServer:
         """Register a device coming from WebSocket message."""
         device = ConnectedDevice(
             device_id=data.get("device_id"),
-            device_name=data.get(
-                "device_name", data.get("device_id", "device")
-            ),
+            device_name=data.get("device_name", data.get("device_id", "device")),
             device_type=data.get("device_type", "generic"),
             capabilities=data.get("capabilities", []),
             protocols=data.get("protocols", []),
             connection_mode=data.get("connection_mode", "direct"),
-            metadata={
-                "protocol_endpoints": data.get("protocol_endpoints", {})
-            },
+            metadata={"protocol_endpoints": data.get("protocol_endpoints", {})},
         )
         device.websocket = websocket
         self.devices[device.device_id] = device
@@ -1089,9 +1023,7 @@ class ControlPanelServer:
                 print(f"[EFFECT_PROTO] send_json failed: {e}")
         return True
 
-    async def send_effect(
-        self, websocket: WebSocket, device_id: str, effect: dict
-    ):
+    async def send_effect(self, websocket: WebSocket, device_id: str, effect: dict):
         """Route effect to a device based on connection mode and protocols."""
         device = self.devices.get(device_id)
         if not device:
@@ -1102,9 +1034,7 @@ class ControlPanelServer:
 
         # Isolated mode: prefer first non-websocket protocol
         if connection_mode == "isolated":
-            target_proto = next(
-                (p for p in protocols if p != "websocket"), "websocket"
-            )
+            target_proto = next((p for p in protocols if p != "websocket"), "websocket")
         else:
             # Direct mode prefers websocket if we have a socket, even if not listed
             if device_id in self.web_clients:

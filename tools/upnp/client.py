@@ -70,9 +70,7 @@ class UPnPClient:
 
         try:
             # Send M-SEARCH request
-            sock.sendto(
-                msearch.encode("utf-8"), (self.SSDP_ADDR, self.SSDP_PORT)
-            )
+            sock.sendto(msearch.encode("utf-8"), (self.SSDP_ADDR, self.SSDP_PORT))
             logger.info("M-SEARCH request sent")
 
             # Listen for responses
@@ -99,8 +97,7 @@ class UPnPClient:
             sock.close()
 
         logger.info(
-            f"Discovery complete. Found {len(self.discovered_devices)} "
-            f"device(s)"
+            f"Discovery complete. Found {len(self.discovered_devices)} " f"device(s)"
         )
         return self.discovered_devices
 
@@ -172,9 +169,7 @@ async def main():
 
     # Discover PlaySEM devices specifically
     logger.info("\n🔍 Searching for PlaySEM devices...")
-    playsem_client = UPnPClient(
-        search_target="urn:schemas-upnp-org:device:PlaySEM:1"
-    )
+    playsem_client = UPnPClient(search_target="urn:schemas-upnp-org:device:PlaySEM:1")
     await playsem_client.discover(timeout=5)
     playsem_client.print_devices()
 
@@ -186,8 +181,7 @@ async def main():
 
     logger.info("\n✅ Discovery complete!")
     logger.info(
-        "\nTip: Make sure upnp_server_demo.py is running to discover "
-        "PlaySEM servers"
+        "\nTip: Make sure upnp_server_demo.py is running to discover " "PlaySEM servers"
     )
 
 

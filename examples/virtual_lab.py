@@ -191,9 +191,7 @@ async def interactive_loop(light, wind, vibe, scent):
 
         elif cmd == "light":
             if len(parts) < 2:
-                print(
-                    f"  {RD}usage: light <brightness|color|off> [args...]{R}"
-                )
+                print(f"  {RD}usage: light <brightness|color|off> [args...]{R}")
                 continue
             sub = parts[1].lower()
             if sub == "off":
@@ -207,15 +205,14 @@ async def interactive_loop(light, wind, vibe, scent):
                     continue
             elif sub == "color" and len(parts) >= 5:
                 try:
-                    light.set_color(
-                        int(parts[2]), int(parts[3]), int(parts[4])
-                    )
+                    light.set_color(int(parts[2]), int(parts[3]), int(parts[4]))
                 except ValueError:
                     print(f"  {RD}color values must be numbers 0-255{R}")
                     continue
             else:
                 print(
-                    f"  {RD}usage: light brightness <0-255>  |  light color <r> <g> <b>  |  light off{R}"
+                    f"  {RD}usage: light brightness <0-255>  |  "
+                    f"light color <r> <g> <b>  |  light off{R}"
                 )
                 continue
             show_state(light, wind, vibe, scent)
@@ -258,9 +255,7 @@ async def interactive_loop(light, wind, vibe, scent):
 
         elif cmd in ("vibe", "vibration"):
             if len(parts) < 2:
-                print(
-                    f"  {RD}usage: vibe <0-100> [duration_ms]  |  vibe off{R}"
-                )
+                print(f"  {RD}usage: vibe <0-100> [duration_ms]  |  vibe off{R}")
                 continue
             if parts[1].lower() == "off":
                 vibe.set_intensity(0)

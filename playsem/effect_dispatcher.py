@@ -122,9 +122,7 @@ class EffectDispatcher:
         self.dispatch_count = 0
 
         if self.failure_policy not in {"drop", "retry", "dead_letter"}:
-            raise ValueError(
-                "failure_policy must be one of: drop, retry, dead_letter"
-            )
+            raise ValueError("failure_policy must be one of: drop, retry, dead_letter")
         if self.max_queue_size is not None and self.max_queue_size < 1:
             raise ValueError("max_queue_size must be positive when provided")
 
@@ -145,6 +143,9 @@ class EffectDispatcher:
                 with open(path, "r", encoding="utf-8") as f:
                     self.effects_config = yaml.safe_load(f) or {}
             except FileNotFoundError:
+                self._use_default_mappings()
+            except (PermissionError, yaml.YAMLError, UnicodeDecodeError) as e:
+                logger.error(f"Failed to load effects config from {path}: {e}")
                 self._use_default_mappings()
         else:
             self._use_default_mappings()
@@ -198,9 +199,7 @@ class EffectDispatcher:
         try:
             return self._dispatch_once(effect_name, parameters)
         except (ValueError, KeyError) as exc:
-            logger.warning(
-                "dispatch_effect failed for '%s': %s", effect_name, exc
-            )
+            logger.warning("dispatch_effect failed for '%s': %s", effect_name, exc)
             return False
 
     def dispatch_effect_result(
@@ -251,7 +250,7 @@ class EffectDispatcher:
         perf = time.perf_counter()
         try:
             outcome = self._dispatch_once_result(effect_name, parameters)
-        except Exception as exc:
+        except (ValueError, KeyError, TypeError, OSError) as exc:
             latency_ms = (time.perf_counter() - perf) * 1000.0
             return DispatchResult(
                 status="failed",
@@ -325,10 +324,8 @@ class EffectDispatcher:
             )
         perf = time.perf_counter()
         try:
-            outcome = await self._async_dispatch_once_result(
-                effect_name, parameters
-            )
-        except Exception as exc:
+            outcome = await self._async_dispatch_once_result(effect_name, parameters)
+        except (ValueError, KeyError, TypeError, OSError) as exc:
             latency_ms = (time.perf_counter() - perf) * 1000.0
             return DispatchResult(
                 status="failed",
@@ -360,9 +357,7 @@ class EffectDispatcher:
             params["location"] = effect.location
 
         ttl_ms = self._extract_ttl_ms(params)
-        return self.dispatch_effect(
-            effect.effect_type, params, priority, ttl_ms=ttl_ms
-        )
+        return self.dispatch_effect(effect.effect_type, params, priority, ttl_ms=ttl_ms)
 
     def dispatch_effect_metadata_result(
         self, effect: EffectMetadata, priority: int = 5
@@ -383,9 +378,7 @@ class EffectDispatcher:
         self, effect: EffectMetadata, priority: int = 5
     ) -> bool:
         """Asynchronously dispatch an effect from EffectMetadata object."""
-        result = await self.async_dispatch_effect_metadata_result(
-            effect, priority
-        )
+        result = await self.async_dispatch_effect_metadata_result(effect, priority)
         return bool(result)
 
     async def async_dispatch_effect_metadata_result(
@@ -463,9 +456,7 @@ class EffectDispatcher:
             and item.attempts <= self.max_dispatch_retries
         ):
             with self._lock:
-                heapq.heappush(
-                    self._queue, (item.priority, item.sequence, item)
-                )
+                heapq.heappush(self._queue, (item.priority, item.sequence, item))
             return {
                 "status": "requeued",
                 "effect": item.effect_name,
@@ -536,9 +527,7 @@ class EffectDispatcher:
         except (TypeError, ValueError):
             return None
 
-    def _dispatch_once(
-        self, effect_name: str, parameters: Dict[str, Any]
-    ) -> bool:
+    def _dispatch_once(self, effect_name: str, parameters: Dict[str, Any]) -> bool:
         """Dispatch a single effect immediately and return success."""
         return self._dispatch_once_result(effect_name, parameters).delivered
 
@@ -554,9 +543,7 @@ class EffectDispatcher:
         device_id = effect_config.get("device")
         command = effect_config.get("command")
         if not device_id or not command:
-            raise ValueError(
-                f"Effect '{effect_name}' missing device or command config"
-            )
+            raise ValueError(f"Effect '{effect_name}' missing device or command config")
 
         mapped_params = self._map_parameters(effect_config, parameters)
 
@@ -588,9 +575,7 @@ class EffectDispatcher:
                 effect_name, parameters
             )
             delivered = bool(
-                self.device_manager.send_command(
-                    device_id, command, mapped_params
-                )
+                self.device_manager.send_command(device_id, command, mapped_params)
             )
             latency_ms = self._record_metrics(started)
             return DispatchResult(
@@ -652,9 +637,7 @@ class EffectDispatcher:
                 delivery_mode=delivery_mode,  # type: ignore[arg-type]
             )
 
-            submit_result = await self.device_manager.async_submit_envelope(
-                envelope
-            )
+            submit_result = await self.device_manager.async_submit_envelope(envelope)
             latency_ms = self._record_metrics(started)
             return DispatchResult(
                 status=submit_result.get("status", "failed"),
@@ -705,9 +688,7 @@ class EffectDispatcher:
             params=params,
         )
         if not is_valid:
-            raise ValueError(
-                "Capability validation failed: " + "; ".join(errors)
-            )
+            raise ValueError("Capability validation failed: " + "; ".join(errors))
 
     def _map_parameters(
         self, effect_config: Dict[str, Any], parameters: Dict[str, Any]

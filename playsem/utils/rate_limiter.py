@@ -47,9 +47,7 @@ class SlidingWindowLimiter:
 
         with self._lock:
             # Remove old requests outside the window
-            remaining = [
-                ts for ts in self._requests[client_id] if ts > window_start
-            ]
+            remaining = [ts for ts in self._requests[client_id] if ts > window_start]
             if remaining:
                 self._requests[client_id] = remaining
             else:
@@ -77,9 +75,7 @@ class SlidingWindowLimiter:
 
         with self._lock:
             # Remove old requests
-            remaining = [
-                ts for ts in self._requests[client_id] if ts > window_start
-            ]
+            remaining = [ts for ts in self._requests[client_id] if ts > window_start]
             if remaining:
                 self._requests[client_id] = remaining
             else:

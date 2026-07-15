@@ -54,9 +54,7 @@ def test_dispatch_effect_simple(dispatcher, mock_device_manager):
     )
 
 
-def test_dispatch_effect_with_parameter_mapping(
-    dispatcher, mock_device_manager
-):
+def test_dispatch_effect_with_parameter_mapping(dispatcher, mock_device_manager):
     """Test dispatching an effect with a mapped 'intensity' parameter."""
     dispatcher.dispatch_effect("light_on", {"intensity": "high"})
 
@@ -66,9 +64,7 @@ def test_dispatch_effect_with_parameter_mapping(
     )
 
 
-def test_dispatch_effect_with_default_parameter(
-    dispatcher, mock_device_manager
-):
+def test_dispatch_effect_with_default_parameter(dispatcher, mock_device_manager):
     """Test that a default parameter is used when none is provided."""
     # Dispatch 'light_on' without providing 'intensity'
     dispatcher.dispatch_effect("light_on", {})
@@ -93,9 +89,7 @@ def test_dispatch_incomplete_effect_config(dispatcher):
 
 def test_dispatch_effect_metadata(dispatcher, mock_device_manager):
     """Test dispatching via an EffectMetadata object."""
-    effect = EffectMetadata(
-        effect_type="light_on", intensity=100, duration=1000
-    )
+    effect = EffectMetadata(effect_type="light_on", intensity=100, duration=1000)
     dispatcher.dispatch_effect_metadata(effect)
 
     # The dispatcher should merge the intensity into the parameters
@@ -104,9 +98,7 @@ def test_dispatch_effect_metadata(dispatcher, mock_device_manager):
     )
 
 
-def test_dispatch_effect_metadata_with_location(
-    dispatcher, mock_device_manager
-):
+def test_dispatch_effect_metadata_with_location(dispatcher, mock_device_manager):
     """Test that location from EffectMetadata is passed as a parameter."""
     effect = EffectMetadata(
         effect_type="fan_on",
@@ -155,9 +147,7 @@ class TestManagedMode:
         assert dispatcher.get_queue_size() == 1
         mock_device_manager.send_command.assert_not_called()
 
-    def test_process_next_effect_dispatches_from_queue(
-        self, mock_device_manager
-    ):
+    def test_process_next_effect_dispatches_from_queue(self, mock_device_manager):
         """Calling process_next_effect() drains one item from the queue."""
         dispatcher = EffectDispatcher(mock_device_manager, managed_mode=True)
         dispatcher.dispatch_effect("light", {"intensity": 50})
@@ -252,9 +242,7 @@ class TestTtl:
     def test_ttl_expiry_rejects_stale_effect(self, mock_device_manager):
         """Dispatch with ttl_ms=0 is immediately rejected as expired."""
         dispatcher = EffectDispatcher(mock_device_manager)
-        result = dispatcher.dispatch_effect_result(
-            "light", {"intensity": 50}, ttl_ms=0
-        )
+        result = dispatcher.dispatch_effect_result("light", {"intensity": 50}, ttl_ms=0)
         assert result.status == "expired"
         assert result.accepted is False
         mock_device_manager.send_command.assert_not_called()

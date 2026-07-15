@@ -22,6 +22,8 @@ from playsem.drivers.mock_driver import MockConnectivityDriver
 from playsem.protocol_servers import MQTTServer
 from playsem.config.loader import ConfigLoader
 
+from tests.wait import wait_until_async
+
 
 @pytest.fixture
 async def full_system(tmp_path, request):
@@ -148,9 +150,7 @@ class TestDirectDispatchPath:
         """Multiple effects are dispatched and recorded in order."""
         full_system.dispatcher.dispatch_effect("light", {"intensity": 50})
         full_system.dispatcher.dispatch_effect("wind", {"speed": 100})
-        full_system.dispatcher.dispatch_effect(
-            "vibration", {"pattern": "pulse"}
-        )
+        full_system.dispatcher.dispatch_effect("vibration", {"pattern": "pulse"})
 
         assert len(full_system.driver.command_history) == 3
         cmds = full_system.driver.command_history
@@ -160,9 +160,7 @@ class TestDirectDispatchPath:
 
     def test_dispatch_result_has_latency(self, full_system):
         """DispatchResult includes a non-negative latency measurement."""
-        result = full_system.dispatcher.dispatch_effect_result(
-            "wind", {"speed": 50}
-        )
+        result = full_system.dispatcher.dispatch_effect_result("wind", {"speed": 50})
         assert result.status == "dispatched"
         assert result.latency_ms >= 0
 
@@ -176,9 +174,7 @@ class TestTimelinePath:
         timeline = create_timeline(
             create_effect("light", timestamp=0, duration=50, intensity=100),
             create_effect("wind", timestamp=20, duration=50, intensity=75),
-            create_effect(
-                "vibration", timestamp=40, duration=50, intensity=50
-            ),
+            create_effect("vibration", timestamp=40, duration=50, intensity=50),
         )
 
         scheduler = Timeline(full_system.dispatcher, tick_interval=0.001)
@@ -225,9 +221,7 @@ class TestTimelinePath:
         def on_complete():
             complete_count[0] += 1
 
-        timeline = create_timeline(
-            create_effect("light", timestamp=0, duration=50)
-        )
+        timeline = create_timeline(create_effect("light", timestamp=0, duration=50))
 
         scheduler = Timeline(full_system.dispatcher, tick_interval=0.001)
         scheduler.load_timeline(timeline)
@@ -247,26 +241,25 @@ class TestMqttPath:
     @pytest.mark.asyncio
     async def test_mqtt_effect_reaches_driver(self, full_system):
         """Publishing an effect via MQTT results in a driver command."""
-        client = mqtt.Client(
-            callback_api_version=mqtt.CallbackAPIVersion.VERSION2
-        )
+        client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
         client.connect("127.0.0.1", full_system.mqtt_port, 60)
         client.loop_start()
-        await asyncio.sleep(0.3)
 
         try:
             payload = json.dumps(
                 {"effect_type": "vibration", "intensity": 85, "duration": 400}
             )
             client.publish("effects/vibration_device", payload)
-            await asyncio.sleep(1.0)
-
-            history = full_system.driver.command_history
-            assert len(history) >= 1
-            assert any(
-                h["device_id"] == "vibration_device"
-                and h["params"].get("intensity") == 85
-                for h in history
+            # Wait for the effect to arrive at the driver instead of sleeping
+            # an arbitrary 1.0s. Polls every 10ms, returns as soon as it's seen.
+            await wait_until_async(
+                lambda: any(
+                    h["device_id"] == "vibration_device"
+                    and h["params"].get("intensity") == 85
+                    for h in full_system.driver.command_history
+                ),
+                timeout=2.0,
+                message="MQTT vibration effect did not reach driver",
             )
         finally:
             client.loop_stop()
@@ -279,24 +272,24 @@ class TestMqttPath:
         full_system.dispatcher.dispatch_effect("light", {"intensity": 50})
 
         # 2. MQTT dispatch
-        client = mqtt.Client(
-            callback_api_version=mqtt.CallbackAPIVersion.VERSION2
-        )
+        client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
         client.connect("127.0.0.1", full_system.mqtt_port, 60)
         client.loop_start()
-        await asyncio.sleep(0.3)
 
         try:
             payload = json.dumps(
                 {"effect_type": "wind", "intensity": 80, "duration": 500}
             )
             client.publish("effects/wind_device", payload)
-            await asyncio.sleep(1.0)
-
-            history = full_system.driver.command_history
-            devices = [h["device_id"] for h in history]
-            assert "light_device" in devices
-            assert "wind_device" in devices
+            # Wait for both light_device (from direct dispatch) and
+            # wind_device (from MQTT) to land in the driver history.
+            await wait_until_async(
+                lambda: {"light_device", "wind_device"}.issubset(
+                    {h["device_id"] for h in full_system.driver.command_history}
+                ),
+                timeout=2.0,
+                message="Expected both light_device and wind_device in history",
+            )
         finally:
             client.loop_stop()
             client.disconnect()
@@ -335,9 +328,7 @@ class TestCircuitBreaker:
         # Enable circuit breaker
         full_system.manager.circuit_breaker_failure_threshold = 2
 
-        with patch.object(
-            full_system.driver, "send_command", return_value=False
-        ):
+        with patch.object(full_system.driver, "send_command", return_value=False):
             full_system.dispatcher.dispatch_effect("light", {"intensity": 50})
             full_system.dispatcher.dispatch_effect("light", {"intensity": 50})
 

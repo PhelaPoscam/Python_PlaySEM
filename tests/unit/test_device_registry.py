@@ -31,9 +31,7 @@ class TestDeviceRegistry:
             "capabilities": ["light", "color"],
         }
 
-        device = self.registry.register_device(
-            device_data, source_protocol="mqtt"
-        )
+        device = self.registry.register_device(device_data, source_protocol="mqtt")
 
         assert device.id == "mqtt_light_001"
         assert device.name == "MQTT Light"
@@ -52,9 +50,7 @@ class TestDeviceRegistry:
             "capabilities": ["vibration"],
         }
 
-        device = self.registry.register_device(
-            device_data, source_protocol="websocket"
-        )
+        device = self.registry.register_device(device_data, source_protocol="websocket")
 
         assert device.id == "ws_vibration_001"
         assert "websocket" in device.protocols
@@ -205,20 +201,14 @@ class TestDeviceRegistry:
         }
 
         # Register via MQTT
-        device = self.registry.register_device(
-            device_data, source_protocol="mqtt"
-        )
+        device = self.registry.register_device(device_data, source_protocol="mqtt")
         assert device.protocols == ["mqtt"]
 
         # Register same device via WebSocket
-        device = self.registry.register_device(
-            device_data, source_protocol="websocket"
-        )
+        device = self.registry.register_device(device_data, source_protocol="websocket")
         assert "mqtt" in device.protocols
         assert "websocket" in device.protocols
-        assert (
-            len(self.registry.get_all_devices()) == 1
-        )  # Still only one device
+        assert len(self.registry.get_all_devices()) == 1  # Still only one device
 
     def test_event_notifications(self):
         """Test that event listeners are notified of device changes."""
@@ -319,7 +309,7 @@ class TestDeviceRegistry:
         assert stats["devices_by_type"]["vibration"] == 1
 
     def test_protocol_isolation_filters_visibility(self):
-        """Test protocol isolation in both filtered and shared modes."""
+        """All devices are visible in shared mode (protocol isolation removed)."""
         self.registry.register_device(
             {
                 "id": "mqtt_001",
@@ -341,24 +331,8 @@ class TestDeviceRegistry:
             source_protocol="websocket",
         )
 
-        self.registry.set_protocol_isolation(True)
-
-        mqtt_visible = self.registry.get_all_devices(
-            requesting_protocol="mqtt"
-        )
-        websocket_visible = self.registry.get_all_devices(
-            requesting_protocol="websocket"
-        )
-
-        assert [device.id for device in mqtt_visible] == ["mqtt_001"]
-        assert [device.id for device in websocket_visible] == ["ws_001"]
-
-        self.registry.set_protocol_isolation(False)
-
-        all_visible = self.registry.get_all_devices(
-            requesting_protocol="websocket"
-        )
-        assert {device.id for device in all_visible} == {"mqtt_001", "ws_001"}
+        all_devices = self.registry.get_all_devices()
+        assert {device.id for device in all_devices} == {"mqtt_001", "ws_001"}
 
     def test_to_dict_list(self):
         """Test converting registry to dictionary list."""

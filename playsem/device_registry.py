@@ -107,39 +107,25 @@ class DeviceRegistry:
 
     This solves the "protocol isolation" problem where MQTT devices
     couldn't be seen by WebSocket clients, etc.
-
-    Args:
-        enable_protocol_isolation: If True, devices are only visible to their
-            source protocol (like Super Controller Device Simulator).
-            If False (default), devices are visible across all protocols.
     """
 
     def __init__(
         self,
-        enable_protocol_isolation: bool = False,
         ttl_seconds: Optional[float] = None,
     ):
         """
         Initialize the device registry.
 
         Args:
-            enable_protocol_isolation: Enable protocol isolation mode.
-                When True, devices registered via MQTT are only visible to MQTT clients,
-                WebSocket devices only to WebSocket clients, etc.
-                When False (default), all devices are visible to all protocols.
             ttl_seconds: Optional time-to-live in seconds. Devices not seen for
                 longer than this duration will be automatically pruned.
         """
         self._devices: Dict[str, DeviceInfo] = {}
         self._lock = threading.RLock()
         self._listeners: List[weakref.ref] = []
-        self._protocol_isolation = enable_protocol_isolation
         self._ttl_seconds = ttl_seconds
 
-        mode = "ISOLATED" if enable_protocol_isolation else "SHARED"
-        logger.info(
-            f"Device Registry initialized (mode: {mode}, TTL: {ttl_seconds}s)"
-        )
+        logger.info(f"Device Registry initialized (TTL: {ttl_seconds}s)")
 
     def register_device(
         self, device_data: Dict[str, Any], source_protocol: str
@@ -200,8 +186,7 @@ class DeviceRegistry:
             id=device_id,
             name=device_data.get("name")
             or device_data.get("device_name", f"Device {device_id}"),
-            type=device_data.get("type")
-            or device_data.get("device_type", "unknown"),
+            type=device_data.get("type") or device_data.get("device_type", "unknown"),
             address=device_data.get("address", device_id),
             protocols=device_data.get("protocols", [source_protocol]),
             capabilities=device_data.get("capabilities", []),
@@ -237,9 +222,7 @@ class DeviceRegistry:
         with self._lock:
             if device_id in self._devices:
                 device = self._devices.pop(device_id)
-                logger.info(
-                    f"Unregistered device: {device.name} ({device_id})"
-                )
+                logger.info(f"Unregistered device: {device.name} ({device_id})")
                 self._notify_listeners("device_unregistered", device)
                 return True
             return False
@@ -293,62 +276,41 @@ class DeviceRegistry:
             now = datetime.now()
             expired_ids = []
             for device_id, device in self._devices.items():
-                if (
-                    now - device.last_seen
-                ).total_seconds() > self._ttl_seconds:
+                if (now - device.last_seen).total_seconds() > self._ttl_seconds:
                     expired_ids.append(device_id)
 
             for device_id in expired_ids:
                 device = self._devices.pop(device_id)
                 logger.info(
-                    f"Unregistered expired device: {device.name} ({device_id}) due to TTL expiration"
+                    f"Unregistered expired device: {device.name} ({device_id}) due to TTL expiration"  # noqa: E501
                 )
                 self._notify_listeners("device_unregistered", device)
 
-    def get_device(
-        self, device_id: str, requesting_protocol: Optional[str] = None
-    ) -> Optional[DeviceInfo]:
+    def get_device(self, device_id: str) -> Optional[DeviceInfo]:
         """
         Get device by ID.
 
         Args:
             device_id: Device identifier
-            requesting_protocol: Protocol making the request (only used if protocol isolation is enabled)
 
         Returns:
-            DeviceInfo if found and accessible, None otherwise
+            DeviceInfo if found, None otherwise
         """
         with self._lock:
             self.prune_stale_devices()
             device = self._devices.get(device_id)
-            if device and self._protocol_isolation and requesting_protocol:
-                # In isolation mode, only return device if protocol matches
-                if requesting_protocol not in device.protocols:
-                    return None
             return device
 
-    def get_all_devices(
-        self, requesting_protocol: Optional[str] = None
-    ) -> List[DeviceInfo]:
+    def get_all_devices(self) -> List[DeviceInfo]:
         """
         Get all registered devices.
 
-        Args:
-            requesting_protocol: Protocol making the request (only used if protocol isolation is enabled)
-
         Returns:
-            List of all DeviceInfo objects (filtered by protocol if isolation is enabled)
+            List of all DeviceInfo objects
         """
         with self._lock:
             self.prune_stale_devices()
             devices = list(self._devices.values())
-
-            if self._protocol_isolation and requesting_protocol:
-                # In isolation mode, only return devices that support the requesting protocol
-                devices = [
-                    d for d in devices if requesting_protocol in d.protocols
-                ]
-
             return devices
 
     def get_devices_by_protocol(self, protocol: str) -> List[DeviceInfo]:
@@ -446,9 +408,7 @@ class DeviceRegistry:
             ref = weakref.ref(callback)
             if ref not in self._listeners:
                 self._listeners.append(ref)
-                logger.debug(
-                    f"Added device registry listener: {callback.__name__}"
-                )
+                logger.debug(f"Added device registry listener: {callback.__name__}")
 
     def remove_listener(self, callback: Callable):
         """
@@ -461,9 +421,7 @@ class DeviceRegistry:
             ref = weakref.ref(callback)
             if ref in self._listeners:
                 self._listeners.remove(ref)
-                logger.debug(
-                    f"Removed device registry listener: {callback.__name__}"
-                )
+                logger.debug(f"Removed device registry listener: {callback.__name__}")
 
     def _notify_listeners(self, event_type: str, device: DeviceInfo):
         """Notify all listeners of a device event, pruning dead refs."""
@@ -475,8 +433,8 @@ class DeviceRegistry:
                 continue
             try:
                 listener(event_type, device)
-            except Exception as e:
-                logger.error(f"Error in device registry listener: {e}")
+            except Exception:
+                logger.exception(f"Error in device registry listener for {event_type}")
 
         # Prune dead references outside the iteration
         if dead_refs:
@@ -487,48 +445,16 @@ class DeviceRegistry:
                     except ValueError:
                         pass
 
-    def is_protocol_isolation_enabled(self) -> bool:
-        """
-        Check if protocol isolation mode is enabled.
-
-        Returns:
-            True if protocol isolation is enabled, False otherwise
-        """
-        return self._protocol_isolation
-
-    def set_protocol_isolation(self, enabled: bool):
-        """
-        Enable or disable protocol isolation mode.
-
-        Args:
-            enabled: True to enable isolation, False to disable
-        """
-        with self._lock:
-            old_mode = "ISOLATED" if self._protocol_isolation else "SHARED"
-            new_mode = "ISOLATED" if enabled else "SHARED"
-
-            if old_mode != new_mode:
-                self._protocol_isolation = enabled
-                logger.info(
-                    f"Protocol isolation mode changed: {old_mode} → {new_mode}"
-                )
-
-    def get_stats(
-        self, requesting_protocol: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def get_stats(self) -> Dict[str, Any]:
         """
         Get registry statistics.
-
-        Args:
-            requesting_protocol: Protocol making the request (only used if protocol isolation is enabled)
 
         Returns:
             Dictionary with registry stats
         """
         with self._lock:
             self.prune_stale_devices()
-            # Get devices visible to this protocol
-            devices = self.get_all_devices(requesting_protocol)
+            devices = self.get_all_devices()
 
             protocols_count: Dict[str, int] = {}
             types_count: Dict[str, int] = {}
@@ -536,9 +462,7 @@ class DeviceRegistry:
             for device in devices:
                 # Count protocols
                 for protocol in device.protocols:
-                    protocols_count[protocol] = (
-                        protocols_count.get(protocol, 0) + 1
-                    )
+                    protocols_count[protocol] = protocols_count.get(protocol, 0) + 1
 
                 # Count types
                 types_count[device.type] = types_count.get(device.type, 0) + 1
@@ -548,7 +472,6 @@ class DeviceRegistry:
                 "devices_by_protocol": protocols_count,
                 "devices_by_type": types_count,
                 "protocols": list(protocols_count.keys()),
-                "protocol_isolation_enabled": self._protocol_isolation,
             }
 
     def clear(self):

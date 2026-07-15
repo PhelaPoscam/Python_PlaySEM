@@ -18,9 +18,7 @@ import sys
 from datetime import datetime
 
 
-async def send_effect(
-    websocket, effect_type, intensity, duration, timestamp=0
-):
+async def send_effect(websocket, effect_type, intensity, duration, timestamp=0):
     """Send a single effect to PlaySEM."""
     effect = {
         "effect_type": effect_type,
@@ -42,9 +40,7 @@ async def send_effect(
         if result.get("status") == "success":
             print("  ✓ Effect executed successfully")
         else:
-            print(
-                f"  ✗ Effect failed: {result.get('message', 'Unknown error')}"
-            )
+            print(f"  ✗ Effect failed: {result.get('message', 'Unknown error')}")
     except asyncio.TimeoutError:
         print("  ⚠ No response (server may not send confirmations)")
     except Exception as e:
@@ -90,9 +86,7 @@ async def test_websocket_protocol():
 
             # 4. Synchronized effects with timestamps
             print("\nSending synchronized effect sequence...")
-            print(
-                "(All effects sent at once, executed at specified timestamps)\n"
-            )
+            print("(All effects sent at once, executed at specified timestamps)\n")
 
             effects = [
                 {
@@ -117,18 +111,14 @@ async def test_websocket_protocol():
 
             for effect in effects:
                 await websocket.send(json.dumps(effect))
-                print(
-                    f"  → {effect['effect_type']} at t={effect['timestamp']}ms"
-                )
+                print(f"  → {effect['effect_type']} at t={effect['timestamp']}ms")
 
             await asyncio.sleep(1)
 
             print("\n" + "=" * 60)
             print("✓ Test completed successfully!")
             print("=" * 60)
-            print(
-                "\nCheck the control panel Activity Log for effect execution."
-            )
+            print("\nCheck the control panel Activity Log for effect execution.")
 
     except ConnectionRefusedError:
         print("✗ Connection refused!")

@@ -20,9 +20,7 @@ class MQTTConfig:
 
 
 class MQTTHandler:
-    def __init__(
-        self, global_dispatcher=None, config: Optional[MQTTConfig] = None
-    ):
+    def __init__(self, global_dispatcher=None, config: Optional[MQTTConfig] = None):
         self.dispatcher = global_dispatcher
         self.config = config or MQTTConfig()
 
@@ -38,9 +36,7 @@ class MQTTHandler:
             def _publish():
                 client = mqtt.Client()
                 if self.config.username and self.config.password:
-                    client.username_pw_set(
-                        self.config.username, self.config.password
-                    )
+                    client.username_pw_set(self.config.username, self.config.password)
                 client.connect(self.config.host, self.config.port, 60)
                 client.publish(self.config.topic, payload)
                 client.disconnect()

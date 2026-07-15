@@ -21,9 +21,7 @@ class HTTPConfig:
 
 
 class HTTPHandler:
-    def __init__(
-        self, global_dispatcher=None, config: Optional[HTTPConfig] = None
-    ):
+    def __init__(self, global_dispatcher=None, config: Optional[HTTPConfig] = None):
         self.dispatcher = global_dispatcher
         self.config = config or HTTPConfig()
 

@@ -39,9 +39,7 @@ async def test_server_status(session: aiohttp.ClientSession):
         return False
 
 
-async def test_submit_effect(
-    session: aiohttp.ClientSession, effect_data: dict
-):
+async def test_submit_effect(session: aiohttp.ClientSession, effect_data: dict):
     """Test POST /api/effects endpoint."""
     print("\n" + "=" * 60)
     print(f"Test: Submit Effect ({effect_data['effect_type']})")

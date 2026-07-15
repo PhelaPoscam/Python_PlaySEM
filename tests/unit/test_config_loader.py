@@ -14,9 +14,7 @@ class TestConfigLoader:
             "devices:\n  - id: d1\n    deviceClass: MockLight\n    connectivityInterface: mock\n"
         )
         effects = tmp_path / "effects.yaml"
-        effects.write_text(
-            "vibration:\n  device: v1\n  command: set_intensity\n"
-        )
+        effects.write_text("vibration:\n  device: v1\n  command: set_intensity\n")
         protocols = tmp_path / "protocols.yaml"
         protocols.write_text("mqtt:\n  enabled: true\n")
         return str(devices), str(effects), str(protocols)
@@ -133,10 +131,7 @@ class TestConfigLoader:
         p = tmp_path / "p.yaml"
         p.write_text("{}")
         loader = ConfigLoader(str(d), str(e), str(p))
-        assert (
-            loader.devices_config["devices"][0]["deviceClass"]
-            == "GenericDevice"
-        )
+        assert loader.devices_config["devices"][0]["deviceClass"] == "GenericDevice"
 
     def test_missing_file(self, tmp_path):
         with pytest.raises(FileNotFoundError):

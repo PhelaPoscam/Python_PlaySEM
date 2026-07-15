@@ -7,27 +7,54 @@ on:
       - 'docs/**'
       - '*.md'
       - '.gitignore'
-      - 'legacy_backup/**'
   pull_request:
     branches: [master, main, develop]
     paths-ignore:
       - 'docs/**'
       - '*.md'
       - '.gitignore'
-      - 'legacy_backup/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  smoke:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12']
+
+    steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        cache-dependency-path: pyproject.toml
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev,all]
+
+    - name: Run non-integration tests
+      run: |
+        python -m pytest -m "not integration" --tb=short -q
+
+  lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
       with:
         python-version: '3.12'
         cache: 'pip'
@@ -38,93 +65,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .[dev,all]
 
-    - name: Run protocol smoke tests (HTTP, WebSocket, MQTT, CoAP, UPnP)
-      run: |
-        python -m pytest -m smoke -q
-
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ['3.11', '3.12']
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e .[dev,all]
-
-    - name: Run tests with coverage
-      run: |
-        python -m pytest -m "not integration" --cov=playsem --cov-report=xml --cov-report=term
-
-    - name: Upload coverage to Codecov
-      if: matrix.python-version == '3.12'
-      uses: codecov/codecov-action@v4
-      with:
-        files: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-        cache: 'pip'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e .[dev,all]
-
     - name: Lint with flake8
       run: |
-        # Stop the build if there are Python syntax errors or undefined names
         flake8 playsem tests --count --select=E9,F63,F7,F82,F824 --show-source --statistics
-        # Exit-zero treats all errors as warnings
-        flake8 playsem tests --count --exit-zero --max-line-length=79 --statistics
 
     - name: Check formatting with black
       run: |
         black --check playsem tests
-
-    - name: Type check with mypy
-      run: |
-        mypy playsem --ignore-missing-imports
-      continue-on-error: true
-
-  integration-live:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-        cache: 'pip'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e .[dev,all]
-
-    - name: Run live integration tests
-      run: |
-        python -m pytest -m integration -q

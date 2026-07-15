@@ -46,7 +46,7 @@ pip install -e ".[server]"    # REST API / Platform Server
 
 ### Dependencies
 
-- **Core**: pyyaml, numpy, aiohttp
+- **Core**: pyyaml, defusedxml, xmltodict
 - **Optional**: See "Protocol-Specific Installation" above.
 
 ---
@@ -335,10 +335,13 @@ devices:
 ### Loading Configuration
 
 ```python
-from playsem.config import ConfigLoader
+from playsem.config.loader import ConfigLoader
 
-config = ConfigLoader.load("config/devices.yaml")
-devices = config["devices"]
+config = ConfigLoader(
+    devices_path="config/devices.yaml",
+    effects_path="config/effects.yaml",
+)
+devices = config.load_devices_config()["devices"]
 ```
 
 ---

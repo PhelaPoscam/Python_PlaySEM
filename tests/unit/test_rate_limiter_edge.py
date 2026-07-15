@@ -14,9 +14,7 @@ def test_rate_limiter_zero_capacity():
 def test_rate_limiter_concurrency():
     """Verify thread-safety and correctness under concurrent request contention."""
     max_requests = 50
-    limiter = SlidingWindowLimiter(
-        max_requests=max_requests, window_seconds=2.0
-    )
+    limiter = SlidingWindowLimiter(max_requests=max_requests, window_seconds=2.0)
     client_id = "concurrent_client"
 
     allowed_count = 0

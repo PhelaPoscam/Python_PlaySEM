@@ -59,10 +59,7 @@ async def demo_simple_timeline():
 
     # Set up callbacks
     def on_effect(effect):
-        print(
-            f"  [EFFECT] {effect.effect_type} "
-            f"(intensity={effect.intensity})"
-        )
+        print(f"  [EFFECT] {effect.effect_type} " f"(intensity={effect.intensity})")
 
     def on_complete():
         print("\n[OK] Timeline completed!\n")
@@ -117,9 +114,7 @@ async def demo_synchronized_effects():
         create_effect("vibration", timestamp=2000, duration=200, intensity=80),
         # Storm intensifies
         create_effect("wind", timestamp=3000, duration=2000, intensity=90),
-        create_effect(
-            "vibration", timestamp=3500, duration=1500, intensity=60
-        ),
+        create_effect("vibration", timestamp=3500, duration=1500, intensity=60),
         # Calm after storm
         create_effect(
             "light",
@@ -148,8 +143,7 @@ async def demo_synchronized_effects():
 
     def on_complete():
         print(
-            f"\n[OK] Storm scene complete! "
-            f"({effect_count[0]} effects executed)\n"
+            f"\n[OK] Storm scene complete! " f"({effect_count[0]} effects executed)\n"
         )
 
     scheduler.set_callbacks(on_effect=on_effect, on_complete=on_complete)
@@ -248,10 +242,7 @@ async def demo_event_based():
             intensity=intensity,
             event_id=hash(description),
         )
-        print(
-            f"  [EVENT] {description} "
-            f"({effect_type}, intensity={intensity})"
-        )
+        print(f"  [EVENT] {description} " f"({effect_type}, intensity={intensity})")
         await scheduler.add_event_effect(event_effect)
 
     # Wait for background to finish

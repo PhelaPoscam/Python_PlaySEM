@@ -96,9 +96,7 @@ class Timeline:
 
             self.is_running = True
             self.is_paused = False
-            self.start_time = time.monotonic() - (
-                self.current_position / 1000.0
-            )
+            self.start_time = time.monotonic() - (self.current_position / 1000.0)
 
             # Schedule all effects that haven't been executed
             self._schedule_effects()
@@ -122,11 +120,7 @@ class Timeline:
     def resume(self):
         """Resume timeline playback from pause."""
         with self._lock:
-            if (
-                not self.is_paused
-                or self.pause_time is None
-                or self.start_time is None
-            ):
+            if not self.is_paused or self.pause_time is None or self.start_time is None:
                 return
 
             self.is_paused = False
@@ -231,11 +225,7 @@ class Timeline:
             self.timeline.add_effect(effect)
 
             # If the timeline is running, schedule this new effect
-            if (
-                self.is_running
-                and not self.is_paused
-                and self.start_time is not None
-            ):
+            if self.is_running and not self.is_paused and self.start_time is not None:
                 # Only schedule if it's in the future relative to current playback position
                 current_pos = self.get_position()
                 if effect.timestamp >= current_pos:
@@ -369,9 +359,7 @@ class Timeline:
                 self.on_effect_callback(effect)
 
         except Exception as e:
-            logger.exception(
-                f"Error executing effect {effect.effect_type}: {e}"
-            )
+            logger.exception(f"Error executing effect {effect.effect_type}: {e}")
 
     def set_callbacks(
         self,

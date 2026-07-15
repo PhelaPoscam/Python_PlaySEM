@@ -14,6 +14,8 @@ from playsem.protocol_servers import MQTTServer
 from playsem import EffectDispatcher, DeviceManager
 from playsem.effect_metadata import EffectMetadata
 
+from tests.wait import wait_until_async
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,9 +46,7 @@ async def mqtt_broker(effect_dispatcher):
     free_port = sock.getsockname()[1]
     sock.close()
 
-    server = MQTTServer(
-        dispatcher=effect_dispatcher, host="127.0.0.1", port=free_port
-    )
+    server = MQTTServer(dispatcher=effect_dispatcher, host="127.0.0.1", port=free_port)
     logger.info("mqtt_broker fixture: MQTTServer instance created.")
     server.start()
     logger.info("mqtt_broker fixture: MQTTServer.start() called.")
@@ -74,9 +74,7 @@ async def test_broker_start_stop(effect_dispatcher):
     free_port = sock.getsockname()[1]
     sock.close()
 
-    server = MQTTServer(
-        dispatcher=effect_dispatcher, host="127.0.0.1", port=free_port
-    )
+    server = MQTTServer(dispatcher=effect_dispatcher, host="127.0.0.1", port=free_port)
     assert not server.is_running()
 
     server.start()
@@ -106,9 +104,7 @@ async def test_broker_publish_and_dispatch(mqtt_broker, effect_dispatcher):
 
     def on_connect(client, userdata, flags, reason_code, properties):
         connection_result["value"] = reason_code
-        logger.info(
-            f"paho-mqtt client connected with result code: {reason_code}"
-        )
+        logger.info(f"paho-mqtt client connected with result code: {reason_code}")
 
     def on_publish(client, userdata, mid, reason_code, properties):
         message_published["done"] = True
@@ -151,8 +147,12 @@ async def test_broker_publish_and_dispatch(mqtt_broker, effect_dispatcher):
         result = client.publish("effects/test", json.dumps(effect_payload))
         result.wait_for_publish(timeout=2.0)
 
-        # Wait for message to be processed
-        await asyncio.sleep(1.0)
+        # Wait for the dispatcher to be called (replaces 1.0s sleep)
+        await wait_until_async(
+            lambda: effect_dispatcher.async_dispatch_effect_metadata.called,
+            timeout=2.0,
+            message="dispatcher was not called for MQTT message",
+        )
 
         # Assert that the dispatcher was called
         effect_dispatcher.async_dispatch_effect_metadata.assert_called_once()
@@ -240,14 +240,10 @@ async def test_external_broker_configuration(effect_dispatcher):
         server.start()
 
         assert server.is_running()
-        assert not hasattr(
-            server, "thread"
-        )  # embedded broker thread not started
+        assert not hasattr(server, "thread")  # embedded broker thread not started
 
         # Verify client was configured and connected
-        mock_client_instance.connect.assert_called_once_with(
-            "192.168.1.50", 18833, 60
-        )
+        mock_client_instance.connect.assert_called_once_with("192.168.1.50", 18833, 60)
         mock_client_instance.loop_start.assert_called_once()
 
         server.stop()

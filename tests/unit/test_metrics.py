@@ -22,9 +22,7 @@ class MockMetricsDriver(BaseDriver):
     async def disconnect(self) -> None:
         pass
 
-    async def send_command(
-        self, device_id: str, command: str, params: dict
-    ) -> bool:
+    async def send_command(self, device_id: str, command: str, params: dict) -> bool:
         return True
 
 

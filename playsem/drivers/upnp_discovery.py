@@ -38,9 +38,7 @@ class UPnPDiscovery(BaseDiscovery):
                 sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
 
                 try:
-                    sock.sendto(
-                        m_search.encode("utf-8"), (ssdp_addr, ssdp_port)
-                    )
+                    sock.sendto(m_search.encode("utf-8"), (ssdp_addr, ssdp_port))
                     discovered_ips = set()
 
                     while True:
@@ -49,20 +47,16 @@ class UPnPDiscovery(BaseDiscovery):
                             ip = addr[0]
                             if ip not in discovered_ips:
                                 discovered_ips.add(ip)
-                                headers = data.decode(
-                                    "utf-8", errors="ignore"
-                                ).split("\r\n")
+                                headers = data.decode("utf-8", errors="ignore").split(
+                                    "\r\n"
+                                )
                                 location = ""
                                 server_name = "UPnP Device"
                                 for header in headers:
                                     if header.lower().startswith("location:"):
-                                        location = header.split(":", 1)[
-                                            1
-                                        ].strip()
+                                        location = header.split(":", 1)[1].strip()
                                     elif header.lower().startswith("server:"):
-                                        server_name = header.split(":", 1)[
-                                            1
-                                        ].strip()
+                                        server_name = header.split(":", 1)[1].strip()
 
                                 devices.append(
                                     {

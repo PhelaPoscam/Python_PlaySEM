@@ -170,9 +170,7 @@ class EffectCapability:
                 return param
         return None
 
-    def validate_parameters(
-        self, params: Dict[str, Any]
-    ) -> tuple[bool, List[str]]:
+    def validate_parameters(self, params: Dict[str, Any]) -> tuple[bool, List[str]]:
         """
         Validate a set of parameters against this effect capability.
 
@@ -187,9 +185,7 @@ class EffectCapability:
         # Check required parameters
         for param_cap in self.parameters:
             if param_cap.required and param_cap.name not in params:
-                errors.append(
-                    f"Required parameter '{param_cap.name}' is missing"
-                )
+                errors.append(f"Required parameter '{param_cap.name}' is missing")
 
         # Validate provided parameters
         for param_name, param_value in params.items():
@@ -198,8 +194,7 @@ class EffectCapability:
                 errors.append(f"Unknown parameter '{param_name}'")
             elif not cap.validate(param_value):
                 errors.append(
-                    f"Invalid value for parameter "
-                    f"'{param_name}': {param_value}"
+                    f"Invalid value for parameter " f"'{param_name}': {param_value}"
                 )
 
         return len(errors) == 0, errors

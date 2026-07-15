@@ -32,13 +32,21 @@ def live_server():
     Fixture that starts the FastAPI test server in a separate process
     and yields the server's base URL.
     """
+    import os
+    import socket
+
     server_host = "127.0.0.1"
-    server_port = 8090
+    # Reserve a free port to avoid collisions with other tests/processes.
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as _s:
+        _s.bind((server_host, 0))
+        server_port = _s.getsockname()[1]
     server_url = f"http://{server_host}:{server_port}"
 
     # Run the server as a module to pick up package imports
+    env = os.environ.copy()
+    env["PLAYSEM_SERVER_PORT"] = str(server_port)
     command = [sys.executable, "-m", "tools.test_server.main"]
-    process = subprocess.Popen(command, cwd=root_dir)
+    process = subprocess.Popen(command, cwd=root_dir, env=env)
 
     # Wait for the server to be ready
     health_url = f"{server_url}/health"
@@ -46,28 +54,32 @@ def live_server():
     start_time = time.time()
     timeout = 30  # seconds
 
-    while time.time() - start_time < timeout:
-        try:
-            with httpx.Client() as client:
-                response = client.get(health_url)
-                if response.status_code == 200 and response.json() == {
-                    "status": "ok"
-                }:
-                    is_ready = True
-                    break
-        except httpx.RequestError:
-            time.sleep(0.5)  # Wait and retry
+    try:
+        while time.time() - start_time < timeout:
+            try:
+                with httpx.Client() as client:
+                    response = client.get(health_url)
+                    if response.status_code == 200 and response.json() == {
+                        "status": "ok"
+                    }:
+                        is_ready = True
+                        break
+            except httpx.RequestError:
+                time.sleep(0.5)  # Wait and retry
 
-    if not is_ready:
+        if not is_ready:
+            pytest.fail(f"Server did not start within {timeout} seconds.")
+
+        # Yield the server URL to the tests
+        yield server_url
+    finally:
+        # Teardown: stop the server (always runs, even on failure)
         process.terminate()
-        pytest.fail(f"Server did not start within {timeout} seconds.")
-
-    # Yield the server URL to the tests
-    yield server_url
-
-    # Teardown: stop the server
-    process.terminate()
-    process.wait()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
 
 
 @pytest.fixture
@@ -134,9 +146,7 @@ connectivityInterfaces:
     mqtt_port = sock.getsockname()[1]
     sock.close()
 
-    mqtt_server = MQTTServer(
-        dispatcher=dispatcher, host="127.0.0.1", port=mqtt_port
-    )
+    mqtt_server = MQTTServer(dispatcher=dispatcher, host="127.0.0.1", port=mqtt_port)
     mqtt_server.start()
     await asyncio.wait_for(mqtt_server.wait_until_ready(), timeout=5.0)
 
@@ -149,8 +159,12 @@ connectivityInterfaces:
             self.mqtt_port = mqtt_port
 
     bundle = SystemBundle()
-    yield bundle
-
-    # Teardown
-    mqtt_server.stop()
-    await manager.stop_async_workers()
+    try:
+        yield bundle
+    finally:
+        # Teardown — always runs so async workers don't leak across tests.
+        mqtt_server.stop()
+        try:
+            await manager.stop_async_workers()
+        except Exception:
+            pass  # don't mask the original test failure

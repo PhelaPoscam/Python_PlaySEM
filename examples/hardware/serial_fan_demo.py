@@ -104,9 +104,7 @@ async def interactive(driver, device_id: str = "wind_device") -> None:
         else:
             try:
                 speed = int(raw)
-                await driver.send_command(
-                    device_id, "set_speed", {"speed": speed}
-                )
+                await driver.send_command(device_id, "set_speed", {"speed": speed})
                 print(f"  -> speed={speed}%")
             except ValueError:
                 print("  Enter a number 0-100, 'ramp', 'burst', or 'quit'")
@@ -178,9 +176,7 @@ async def main() -> None:
     try:
         from playsem.drivers.serial_driver import SerialDriver
     except ImportError:
-        print(
-            "\n  pyserial is required. Install it with: pip install pyserial"
-        )
+        print("\n  pyserial is required. Install it with: pip install pyserial")
         return
 
     driver = SerialDriver(

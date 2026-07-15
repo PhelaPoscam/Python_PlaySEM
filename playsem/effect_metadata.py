@@ -8,11 +8,14 @@ Supports multiple formats:
 """
 
 import json
+import logging
 import yaml
 import defusedxml.ElementTree as ET
 from xml.etree.ElementTree import Element
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -84,11 +87,7 @@ class EffectTimeline:
         """
         active = []
         for effect in self.effects:
-            if (
-                effect.timestamp
-                <= time_ms
-                < (effect.timestamp + effect.duration)
-            ):
+            if effect.timestamp <= time_ms < (effect.timestamp + effect.duration):
                 active.append(effect)
         return active
 
@@ -123,9 +122,7 @@ class EffectMetadataParser:
         """
         data = json.loads(json_str)
         if "effect_type" not in data:
-            raise ValueError(
-                "Missing required field 'effect_type' in JSON payload"
-            )
+            raise ValueError("Missing required field 'effect_type' in JSON payload")
         return EffectMetadata(
             effect_type=data["effect_type"],
             timestamp=data.get("timestamp", 0),
@@ -149,9 +146,7 @@ class EffectMetadataParser:
         """
         data = yaml.safe_load(yaml_str)
         if "effect_type" not in data:
-            raise ValueError(
-                "Missing required field 'effect_type' in YAML payload"
-            )
+            raise ValueError("Missing required field 'effect_type' in YAML payload")
         return EffectMetadata(
             effect_type=data["effect_type"],
             timestamp=data.get("timestamp", 0),
@@ -299,9 +294,7 @@ class EffectMetadataParser:
             ".//SensoryEffects"
         )
         if not sensory_effects:
-            sensory_effects = root.findall(".//Effect") + root.findall(
-                ".//effect"
-            )
+            sensory_effects = root.findall(".//Effect") + root.findall(".//effect")
 
         for se_elem in sensory_effects:
             effect = EffectMetadataParser._parse_effect_element(se_elem)
@@ -390,9 +383,7 @@ class EffectMetadataParser:
         location = (
             elem.get("location")
             or elem.get("Location")
-            or EffectMetadataParser._get_child_text(
-                elem, ["location", "Location"]
-            )
+            or EffectMetadataParser._get_child_text(elem, ["location", "Location"])
             or "everywhere"
         )
 
@@ -409,15 +400,11 @@ class EffectMetadataParser:
             parameters["color"] = color
 
         # RGB values for light effects
-        r = EffectMetadataParser._parse_int_attr(
-            elem, ["r", "R", "red"], default=None
-        )
+        r = EffectMetadataParser._parse_int_attr(elem, ["r", "R", "red"], default=None)
         g = EffectMetadataParser._parse_int_attr(
             elem, ["g", "G", "green"], default=None
         )
-        b = EffectMetadataParser._parse_int_attr(
-            elem, ["b", "B", "blue"], default=None
-        )
+        b = EffectMetadataParser._parse_int_attr(elem, ["b", "B", "blue"], default=None)
         if r is not None and g is not None and b is not None:
             parameters["rgb"] = [r, g, b]
 
@@ -434,9 +421,7 @@ class EffectMetadataParser:
         direction = (
             elem.get("direction")
             or elem.get("Direction")
-            or EffectMetadataParser._get_child_text(
-                elem, ["direction", "Direction"]
-            )
+            or EffectMetadataParser._get_child_text(elem, ["direction", "Direction"])
         )
         if direction:
             parameters["direction"] = direction
@@ -488,7 +473,7 @@ class EffectMetadataParser:
                 try:
                     return int(float(val))  # Handle "1000.0" format
                 except (ValueError, TypeError):
-                    pass
+                    logger.debug(f"Could not parse int attribute '{name}': {val}")
 
             child = elem.find(name)
             if child is None:
@@ -499,7 +484,9 @@ class EffectMetadataParser:
                 try:
                     return int(float(child.text))
                 except (ValueError, TypeError):
-                    pass
+                    logger.debug(
+                        f"Could not parse int from child text of '{name}': {child.text}"
+                    )
 
         return default
 
@@ -535,17 +522,13 @@ class EffectMetadataParser:
             with open(filepath, "r", encoding="utf-8") as f:
                 xml_content = f.read()
         except FileNotFoundError as exc:
-            raise FileNotFoundError(
-                f"XML effect file not found: {filepath}"
-            ) from exc
+            raise FileNotFoundError(f"XML effect file not found: {filepath}") from exc
         except PermissionError as exc:
             raise PermissionError(
                 f"Permission denied reading XML effect file: {filepath}"
             ) from exc
         except OSError as exc:
-            raise OSError(
-                f"Cannot read XML effect file {filepath}: {exc}"
-            ) from exc
+            raise OSError(f"Cannot read XML effect file {filepath}: {exc}") from exc
 
         return EffectMetadataParser.parse_mpegv_xml(xml_content)
 

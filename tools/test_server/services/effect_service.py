@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 class EffectService:
     """Tracks effect dispatch attempts and inbox entries."""
 
-    def __init__(
-        self, protocol_service: Optional["ProtocolService"] = None
-    ) -> None:
+    def __init__(self, protocol_service: Optional["ProtocolService"] = None) -> None:
         self._effects_sent = 0
         self._effect_inbox: List[Dict[str, Any]] = []
         self._protocol_service = protocol_service
@@ -46,9 +44,7 @@ class EffectService:
                     device_id, effect, protocol
                 )
                 if success:
-                    logger.info(
-                        f"Effect dispatched via PlaySEM {protocol} server"
-                    )
+                    logger.info(f"Effect dispatched via PlaySEM {protocol} server")
             except Exception as e:
                 logger.error(
                     f"PlaySEM server dispatch failed: {e}, falling back to handler"

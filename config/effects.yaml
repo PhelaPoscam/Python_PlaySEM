@@ -87,14 +87,3 @@ effects:
           strong: 75
           intense: 100
           off: 0
-
-# Location-based effect mappings (following MPEG-V LocationCS)
-locations:
-  everywhere: "*"
-  left: "left"
-  center: "center"
-  right: "right"
-  front: "front"
-  back: "back"
-  top: "top"
-  bottom: "bottom"

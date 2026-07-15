@@ -17,9 +17,7 @@ async def main():
         nonlocal playsem_device_info
         if "PlaySEM" in device.friendly_name and not playsem_device_info:
             playsem_device_info = device
-            print(
-                f"Found PlaySEM server: {device.friendly_name} at {device.location}"
-            )
+            print(f"Found PlaySEM server: {device.friendly_name} at {device.location}")
 
     listener = SsdpListener(on_device_discovered)
     await listener.async_start()
@@ -34,9 +32,7 @@ async def main():
     requester = AiohttpRequester()
     factory = UpnpFactory(requester)
     try:
-        playsem_device = await factory.async_create_device(
-            playsem_device_info.location
-        )
+        playsem_device = await factory.async_create_device(playsem_device_info.location)
     except Exception as e:
         print(f"Error creating device: {e}")
         return
@@ -44,9 +40,7 @@ async def main():
     print(f"Successfully created device: {playsem_device.name}")
 
     # Get the PlaySEM service
-    playsem_service = playsem_device.service(
-        "urn:schemas-upnp-org:service:PlaySEM:1"
-    )
+    playsem_service = playsem_device.service("urn:schemas-upnp-org:service:PlaySEM:1")
     if not playsem_service:
         print("Could not find PlaySEM service on the device.")
         return

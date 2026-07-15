@@ -28,7 +28,6 @@ from ..effect_metadata import EffectMetadata
 from ..device_registry import DeviceRegistry
 from ..utils.rate_limiter import SlidingWindowLimiter
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -126,7 +125,13 @@ class HTTPServer:
         self.port = port
         self.dispatcher = dispatcher
         self.api_key = api_key
-        self.cors_origins = cors_origins or ["*"]
+        self.cors_origins = cors_origins or ["http://localhost"]
+        self._allow_credentials = True
+        if self.cors_origins == ["*"]:
+            self._allow_credentials = False
+            logger.warning(
+                "CORS set to wildcard '*'. Credentials disabled for security."
+            )
         self.on_effect_received = on_effect_received
         self.on_effect_broadcast = on_effect_broadcast
         self.device_registry = device_registry
@@ -159,7 +164,7 @@ class HTTPServer:
         self._app.add_middleware(
             CORSMiddleware,
             allow_origins=self.cors_origins,
-            allow_credentials=True,
+            allow_credentials=self._allow_credentials,
             allow_methods=["*"],
             allow_headers=["*"],
         )
@@ -199,7 +204,7 @@ class HTTPServer:
                                 status_code=413,
                                 content={
                                     "success": False,
-                                    "message": f"Payload size {size} exceeds maximum {self.max_payload_size} bytes",
+                                    "message": f"Payload size {size} exceeds maximum {self.max_payload_size} bytes",  # noqa: E501
                                 },
                             )
                     except ValueError:
@@ -228,6 +233,7 @@ class HTTPServer:
         # Track server stats
         self._start_time = None
         self._effects_processed = 0
+        self._effects_lock = asyncio.Lock()
 
         # Register routes
         self._register_routes()
@@ -258,7 +264,8 @@ class HTTPServer:
 
                 # Dispatch effect
                 await self.dispatcher.async_dispatch_effect_metadata(metadata)
-                self._effects_processed += 1
+                async with self._effects_lock:
+                    self._effects_processed += 1
 
                 # Call broadcast callback if provided
                 if self.on_effect_broadcast:
@@ -273,9 +280,7 @@ class HTTPServer:
                 return EffectResponse(
                     success=True,
                     message="Effect dispatched successfully",
-                    effect_id=(
-                        f"{effect.effect_type}_{self._effects_processed}"
-                    ),
+                    effect_id=(f"{effect.effect_type}_{self._effects_processed}"),
                 )
             except Exception as e:
                 logger.error(f"Effect dispatch error: {e}")
@@ -291,9 +296,7 @@ class HTTPServer:
             description="Get server health and statistics",
         )
         async def get_status():
-            uptime = (
-                time.time() - self._start_time if self._start_time else 0.0
-            )
+            uptime = time.time() - self._start_time if self._start_time else 0.0
             return StatusResponse(
                 status="running",
                 version="0.1.0",
@@ -315,7 +318,7 @@ class HTTPServer:
             if hasattr(self.dispatcher, "get_queue_size"):
                 q_size = self.dispatcher.get_queue_size()
             metrics.append(
-                "# HELP playsem_dispatcher_queue_depth Current managed queue size of the effect dispatcher."
+                "# HELP playsem_dispatcher_queue_depth Current managed queue size of the effect dispatcher."  # noqa: E501
             )
             metrics.append("# TYPE playsem_dispatcher_queue_depth gauge")
             metrics.append(f"playsem_dispatcher_queue_depth {q_size}")
@@ -346,7 +349,7 @@ class HTTPServer:
                     for s in ["closed", "open", "half-open"]:
                         val = 1 if state == s else 0
                         metrics.append(
-                            f'playsem_device_circuit_state{{device_id="{dev_id}",state="{s}"}} {val}'
+                            f'playsem_device_circuit_state{{device_id="{dev_id}",state="{s}"}} {val}'  # noqa: E501
                         )
 
             # Dispatch latency
@@ -358,7 +361,7 @@ class HTTPServer:
                     count = self.dispatcher.dispatch_count
 
             metrics.append(
-                "# HELP playsem_dispatch_latency_ms_sum Total sensory effect dispatch latency in milliseconds."
+                "# HELP playsem_dispatch_latency_ms_sum Total sensory effect dispatch latency in milliseconds."  # noqa: E501
             )
             metrics.append("# TYPE playsem_dispatch_latency_ms_sum counter")
             metrics.append(f"playsem_dispatch_latency_ms_sum {total_latency}")
@@ -394,15 +397,9 @@ class HTTPServer:
                             device_id=d_dict["id"],
                             device_type=d_dict["type"],
                             status="connected",
-                            circuit_state=d_dict.get(
-                                "circuit_state", "closed"
-                            ),
-                            consecutive_failures=d_dict.get(
-                                "consecutive_failures", 0
-                            ),
-                            last_error_message=d_dict.get(
-                                "last_error_message"
-                            ),
+                            circuit_state=d_dict.get("circuit_state", "closed"),
+                            consecutive_failures=d_dict.get("consecutive_failures", 0),
+                            last_error_message=d_dict.get("last_error_message"),
                         )
                     )
                 return DevicesResponse(devices=devices, count=len(devices))
@@ -548,8 +545,7 @@ class HTTPServer:
 
         logger.info(f"Starting HTTP server at http://{self.host}:{self.port}")
         logger.info(
-            f"API documentation available at "
-            f"http://{self.host}:{self.port}/docs"
+            f"API documentation available at " f"http://{self.host}:{self.port}/docs"
         )
 
         config = uvicorn.Config(

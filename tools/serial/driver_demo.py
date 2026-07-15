@@ -66,18 +66,14 @@ def demo_auto_discover():
     print("=" * 60)
 
     # Try to find Arduino (common VID for Arduino boards)
-    driver = SerialDriver.auto_discover(
-        vid=0x2341, baudrate=9600  # Arduino VID
-    )
+    driver = SerialDriver.auto_discover(vid=0x2341, baudrate=9600)  # Arduino VID
 
     if driver:
         print(f"\n✅ Arduino found on {driver.port}")
         return driver.port
 
     # Try finding any Arduino by description
-    driver = SerialDriver.auto_discover(
-        description_pattern="Arduino", baudrate=9600
-    )
+    driver = SerialDriver.auto_discover(description_pattern="Arduino", baudrate=9600)
 
     if driver:
         print(f"\n✅ Arduino-like device found on {driver.port}")
@@ -150,9 +146,7 @@ def demo_callback_mode(port: str):
         print(f"📨 Received: {data.hex()} ({data})")
 
     try:
-        driver = SerialDriver(
-            port=port, baudrate=9600, on_data_received=on_data
-        )
+        driver = SerialDriver(port=port, baudrate=9600, on_data_received=on_data)
 
         if driver.open_connection():
             print(f"\n✅ Connected with callback mode")

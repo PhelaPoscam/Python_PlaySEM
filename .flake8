@@ -1,5 +1,5 @@
 [flake8]
-max-line-length = 120
+max-line-length = 100
 extend-ignore = E203, W503, F541, E402, W391
 exclude =
     .git,
@@ -9,6 +9,8 @@ exclude =
     dist,
     *.egg-info
 per-file-ignores =
-    tests/*: F401, F841, F811
+    tests/*: F401, F841, F811, E501
+    tests/*/*: F401, F841, F811, E501
+    tests/*/*/*: F401, F841, F811, E501
     playsem/__init__.py: F401
     examples/scenes/thunderstorm.py: E741

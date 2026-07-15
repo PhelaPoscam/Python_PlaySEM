@@ -24,7 +24,7 @@ class MockConnectivityDriver(BaseDriver):
         self._connected = False
         self.command_history: list[Dict[str, Any]] = []
         logger.info(
-            f"MockConnectivityDriver '{self.interface_name}' initialized with format '{self.data_format}'"
+            f"MockConnectivityDriver '{self.interface_name}' initialized with format '{self.data_format}'"  # noqa: E501
         )
         # Map device_id -> MockDeviceBase instance for forwarding commands
         self._devices: Dict[str, MockDeviceBase] = {}
@@ -89,9 +89,7 @@ class MockConnectivityDriver(BaseDriver):
                 mock_device.send_command(command, params or {})
                 return True
             except Exception as e:
-                logger.warning(
-                    f"Error forwarding to mock device {device_id}: {e}"
-                )
+                logger.warning(f"Error forwarding to mock device {device_id}: {e}")
                 return False
         return True
 
@@ -178,9 +176,7 @@ class MockConnectivityDriver(BaseDriver):
                         default=255,
                         description="Blue color component",
                     ),
-                    create_standard_intensity_param(
-                        min_val=0, max_val=100, default=50
-                    ),
+                    create_standard_intensity_param(min_val=0, max_val=100, default=50),
                     create_standard_duration_param(),
                 ],
                 examples=[
@@ -341,9 +337,7 @@ class MockConnectivityDriver(BaseDriver):
 
         return caps.to_dict()
 
-    def register_device(
-        self, device_id: str, device_obj: "MockDeviceBase"
-    ) -> None:
+    def register_device(self, device_id: str, device_obj: "MockDeviceBase") -> None:
         """Register a MockDevice instance so that send_command can forward to it.
 
         This is used by test utilities and the example server to connect a
@@ -355,9 +349,7 @@ class MockConnectivityDriver(BaseDriver):
 class MockDeviceBase:
     """Base class for mock sensory effect devices."""
 
-    def __init__(
-        self, device_id: str, properties: Optional[Dict[str, Any]] = None
-    ):
+    def __init__(self, device_id: str, properties: Optional[Dict[str, Any]] = None):
         """
         Initialize mock device.
 
@@ -370,9 +362,7 @@ class MockDeviceBase:
         self.delay = int(self.properties.get("delay", 0))
         self.state: Dict[str, Any] = {}
         self.command_history: list[Dict[str, Any]] = []
-        logger.info(
-            f"Mock device '{device_id}' initialized " f"(delay={self.delay}ms)"
-        )
+        logger.info(f"Mock device '{device_id}' initialized " f"(delay={self.delay}ms)")
 
     def send_command(self, command: str, params: Dict[str, Any]):
         """
@@ -382,9 +372,7 @@ class MockDeviceBase:
             command: command name (e.g., 'set_brightness', 'set_speed')
             params: command parameters
         """
-        logger.info(
-            f"[{self.device_id}] Command: {command}, " f"Params: {params}"
-        )
+        logger.info(f"[{self.device_id}] Command: {command}, " f"Params: {params}")
         self.state.update(params)
         self.command_history.append({"command": command, "params": params})
 
@@ -406,9 +394,7 @@ class MockDeviceBase:
 class MockLightDevice(MockDeviceBase):
     """Mock light/LED device."""
 
-    def __init__(
-        self, device_id: str, properties: Optional[Dict[str, Any]] = None
-    ):
+    def __init__(self, device_id: str, properties: Optional[Dict[str, Any]] = None):
         super().__init__(device_id, properties)
         self.state = {"r": 0, "g": 0, "b": 0, "brightness": 0}
 
@@ -416,8 +402,7 @@ class MockLightDevice(MockDeviceBase):
         """Set light brightness (0-255)."""
         self.state["brightness"] = max(0, min(255, brightness))
         logger.info(
-            f"[{self.device_id}] Light brightness: "
-            f"{self.state['brightness']}"
+            f"[{self.device_id}] Light brightness: " f"{self.state['brightness']}"
         )
 
     def set_color(self, r: int, g: int, b: int):
@@ -447,9 +432,7 @@ class MockLightDevice(MockDeviceBase):
 class MockWindDevice(MockDeviceBase):
     """Mock wind/fan device."""
 
-    def __init__(
-        self, device_id: str, properties: Optional[Dict[str, Any]] = None
-    ):
+    def __init__(self, device_id: str, properties: Optional[Dict[str, Any]] = None):
         super().__init__(device_id, properties)
         self.state = {"speed": 0, "direction": "forward"}
 
@@ -461,9 +444,7 @@ class MockWindDevice(MockDeviceBase):
     def set_direction(self, direction: str):
         """Set wind direction ('forward', 'reverse')."""
         self.state["direction"] = direction
-        logger.info(
-            f"[{self.device_id}] Wind direction: " f"{self.state['direction']}"
-        )
+        logger.info(f"[{self.device_id}] Wind direction: " f"{self.state['direction']}")
 
     def send_command(self, command: str, params: Dict[str, Any]):
         """Handle wind-specific commands."""
@@ -478,9 +459,7 @@ class MockWindDevice(MockDeviceBase):
 class MockVibrationDevice(MockDeviceBase):
     """Mock vibration/haptic device."""
 
-    def __init__(
-        self, device_id: str, properties: Optional[Dict[str, Any]] = None
-    ):
+    def __init__(self, device_id: str, properties: Optional[Dict[str, Any]] = None):
         super().__init__(device_id, properties)
         self.state = {"intensity": 0, "duration": 0}
 
@@ -488,16 +467,14 @@ class MockVibrationDevice(MockDeviceBase):
         """Set vibration intensity (0-100)."""
         self.state["intensity"] = max(0, min(100, intensity))
         logger.info(
-            f"[{self.device_id}] Vibration intensity: "
-            f"{self.state['intensity']}%"
+            f"[{self.device_id}] Vibration intensity: " f"{self.state['intensity']}%"
         )
 
     def set_duration(self, duration: int):
         """Set vibration duration in milliseconds."""
         self.state["duration"] = max(0, duration)
         logger.info(
-            f"[{self.device_id}] Vibration duration: "
-            f"{self.state['duration']}ms"
+            f"[{self.device_id}] Vibration duration: " f"{self.state['duration']}ms"
         )
 
     def send_command(self, command: str, params: Dict[str, Any]):
@@ -513,9 +490,7 @@ class MockVibrationDevice(MockDeviceBase):
 class MockScentDevice(MockDeviceBase):
     """Mock scent/smell diffuser device."""
 
-    def __init__(
-        self, device_id: str, properties: Optional[Dict[str, Any]] = None
-    ):
+    def __init__(self, device_id: str, properties: Optional[Dict[str, Any]] = None):
         super().__init__(device_id, properties)
         self.state = {"scent": None, "intensity": 0}
 

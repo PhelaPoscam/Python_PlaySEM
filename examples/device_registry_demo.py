@@ -54,9 +54,7 @@ def main():
         },
     }
 
-    device = registry.register_device(
-        mqtt_device_announcement, source_protocol="mqtt"
-    )
+    device = registry.register_device(mqtt_device_announcement, source_protocol="mqtt")
     print(f"[OK] MQTT device registered: {device.name}")
     print(f"   ID: {device.id}")
     print(f"   Protocols: {device.protocols}")
@@ -74,9 +72,7 @@ def main():
         "connection_mode": "direct",
     }
 
-    device = registry.register_device(
-        websocket_device, source_protocol="websocket"
-    )
+    device = registry.register_device(websocket_device, source_protocol="websocket")
     print(f"[OK] WebSocket device registered: {device.name}")
     print(f"   ID: {device.id}")
     print(f"   Protocols: {device.protocols}\n")
@@ -124,9 +120,6 @@ def main():
     print("\n--- Registry Statistics ---")
     stats = registry.get_stats()
     print(f"Total devices: {stats['total_devices']}")
-    print(
-        f"Protocol isolation: {'ENABLED' if stats['protocol_isolation_enabled'] else 'DISABLED'}"
-    )
     print(f"Protocols in use: {', '.join(stats['protocols'])}")
     print("Devices by protocol:")
     for protocol, count in stats["devices_by_protocol"].items():
@@ -135,55 +128,11 @@ def main():
     for device_type, count in stats["devices_by_type"].items():
         print(f"  - {device_type}: {count}")
 
-    # Demonstrate protocol isolation mode
-    print("\n" + "=" * 60)
-    print("--- Scenario 7: Protocol Isolation Mode ---")
-    print("=" * 60)
-    print(
-        "\n[LOCK] Enabling protocol isolation (like Super Controller Device Simulator)..."
-    )
-    registry.set_protocol_isolation(True)
-
-    print("\n[QUERY] WebSocket client asks: 'What devices are available?'")
-    ws_visible_devices = registry.get_all_devices(
-        requesting_protocol="websocket"
-    )
-    print(f"WebSocket client sees {len(ws_visible_devices)} device(s):")
-    for dev in ws_visible_devices:
-        print(f"  - {dev.name} ({dev.type})")
-
-    print("\n[QUERY] MQTT client asks: 'What devices are available?'")
-    mqtt_visible_devices = registry.get_all_devices(requesting_protocol="mqtt")
-    print(f"MQTT client sees {len(mqtt_visible_devices)} device(s):")
-    for dev in mqtt_visible_devices:
-        print(f"  - {dev.name} ({dev.type})")
-
-    print(
-        "\n[OK] Protocol isolation working! Each protocol only sees its own devices."
-    )
-
-    print("\n[UNLOCK] Disabling protocol isolation (shared mode)...")
-    registry.set_protocol_isolation(False)
-
-    print(
-        "\n[QUERY] WebSocket client asks again: 'What devices are available?'"
-    )
-    ws_visible_devices = registry.get_all_devices(
-        requesting_protocol="websocket"
-    )
-    print(f"WebSocket client now sees {len(ws_visible_devices)} device(s):")
-    for dev in ws_visible_devices:
-        print(f"  - {dev.name} ({dev.type})")
-
-    print("\n[OK] Shared mode active! All devices visible to all protocols.")
-
     print("\n" + "=" * 60)
     print("Key Benefits of Device Registry:")
     print("=" * 60)
     print("[OK] Protocol-agnostic: Devices from ANY protocol visible to ALL")
-    print(
-        "[OK] Protocol isolation: Optional isolation mode like Super Controller"
-    )
+    print("[OK] Unified view: Shared cross-protocol device availability")
     print("[OK] Thread-safe: Multiple protocols can access concurrently")
     print("[OK] Flexible queries: By protocol, type, capability, etc.")
     print("[OK] Event notifications: Listen for device changes")

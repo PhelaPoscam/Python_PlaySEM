@@ -42,7 +42,14 @@ async def test_mqtt_connect_retries_and_succeeds():
         auto_reconnect=False,
     )
     driver.client.connect = MagicMock(side_effect=[RuntimeError("fail"), None])
-    driver.client.loop_start = MagicMock()
+
+    # Simulate the broker confirming the second connection attempt by
+    # firing the connect event synchronously from loop_start.
+    def _confirm_connection():
+        driver._is_connected = True
+        driver._connect_event.set()
+
+    driver.client.loop_start = MagicMock(side_effect=_confirm_connection)
 
     assert await driver.connect() is True
     assert driver.client.connect.call_count == 2
@@ -70,9 +77,7 @@ def test_mqtt_reconnect_loop_updates_attempts():
         retry_policy=RetryPolicy(max_attempts=2, initial_delay=0, max_delay=0),
         auto_reconnect=True,
     )
-    driver.client.reconnect = MagicMock(
-        side_effect=[RuntimeError("fail"), None]
-    )
+    driver.client.reconnect = MagicMock(side_effect=[RuntimeError("fail"), None])
 
     driver._reconnect_loop()
 
@@ -92,9 +97,7 @@ async def test_mqtt_wait_for_publish_ack_success():
     publish_result = _PublishResult(rc=0, published=True)
     driver.client.publish = MagicMock(return_value=publish_result)
 
-    assert await driver.send_command(
-        "devices/test", "pulse", {"intensity": 50}
-    )
+    assert await driver.send_command("devices/test", "pulse", {"intensity": 50})
     publish_result.wait_for_publish.assert_called_once_with(timeout=0.25)
 
 
@@ -111,8 +114,7 @@ async def test_mqtt_wait_for_publish_ack_timeout_fails():
     driver.client.publish = MagicMock(return_value=publish_result)
 
     assert (
-        await driver.send_command("devices/test", "pulse", {"intensity": 50})
-        is False
+        await driver.send_command("devices/test", "pulse", {"intensity": 50}) is False
     )
     publish_result.wait_for_publish.assert_called_once_with(timeout=0.25)
 

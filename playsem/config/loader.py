@@ -4,6 +4,7 @@ import logging
 import os
 from typing import Any, Dict
 
+import defusedxml.ElementTree as SafeElementTree
 import xmltodict
 import yaml
 
@@ -29,9 +30,7 @@ class ConfigLoader:
         self.devices_config = self._load_config_file(devices_path)
         self.effects_config = self._load_config_file(effects_path)
         self.protocols_config = (
-            self._load_config_file(protocols_path)
-            if protocols_path is not None
-            else {}
+            self._load_config_file(protocols_path) if protocols_path is not None else {}
         )
 
     def load_devices_config(self) -> Dict[str, Any]:
@@ -60,12 +59,16 @@ class ConfigLoader:
                 elif extension == ".json":
                     return json.load(f) or {}
                 elif extension == ".xml":
-                    raw_dict = xmltodict.parse(f.read())
+                    raw_xml = f.read()
+                    safe_elem = SafeElementTree.fromstring(raw_xml)
+                    from xml.etree.ElementTree import tostring as et_tostring
+
+                    raw_dict = xmltodict.parse(
+                        et_tostring(safe_elem, encoding="unicode")
+                    )
                     # Check if this is a PlaySEM XML file and transform it
                     if "configuration" in raw_dict:
-                        logger.info(
-                            "PlaySEM XML format detected. Transforming..."
-                        )
+                        logger.info("PlaySEM XML format detected. Transforming...")
                         return self._transform_playsem_dict(raw_dict)
                     return raw_dict or {}
                 else:
@@ -79,9 +82,7 @@ class ConfigLoader:
             logger.error(f"Error parsing configuration file {path}: {e}")
             raise
 
-    def _transform_playsem_dict(
-        self, raw_dict: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _transform_playsem_dict(self, raw_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Transforms a dictionary parsed from SERenderer.xml into the format
         expected by this application (equivalent to devices.yaml).
@@ -102,9 +103,7 @@ class ConfigLoader:
             py_device = {
                 "deviceId": xml_device.get("id"),
                 "label": xml_device.get("id"),  # Use id as a default label
-                "deviceClass": self._map_java_class(
-                    xml_device.get("deviceClass")
-                ),
+                "deviceClass": self._map_java_class(xml_device.get("deviceClass")),
                 # The protocol is determined by the interface, so we map it later
                 "protocol": interface_ref.lower() if interface_ref else None,
                 "connectivityInterface": (

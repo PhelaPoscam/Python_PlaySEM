@@ -17,9 +17,7 @@ def run_loop_in_thread(loop):
 def test_timeline_threading_and_async_interaction():
     # Set up event loop running in a background thread
     loop = asyncio.new_event_loop()
-    thread = threading.Thread(
-        target=run_loop_in_thread, args=(loop,), daemon=True
-    )
+    thread = threading.Thread(target=run_loop_in_thread, args=(loop,), daemon=True)
     thread.start()
 
     try:
@@ -29,9 +27,7 @@ def test_timeline_threading_and_async_interaction():
 
         # Configure mock effects mapping
         dispatcher.effects_config = {
-            "effects": {
-                "light": {"device": "mock_light", "command": "set_color"}
-            }
+            "effects": {"light": {"device": "mock_light", "command": "set_color"}}
         }
 
         # Set tick interval to 10ms for fast testing

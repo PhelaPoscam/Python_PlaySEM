@@ -66,9 +66,7 @@ async def test_effect_dispatcher_async_dispatch():
     driver = DummyAsyncDriver()
     mock_config = MagicMock()
     mock_config.load_devices_config.return_value = {
-        "devices": [
-            {"deviceId": "light_device", "connectivityInterface": "dummy"}
-        ]
+        "devices": [{"deviceId": "light_device", "connectivityInterface": "dummy"}]
     }
 
     manager = DeviceManager(drivers=[driver], config_loader=mock_config)
@@ -77,9 +75,7 @@ async def test_effect_dispatcher_async_dispatch():
     dispatcher = EffectDispatcher(device_manager=manager, managed_mode=False)
 
     # default mapping maps 'light' to 'light_device' with command 'set_brightness'
-    result = await dispatcher.async_dispatch_effect_result(
-        "light", {"value": 50}
-    )
+    result = await dispatcher.async_dispatch_effect_result("light", {"value": 50})
 
     assert result.accepted is True
     assert result.status == "queued"
@@ -102,9 +98,7 @@ async def test_effect_dispatcher_async_dispatch_metadata():
     driver = DummyAsyncDriver()
     mock_config = MagicMock()
     mock_config.load_devices_config.return_value = {
-        "devices": [
-            {"deviceId": "vibration_device", "connectivityInterface": "dummy"}
-        ]
+        "devices": [{"deviceId": "vibration_device", "connectivityInterface": "dummy"}]
     }
 
     manager = DeviceManager(drivers=[driver], config_loader=mock_config)
@@ -112,9 +106,7 @@ async def test_effect_dispatcher_async_dispatch_metadata():
 
     dispatcher = EffectDispatcher(device_manager=manager, managed_mode=False)
 
-    meta = EffectMetadata(
-        effect_type="vibration", intensity=75, location="center"
-    )
+    meta = EffectMetadata(effect_type="vibration", intensity=75, location="center")
     success = await dispatcher.async_dispatch_effect_metadata(meta)
 
     assert success is True

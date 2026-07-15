@@ -67,9 +67,7 @@ class ProtocolService:
                 "type": "effect",
                 "device_id": "broadcast",
                 "broadcast": True,
-                "effect_type": getattr(
-                    effect_metadata, "effect_type", "unknown"
-                ),
+                "effect_type": getattr(effect_metadata, "effect_type", "unknown"),
                 "modality": getattr(effect_metadata, "modality", "unknown"),
                 "intensity": getattr(effect_metadata, "intensity", 50),
                 "duration": getattr(effect_metadata, "duration", 1000),
@@ -98,9 +96,7 @@ class ProtocolService:
                     ),
                 )
                 await asyncio.to_thread(self._mqtt_server.start)
-                logger.info(
-                    f"[BOOT] Embedded MQTT broker started on :{self.mqtt_port}"
-                )
+                logger.info(f"[BOOT] Embedded MQTT broker started on :{self.mqtt_port}")
             except Exception as e:
                 logger.error(f"[BOOT] Failed to start MQTT broker: {e}")
 
@@ -117,9 +113,7 @@ class ProtocolService:
                     ),
                 )
                 await self._coap_server.start()
-                logger.info(
-                    f"[BOOT] Embedded CoAP server started on :{self.coap_port}"
-                )
+                logger.info(f"[BOOT] Embedded CoAP server started on :{self.coap_port}")
             except Exception as e:
                 logger.error(f"[BOOT] Failed to start CoAP server: {e}")
 
@@ -132,9 +126,7 @@ class ProtocolService:
                     http_port=self.upnp_http_port,
                 )
                 await self._upnp_server.start()
-                logger.info(
-                    f"[BOOT] UPnP server started on :{self.upnp_http_port}"
-                )
+                logger.info(f"[BOOT] UPnP server started on :{self.upnp_http_port}")
             except Exception as e:
                 logger.error(f"[BOOT] Failed to start UPnP server: {e}")
 
@@ -255,9 +247,7 @@ class ProtocolService:
 
         if "upnp" in protocols and "upnp" not in endpoints:
             endpoints["upnp"] = {
-                "control_url": (
-                    f"http://localhost:{self.upnp_http_port}/control"
-                )
+                "control_url": (f"http://localhost:{self.upnp_http_port}/control")
             }
 
         return endpoints

@@ -57,9 +57,7 @@ def create_app_with_mqtt(config: ServerConfig) -> FastAPI:
     protocol_service.register_handler("mqtt", mqtt_handler)
 
     print("[OK] MQTT handler registered")
-    print(
-        "  Broker: " f"{mqtt_handler.config.host}:{mqtt_handler.config.port}"
-    )
+    print("  Broker: " f"{mqtt_handler.config.host}:{mqtt_handler.config.port}")
     print(f"  Topic: {mqtt_handler.config.topic}")
 
     return app

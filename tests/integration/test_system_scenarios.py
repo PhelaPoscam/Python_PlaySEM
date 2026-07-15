@@ -4,6 +4,7 @@ import pytest
 import paho.mqtt.client as mqtt
 from playsem.effect_metadata import EffectMetadata
 
+from tests.wait import wait_until_async
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
@@ -35,33 +36,17 @@ async def test_mqtt_to_vibration_e2e(playsem_system):
         # By default, MQTTServer listens to "effects/#"
         client.publish("effects/vibration_device", json.dumps(effect_data))
 
-        # Wait for processing (Network -> Broker -> Internal Client -> Dispatcher -> Manager -> Driver)
-        # 1.5s should be plenty for this in-process loop
-        await asyncio.sleep(1.5)
-
-        # VERIFICATION:
-        # Check the mock_driver's total journal first
-        assert len(system.mock_driver.command_history) >= 1
-
-        # Check specific device state
-        # The manager mapped "vibration_device" to our mock_driver
-        # We need to find the specific device instance assigned to vibration_device
-        # In our fixture, we manually mapped it, so we can check the history there
-
-        # Locate the command in history
-        found = False
-        for entry in system.mock_driver.command_history:
-            if (
+        # Wait for the effect to land in the driver command history.
+        # Replaces an arbitrary 1.5s sleep with a condition-based wait.
+        await wait_until_async(
+            lambda: any(
                 entry["device_id"] == "vibration_device"
                 and entry["command"] == "set_intensity"
-            ):
-                if entry["params"].get("intensity") == 85:
-                    found = True
-                    break
-
-        assert found, (
-            "Vibration command not found in journal. "
-            f"History: {system.mock_driver.command_history}"
+                and entry["params"].get("intensity") == 85
+                for entry in system.mock_driver.command_history
+            ),
+            timeout=3.0,
+            message="vibration effect did not reach driver via MQTT",
         )
 
     finally:
@@ -99,7 +84,15 @@ async def test_cross_protocol_consistency(playsem_system):
                 }
             ),
         )
-        await asyncio.sleep(1.0)
+        # Wait for the green light command to land in the driver history.
+        await wait_until_async(
+            lambda: any(
+                e["params"].get("g") == 255 and e["device_id"] == "light_device"
+                for e in system.mock_driver.command_history
+            ),
+            timeout=2.0,
+            message="green light command did not reach driver",
+        )
     finally:
         client.loop_stop()
         client.disconnect()
@@ -113,8 +106,6 @@ async def test_cross_protocol_consistency(playsem_system):
 
     # Check Green command (second one)
     green_found = any(
-        e["params"].get("g") == 255
-        for e in history
-        if e["device_id"] == "light_device"
+        e["params"].get("g") == 255 for e in history if e["device_id"] == "light_device"
     )
     assert green_found

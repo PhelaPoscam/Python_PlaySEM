@@ -98,7 +98,10 @@ async def main():
     host_ip = get_local_ip()
     http_port = 8000  # Standard port for the simple HTTP server
     ws_port = 8765
-    client_url = f"http://{host_ip}:{http_port}/websocket_client.html?ws_url=ws://{host_ip}:{ws_port}"
+    client_url = (
+        f"http://{host_ip}:{http_port}/websocket_client.html"
+        f"?ws_url=ws://{host_ip}:{ws_port}"
+    )
 
     print("\n" + "=" * 60)
     print("📱 Connect with your phone")

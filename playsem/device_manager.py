@@ -63,19 +63,14 @@ class DeviceManager:
                 a half-open probe.
         """
         self.async_bridge_timeout = async_bridge_timeout
-        self.circuit_breaker_failure_threshold = (
-            circuit_breaker_failure_threshold
-        )
-        self.circuit_breaker_reset_timeout = max(
-            0.0, circuit_breaker_reset_timeout
-        )
+        self.circuit_breaker_failure_threshold = circuit_breaker_failure_threshold
+        self.circuit_breaker_reset_timeout = max(0.0, circuit_breaker_reset_timeout)
         self.device_to_driver: Dict[str, BaseDriver] = {}
         self._device_locks: Dict[str, threading.RLock] = {}
         self._device_locks_guard = threading.RLock()
-        self._async_device_locks: Dict[
-            tuple[Optional[asyncio.AbstractEventLoop], str], asyncio.Lock
-        ] = {}
+        self._async_device_locks: Dict[tuple[int, str], asyncio.Lock] = {}
         self._circuit_states: Dict[str, _CircuitState] = {}
+        self._circuit_states_lock = threading.Lock()
         self.device_registry = device_registry
         self._queues: Dict[str, asyncio.PriorityQueue] = {}
         self._workers: Dict[str, asyncio.Task] = {}
@@ -93,18 +88,14 @@ class DeviceManager:
             self._default_driver = _LegacyPublishDriver(client)
         elif connectivity_driver is not None:
             # Single driver mode
-            logger.info(
-                "Initializing DeviceManager with single connectivity driver."
-            )
+            logger.info("Initializing DeviceManager with single connectivity driver.")
             self._default_driver = connectivity_driver
             if isinstance(connectivity_driver, BaseDiscovery):
                 self.register_scanner(connectivity_driver)
         else:
             # Multi-driver mode
             drivers = drivers or []
-            logger.info(
-                f"Initializing DeviceManager with {len(drivers)} drivers."
-            )
+            logger.info(f"Initializing DeviceManager with {len(drivers)} drivers.")
             self.drivers_by_interface = {
                 driver.get_interface_name(): driver for driver in drivers
             }
@@ -164,7 +155,7 @@ class DeviceManager:
                 )
             else:
                 logger.warning(
-                    f"No driver found for interface '{interface_name}' needed by device '{device_id}'. "
+                    f"No driver found for interface '{interface_name}' needed by device '{device_id}'. "  # noqa: E501
                     f"This device will not be controllable."
                 )
 
@@ -195,9 +186,7 @@ class DeviceManager:
             )
             return bool(result)
         except Exception as e:
-            logger.error(
-                f"Exception in send_command for device '{device_id}': {e}"
-            )
+            logger.error(f"Exception in send_command for device '{device_id}': {e}")
             return False
 
     async def async_send_command(
@@ -238,9 +227,7 @@ class DeviceManager:
             )
             try:
                 if inspect.iscoroutinefunction(driver.send_command):
-                    success = await driver.send_command(
-                        device_id, command, params
-                    )
+                    success = await driver.send_command(device_id, command, params)
                 else:
 
                     def _run_sync():
@@ -287,10 +274,7 @@ class DeviceManager:
         with self._device_locks_guard:
             if device_id not in self._queues:
                 self._queues[device_id] = asyncio.PriorityQueue(maxsize=100)
-            if (
-                device_id not in self._workers
-                or self._workers[device_id].done()
-            ):
+            if device_id not in self._workers or self._workers[device_id].done():
                 self._workers[device_id] = asyncio.create_task(
                     self._device_worker(device_id)
                 )
@@ -337,6 +321,7 @@ class DeviceManager:
                 break
             except Exception as e:
                 logger.error(f"Worker for '{device_id}' queue get error: {e}")
+                await asyncio.sleep(0.01)
                 continue
 
             if envelope.deadline_ms is not None:
@@ -386,9 +371,7 @@ class DeviceManager:
                 if not self._driver_is_connected(driver):
                     result = driver.connect()
                     self._resolve_maybe_async(result)
-                    logger.info(
-                        f"Driver for interface '{interface_name}' connected."
-                    )
+                    logger.info(f"Driver for interface '{interface_name}' connected.")
             except Exception as e:
                 logger.error(
                     f"Failed to connect driver for interface '{interface_name}': {e}"
@@ -402,9 +385,7 @@ class DeviceManager:
             try:
                 if not await driver.is_connected():
                     await driver.connect()
-                    logger.info(
-                        f"Driver {driver.get_driver_type()} connected."
-                    )
+                    logger.info(f"Driver {driver.get_driver_type()} connected.")
             except Exception as e:
                 logger.error(
                     f"Failed to connect driver {driver.get_driver_type()}: {e}"
@@ -444,9 +425,7 @@ class DeviceManager:
             try:
                 if await driver.is_connected():
                     await driver.disconnect()
-                    logger.info(
-                        f"Driver {driver.get_driver_type()} disconnected."
-                    )
+                    logger.info(f"Driver {driver.get_driver_type()} disconnected.")
             except Exception as e:
                 logger.error(
                     f"Failed to disconnect driver {driver.get_driver_type()}: {e}"
@@ -489,13 +468,12 @@ class DeviceManager:
             return lock
 
     def _get_async_device_lock(self, device_id: str) -> asyncio.Lock:
-        """Return the async lock that serializes async commands for one logical device."""
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
+        """Return the async lock that serializes async commands for one logical device.
 
-        key = (loop, device_id)
+        Keyed on thread id (not the loop object) to avoid preventing loop GC.
+        """
+        tid = threading.get_ident()
+        key = (tid, device_id)
 
         with self._device_locks_guard:
             lock = self._async_device_locks.get(key)
@@ -524,11 +502,12 @@ class DeviceManager:
             )
 
     def _get_circuit_state(self, device_id: str) -> _CircuitState:
-        state = self._circuit_states.get(device_id)
-        if state is None:
-            state = _CircuitState()
-            self._circuit_states[device_id] = state
-            self._sync_circuit_state_to_registry(device_id, state)
+        with self._circuit_states_lock:
+            state = self._circuit_states.get(device_id)
+            if state is None:
+                state = _CircuitState()
+                self._circuit_states[device_id] = state
+                self._sync_circuit_state_to_registry(device_id, state)
         return state
 
     def _circuit_allows_request(self, device_id: str) -> bool:
@@ -541,9 +520,7 @@ class DeviceManager:
             return True
 
         opened_at = state.opened_at or 0.0
-        if (
-            time.monotonic() - opened_at
-        ) >= self.circuit_breaker_reset_timeout:
+        if (time.monotonic() - opened_at) >= self.circuit_breaker_reset_timeout:
             state.state = "half_open"
             logger.info(f"Circuit for device '{device_id}' moved to half-open")
             self._sync_circuit_state_to_registry(device_id, state)
@@ -660,14 +637,18 @@ class DeviceManager:
         if self.async_bridge_timeout is None:
             thread.join()
         else:
-            thread.join(timeout=self.async_bridge_timeout)
+            # Wait for the bridge thread to finish, polling for timeout.
+            # Gives a real deadline so the caller never blocks past it.
+            deadline = self.async_bridge_timeout
+            while thread.is_alive() and deadline > 0:
+                deadline -= 0.1
+                thread.join(timeout=0.1)
             if thread.is_alive():
-                logger.warning(
-                    "Async bridge execution exceeded timeout of "
-                    f"{self.async_bridge_timeout}s. Waiting for "
-                    "completion to avoid orphaned thread corruption."
+                logger.error(
+                    "Async bridge thread exceeded timeout of "
+                    f"{self.async_bridge_timeout}s. Returning error."
                 )
-                thread.join()
+                return None
 
         if "error" in holder:
             raise holder["error"]
@@ -689,9 +670,7 @@ class DeviceManager:
         else:
             info.update(
                 {
-                    interface_name: self._resolve_maybe_async(
-                        driver.get_driver_info()
-                    )
+                    interface_name: self._resolve_maybe_async(driver.get_driver_info())
                     for interface_name, driver in self.drivers_by_interface.items()
                 }
             )
@@ -730,9 +709,7 @@ class DeviceManager:
         """Return the concrete driver instance for a device id."""
         return self._resolve_driver(device_id)
 
-    def get_device_capabilities(
-        self, device_id: str
-    ) -> Optional[Dict[str, Any]]:
+    def get_device_capabilities(self, device_id: str) -> Optional[Dict[str, Any]]:
         """Query capabilities for a device from its mapped driver."""
         driver = self._resolve_driver(device_id)
         if driver is None or not hasattr(driver, "get_capabilities"):
@@ -741,9 +718,7 @@ class DeviceManager:
         try:
             caps = driver.get_capabilities(device_id)
         except Exception as exc:
-            logger.error(
-                f"Failed to get capabilities for device '{device_id}': {exc}"
-            )
+            logger.error(f"Failed to get capabilities for device '{device_id}': {exc}")
             return None
 
         if isinstance(caps, dict):
@@ -793,9 +768,7 @@ class DeviceManager:
                                     "type": dev.get("type") or "unknown",
                                     "address": dev.get("address"),
                                     "protocols": protocols,
-                                    "capabilities": dev.get(
-                                        "capabilities", {}
-                                    ),
+                                    "capabilities": dev.get("capabilities", {}),
                                     "metadata": dev.get("metadata", {}),
                                 },
                                 source_protocol=scanner.get_interface_name(),

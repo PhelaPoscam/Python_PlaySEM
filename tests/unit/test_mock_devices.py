@@ -16,7 +16,6 @@ from playsem.drivers.mock_driver import (
     MockConnectivityDriver,
 )
 
-
 # -- MockDeviceBase -------------------------------------------------------
 
 
@@ -318,9 +317,7 @@ class TestMockConnectivityDriver:
         driver = MockConnectivityDriver()
         light = MockLightDevice("led1")
         driver.register_device("led1", light)
-        await driver.send_command(
-            "led1", "set_brightness", {"brightness": 200}
-        )
+        await driver.send_command("led1", "set_brightness", {"brightness": 200})
         assert light.state["brightness"] == 200
 
     def test_get_capabilities_light_device(self):

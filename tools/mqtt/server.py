@@ -99,10 +99,7 @@ def main():
             '"timestamp":0,"duration":2000,"intensity":75}\''
         )
         print("\n  # YAML format also supported!")
-        print(
-            '  mosquitto_pub -t "effects/vibration" -m '
-            '"effect_type: vibration'
-        )
+        print('  mosquitto_pub -t "effects/vibration" -m ' '"effect_type: vibration')
         print("timestamp: 0")
         print("duration: 500")
         print('intensity: 80"')
@@ -119,9 +116,7 @@ def main():
         logger.error("  - Windows: choco install mosquitto")
         logger.error("  - macOS: brew install mosquitto")
         logger.error("  - Linux: sudo apt-get install mosquitto")
-        logger.error(
-            "\nOr use a public broker (not recommended for production):"
-        )
+        logger.error("\nOr use a public broker (not recommended for production):")
         logger.error('  Change broker_address to "test.mosquitto.org"')
         return 1
     except KeyboardInterrupt:

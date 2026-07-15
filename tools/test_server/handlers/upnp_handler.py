@@ -30,9 +30,7 @@ class UPnPHandler:
             print("[UPnPHandler] control_url not set; skipping send")
             return False
 
-        effect_type = str(
-            effect.get("effect_type") or effect.get("type") or "unknown"
-        )
+        effect_type = str(effect.get("effect_type") or effect.get("type") or "unknown")
         duration = str(effect.get("duration", 1000))
         intensity = str(effect.get("intensity", 50))
         location = str(effect.get("location", ""))

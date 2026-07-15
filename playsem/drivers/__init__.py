@@ -11,7 +11,6 @@ Available Drivers:
 from playsem.utils import _optional_import
 from playsem.drivers.base_driver import BaseDriver, BaseDiscovery  # noqa: F401
 from playsem.drivers.retry_policy import RetryPolicy  # noqa: F401
-from playsem.drivers.rgb_light_driver import RGBLightDriver  # noqa: F401
 from playsem.drivers.upnp_discovery import UPnPDiscovery  # noqa: F401
 from playsem.drivers.mock_driver import (  # noqa: F401
     MockConnectivityDriver,
@@ -21,20 +20,19 @@ from playsem.drivers.mock_driver import (  # noqa: F401
     MockScentDevice,
 )
 
-SerialDriver = _optional_import(
-    "playsem.drivers.serial_driver", "SerialDriver"
-)
-MQTTDriver = _optional_import("playsem.drivers.mqtt_driver", "MQTTDriver")
-BluetoothDriver = _optional_import(
-    "playsem.drivers.bluetooth_driver", "BluetoothDriver"
-)
+# Optional drivers — silently None if the dependency isn't installed
+for _mod, _cls in [
+    ("serial_driver", "SerialDriver"),
+    ("mqtt_driver", "MQTTDriver"),
+    ("bluetooth_driver", "BluetoothDriver"),
+]:
+    globals()[_cls] = _optional_import(f"playsem.drivers.{_mod}", _cls)
 
 __all__ = [
     "BaseDriver",
     "BaseDiscovery",
     "UPnPDiscovery",
     "RetryPolicy",
-    "RGBLightDriver",
     "MockConnectivityDriver",
     "MockLightDevice",
     "MockVibrationDevice",
@@ -43,5 +41,5 @@ __all__ = [
 ] + [
     name
     for name in ("SerialDriver", "MQTTDriver", "BluetoothDriver")
-    if globals()[name] is not None
+    if globals().get(name) is not None
 ]

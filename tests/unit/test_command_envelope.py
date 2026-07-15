@@ -33,9 +33,7 @@ class TestCommandEnvelope:
         assert envelope.device_id == "device_123"
         assert envelope.command == "set_intensity"
         assert envelope.params == {"intensity": 75}
-        assert envelope.effect_id is None
         assert envelope.deadline_ms is None
-        assert envelope.idempotency_key is None
         assert envelope.priority == 5
         assert envelope.delivery_mode == "best_effort"
         assert envelope.created_at is not None
@@ -50,9 +48,7 @@ class TestCommandEnvelope:
             device_id="device_456",
             command="turn_off",
             params={},
-            effect_id="eff_789",
             deadline_ms=5000,
-            idempotency_key="key_abc",
             priority=10,
             delivery_mode="at_least_once",
             created_at=created_time,
@@ -62,9 +58,7 @@ class TestCommandEnvelope:
         assert envelope.device_id == "device_456"
         assert envelope.command == "turn_off"
         assert envelope.params == {}
-        assert envelope.effect_id == "eff_789"
         assert envelope.deadline_ms == 5000
-        assert envelope.idempotency_key == "key_abc"
         assert envelope.priority == 10
         assert envelope.delivery_mode == "at_least_once"
         assert envelope.created_at == created_time
@@ -170,30 +164,6 @@ class TestCommandEnvelope:
             deadline_ms=10000,
         )
         assert envelope_with_deadline.deadline_ms == 10000
-
-    def test_idempotency_key(self):
-        """Test idempotency_key for tracking duplicate commands."""
-        effect = EffectMetadata(effect_type="light")
-        idempotency_key = "unique_key_abc_123"
-
-        envelope1 = CommandEnvelope(
-            effect=effect,
-            device_id="device_corr_1",
-            command="cmd1",
-            params={},
-            idempotency_key=idempotency_key,
-        )
-        envelope2 = CommandEnvelope(
-            effect=effect,
-            device_id="device_corr_2",
-            command="cmd2",
-            params={},
-            idempotency_key=idempotency_key,
-        )
-
-        assert envelope1.idempotency_key == idempotency_key
-        assert envelope2.idempotency_key == idempotency_key
-        assert envelope1.idempotency_key == envelope2.idempotency_key
 
     def test_frozen_dataclass(self):
         """Test that CommandEnvelope is immutable (frozen dataclass)."""

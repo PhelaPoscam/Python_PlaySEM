@@ -7,6 +7,8 @@ from playsem import EffectDispatcher
 from playsem.timeline import Timeline
 from playsem.effect_metadata import create_effect, create_timeline
 
+from tests.wait import wait_until_async
+
 
 @pytest.fixture
 def real_dispatcher():
@@ -41,8 +43,12 @@ class TestTimelineE2E:
         fast_timeline.load_timeline(timeline)
 
         await fast_timeline.start()
-        while fast_timeline.is_running:
-            await asyncio.sleep(0.01)
+        # Wait for the timeline to finish (replaces unbounded busy-wait).
+        await wait_until_async(
+            lambda: not fast_timeline.is_running,
+            timeout=2.0,
+            message="timeline did not finish in time",
+        )
         await fast_timeline.stop()
 
         types = [d[0] for d in dispatched]
@@ -58,14 +64,15 @@ class TestTimelineE2E:
 
         fast_timeline.set_callbacks(on_complete=on_complete)
 
-        timeline = create_timeline(
-            create_effect("light", timestamp=0, duration=50)
-        )
+        timeline = create_timeline(create_effect("light", timestamp=0, duration=50))
         fast_timeline.load_timeline(timeline)
 
         await fast_timeline.start()
-        while fast_timeline.is_running:
-            await asyncio.sleep(0.01)
+        await wait_until_async(
+            lambda: not fast_timeline.is_running,
+            timeout=2.0,
+            message="timeline did not finish in time",
+        )
         await fast_timeline.stop()
 
         assert complete_count[0] == 1
@@ -95,8 +102,11 @@ class TestTimelineE2E:
         await asyncio.sleep(0.1)
         fast_timeline.resume()
 
-        while fast_timeline.is_running:
-            await asyncio.sleep(0.01)
+        await wait_until_async(
+            lambda: not fast_timeline.is_running,
+            timeout=3.0,
+            message="timeline did not finish in time",
+        )
         await fast_timeline.stop()
 
         # Both effects should still have dispatched despite the pause
@@ -113,9 +123,7 @@ class TestTimelineE2E:
 
         fast_timeline.set_callbacks(on_effect=on_effect)
 
-        timeline = create_timeline(
-            create_effect("light", timestamp=0, duration=100)
-        )
+        timeline = create_timeline(create_effect("light", timestamp=0, duration=100))
         fast_timeline.load_timeline(timeline)
 
         await fast_timeline.start()
@@ -125,8 +133,11 @@ class TestTimelineE2E:
         new_effect = create_effect("wind", timestamp=150, duration=50)
         fast_timeline.add_effect(new_effect)
 
-        while fast_timeline.is_running:
-            await asyncio.sleep(0.01)
+        await wait_until_async(
+            lambda: not fast_timeline.is_running,
+            timeout=2.0,
+            message="timeline did not finish in time",
+        )
         await fast_timeline.stop()
 
         assert "wind" in dispatched
@@ -153,8 +164,11 @@ class TestTimelineE2E:
         await asyncio.sleep(0.05)
         fast_timeline.remove_effect(vibration)
 
-        while fast_timeline.is_running:
-            await asyncio.sleep(0.01)
+        await wait_until_async(
+            lambda: not fast_timeline.is_running,
+            timeout=2.0,
+            message="timeline did not finish in time",
+        )
         await fast_timeline.stop()
 
         assert "light" in dispatched

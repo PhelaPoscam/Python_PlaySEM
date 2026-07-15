@@ -129,9 +129,7 @@ async def main():
 
     print("\nStarting embedded HTTP server...")
     server_task = asyncio.create_task(http_server.start())
-    ready = await wait_for_http_ready(
-        f"http://127.0.0.1:{http_port}/api/status"
-    )
+    ready = await wait_for_http_ready(f"http://127.0.0.1:{http_port}/api/status")
     if not ready:
         print("HTTP server failed to become ready within 15 seconds")
         server_task.cancel()

@@ -135,17 +135,23 @@ class MQTTDriver(BaseDriver):
                 self._connect_event.clear()
                 self.client.connect(self.broker, self.port)
                 self.client.loop_start()
-                self._is_connected = True
-                self._last_reconnect_error = None
-                logger.info("MQTT connection initiated successfully")
-                return True
+                # Wait for the broker to confirm (via _on_connect) before
+                # reporting success. Time out after 5 s to avoid hanging.
+                if self._connect_event.wait(timeout=5.0):
+                    if self._is_connected:
+                        self._last_reconnect_error = None
+                        logger.info("MQTT connection established")
+                        return True
+                    logger.error("MQTT broker rejected the connection")
+                    self.client.loop_stop()
+                else:
+                    logger.error("MQTT connection timed out")
+                    self.client.loop_stop()
             except Exception as e:
                 self._last_reconnect_error = str(e)
-                logger.error(f"MQTT connection attempt {attempt} failed: {e}")
+                logger.exception(f"MQTT connection attempt {attempt} failed: {e}")
                 if attempt < max_attempts:
-                    delay = (
-                        delays[attempt - 1] if attempt - 1 < len(delays) else 0
-                    )
+                    delay = delays[attempt - 1] if attempt - 1 < len(delays) else 0
                     if delay > 0:
                         await asyncio.sleep(delay)
 
@@ -164,7 +170,7 @@ class MQTTDriver(BaseDriver):
             self.client.disconnect()
             self._is_connected = False
             return True
-        except Exception as e:
+        except (OSError, ConnectionError) as e:
             logger.error(f"MQTT disconnect failed: {e}")
             return False
 
@@ -221,8 +227,7 @@ class MQTTDriver(BaseDriver):
                         return False
 
                 logger.debug(
-                    f"Published to {device_id}: {command} "
-                    f"(params: {params})"
+                    f"Published to {device_id}: {command} " f"(params: {params})"
                 )
                 return True
             else:
@@ -325,10 +330,13 @@ class MQTTDriver(BaseDriver):
             try:
                 return int(reason_code.value)
             except Exception:
-                pass
+                logger.debug(
+                    f"Could not convert reason code value to int: {reason_code}"
+                )
         try:
             return int(reason_code)
         except Exception:
+            logger.debug(f"Could not convert reason code to int: {reason_code}")
             return -1
 
     def _on_connect(self, client, userdata, flags, reason_code, *args):
@@ -340,17 +348,14 @@ class MQTTDriver(BaseDriver):
         else:
             self._is_connected = False
             logger.error(
-                f"MQTT connection failed with code {rc}: "
-                f"{mqtt.connack_string(rc)}"
+                f"MQTT connection failed with code {rc}: " f"{mqtt.connack_string(rc)}"
             )
         self._connect_event.set()
 
     def _on_disconnect(self, client, userdata, *args):
         """Callback when disconnected from broker."""
         # API v1: args=(rc,); API v2: args=(disconnect_flags, reason_code, properties)
-        reason_code = (
-            args[0] if len(args) == 1 else (args[1] if len(args) > 1 else 0)
-        )
+        reason_code = args[0] if len(args) == 1 else (args[1] if len(args) > 1 else 0)
         rc = self._reason_code_to_int(reason_code)
         self._is_connected = False
         self._connect_event.set()
@@ -358,14 +363,16 @@ class MQTTDriver(BaseDriver):
             logger.info("Disconnected from MQTT broker")
         else:
             logger.warning(
-                f"Unexpected disconnect (code {rc}): "
-                f"{mqtt.error_string(rc)}"
+                f"Unexpected disconnect (code {rc}): " f"{mqtt.error_string(rc)}"
             )
             if self.auto_reconnect:
                 try:
                     self.client.loop_stop()
                 except Exception:
-                    pass
+                    logger.debug(
+                        "Failed to stop MQTT network loop during disconnect",
+                        exc_info=True,
+                    )
                 self._trigger_reconnect()
 
     def _trigger_reconnect(self):

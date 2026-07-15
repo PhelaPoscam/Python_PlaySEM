@@ -88,9 +88,7 @@ class VirtualSerialDevice:
             logger.info(f"   Ready to receive commands!")
 
             self.running = True
-            self.read_thread = threading.Thread(
-                target=self._read_loop, daemon=True
-            )
+            self.read_thread = threading.Thread(target=self._read_loop, daemon=True)
             self.read_thread.start()
 
             return True
@@ -211,9 +209,7 @@ class VirtualSerialDevice:
                     return f"ERROR:Invalid light parameters"
 
         # VIBRATION effect
-        if cmd_upper.startswith("VIBRATE:") or cmd_upper.startswith(
-            "VIBRATION:"
-        ):
+        if cmd_upper.startswith("VIBRATE:") or cmd_upper.startswith("VIBRATION:"):
             parts = command.split(":")
             if len(parts) >= 3:
                 try:
@@ -248,9 +244,7 @@ class VirtualSerialDevice:
 
                     self.wind_speed = speed
 
-                    logger.info(
-                        f"💨 WIND: speed={speed}, duration={duration}ms"
-                    )
+                    logger.info(f"💨 WIND: speed={speed}, duration={duration}ms")
 
                     # Simulate effect duration
                     threading.Thread(
@@ -422,9 +416,7 @@ def main():
             print(f"\n{len(ports) + 1}. Enter custom COM port")
 
             choice = input(
-                "\nSelect option (1-{}) or press Enter to skip: ".format(
-                    len(ports) + 1
-                )
+                "\nSelect option (1-{}) or press Enter to skip: ".format(len(ports) + 1)
             ).strip()
 
             if choice.isdigit():
@@ -432,9 +424,7 @@ def main():
                 if 1 <= choice_num <= len(ports):
                     device_port = ports[choice_num - 1].device
                 elif choice_num == len(ports) + 1:
-                    device_port = (
-                        input("Enter COM port (e.g., COM4): ").strip().upper()
-                    )
+                    device_port = input("Enter COM port (e.g., COM4): ").strip().upper()
                     if not device_port.startswith("COM"):
                         device_port = "COM" + device_port
         else:

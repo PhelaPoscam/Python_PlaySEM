@@ -199,9 +199,7 @@ class BluetoothDriver(BaseDriver, BaseDiscovery):
         devices = await self.scan_devices(timeout=2.0)
         discovered = []
         for d in devices:
-            clean_addr = (
-                d["address"].replace(":", "").replace("-", "").replace(" ", "")
-            )
+            clean_addr = d["address"].replace(":", "").replace("-", "").replace(" ", "")
             discovered.append(
                 {
                     "id": f"ble_{clean_addr}",
@@ -245,9 +243,7 @@ class BluetoothDriver(BaseDriver, BaseDiscovery):
             logger.error("Must specify name or address")
             return None
 
-        devices = await BluetoothDriver.scan_devices(
-            timeout=timeout, name_filter=name
-        )
+        devices = await BluetoothDriver.scan_devices(timeout=timeout, name_filter=name)
 
         for device in devices:
             if address and device["address"] == address:
@@ -325,18 +321,14 @@ class BluetoothDriver(BaseDriver, BaseDiscovery):
                 return True
 
             except asyncio.TimeoutError:
-                self._last_reconnect_error = (
-                    f"Connection timeout to {target_address}"
-                )
+                self._last_reconnect_error = f"Connection timeout to {target_address}"
                 logger.error(
                     f"Connection timeout to {target_address} "
                     f"(attempt {attempt}/{max_attempts})"
                 )
             except Exception as e:
                 self._last_reconnect_error = str(e)
-                logger.error(
-                    f"Connection attempt {attempt}/{max_attempts} failed: {e}"
-                )
+                logger.error(f"Connection attempt {attempt}/{max_attempts} failed: {e}")
 
             self._is_connected = False
             self._client = None
@@ -345,11 +337,14 @@ class BluetoothDriver(BaseDriver, BaseDiscovery):
 
         return False
 
-    async def disconnect(self):
+    async def disconnect(self) -> bool:
         """
         Disconnect from BLE device.
 
         Stops all notifications and closes the connection.
+
+        Returns:
+            True if disconnected or already disconnected, False on error.
 
         Example:
             >>> await driver.disconnect()
@@ -357,7 +352,7 @@ class BluetoothDriver(BaseDriver, BaseDiscovery):
             Connected: False
         """
         if not self._is_connected or not self._client:
-            return
+            return True
 
         try:
             # Stop all notifications
@@ -368,9 +363,11 @@ class BluetoothDriver(BaseDriver, BaseDiscovery):
             await self._client.disconnect()
 
             logger.info(f"Disconnected from {self.address}")
+            return True
 
         except Exception as e:
             logger.error(f"Error during disconnect: {e}")
+            return False
         finally:
             self._is_connected = False
             self._client = None
@@ -409,9 +406,7 @@ class BluetoothDriver(BaseDriver, BaseDiscovery):
         try:
             await self._client.write_gatt_char(uuid, data, response=response)
 
-            logger.debug(
-                f"Wrote {len(data)} bytes to {uuid[:8]}: {data.hex()}"
-            )
+            logger.debug(f"Wrote {len(data)} bytes to {uuid[:8]}: {data.hex()}")
             return True
 
         except Exception as e:
@@ -442,9 +437,7 @@ class BluetoothDriver(BaseDriver, BaseDiscovery):
 
         try:
             data = await self._client.read_gatt_char(uuid)
-            logger.debug(
-                f"Read {len(data)} bytes from {uuid[:8]}: {data.hex()}"
-            )
+            logger.debug(f"Read {len(data)} bytes from {uuid[:8]}: {data.hex()}")
             return bytes(data)
 
         except Exception as e:
@@ -583,14 +576,14 @@ class BluetoothDriver(BaseDriver, BaseDiscovery):
         if self.auto_reconnect and self.address:
             try:
                 loop = asyncio.get_running_loop()
-                if self._reconnect_task is None or self._reconnect_task.done():
-                    self._reconnect_task = loop.create_task(
-                        self._attempt_reconnect()
-                    )
+                if self._reconnect_task is not None and self._reconnect_task.done():
+                    try:
+                        self._reconnect_task.result()
+                    except Exception:
+                        pass
+                self._reconnect_task = loop.create_task(self._attempt_reconnect())
             except RuntimeError:
-                logger.warning(
-                    "No running event loop available for BLE reconnect"
-                )
+                logger.warning("No running event loop available for BLE reconnect")
 
     async def _attempt_reconnect(self):
         """Attempt reconnect using the configured retry policy."""
@@ -694,9 +687,7 @@ class BluetoothDriver(BaseDriver, BaseDiscovery):
                 payload = f"{command}\n"
 
             # Send via BLE characteristic
-            return await self.write_characteristic(
-                device_id, payload.encode("utf-8")
-            )
+            return await self.write_characteristic(device_id, payload.encode("utf-8"))
 
         except Exception as e:
             logger.error(f"Error sending command: {e}")
@@ -739,9 +730,7 @@ class BluetoothDriver(BaseDriver, BaseDiscovery):
             metadata={
                 "address": self.address,
                 "name": self.device_name,
-                "services": (
-                    list(self._services.keys()) if self._services else []
-                ),
+                "services": (list(self._services.keys()) if self._services else []),
             },
         )
 

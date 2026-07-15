@@ -81,9 +81,7 @@ def test_initialization_and_mapping(
     mock_mqtt_driver.connect.assert_called_once()
 
 
-def test_send_command_routing(
-    mock_config_loader, mock_serial_driver, mock_mqtt_driver
-):
+def test_send_command_routing(mock_config_loader, mock_serial_driver, mock_mqtt_driver):
     """Test that send_command routes to the correct driver."""
     drivers = [mock_serial_driver, mock_mqtt_driver]
     manager = DeviceManager(drivers=drivers, config_loader=mock_config_loader)
@@ -164,9 +162,7 @@ def test_legacy_mode():
     manager.send_command("test_device", "activate", params)
 
     expected_payload = str({"command": "activate", "params": params})
-    mock_client.publish.assert_called_once_with(
-        "test_device", expected_payload
-    )
+    mock_client.publish.assert_called_once_with("test_device", expected_payload)
 
 
 def test_single_driver_mode():
@@ -206,9 +202,7 @@ class TestAsyncWorkers:
         return manager, driver
 
     @pytest.mark.asyncio
-    async def test_async_submit_envelope_queues_by_priority(
-        self, manager_with_driver
-    ):
+    async def test_async_submit_envelope_queues_by_priority(self, manager_with_driver):
         """Envelopes with lower priority numbers are processed first."""
         manager, driver = manager_with_driver
         await manager.start_async_workers()

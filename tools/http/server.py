@@ -80,9 +80,7 @@ async def main():
     logger.info("")
     logger.info("  curl -X POST http://localhost:8080/api/effects \\\\")
     logger.info('    -H "Content-Type: application/json" \\\\')
-    logger.info(
-        '    -d \'{"effect_type":"light","intensity":255,' '"duration":2000}\''
-    )
+    logger.info('    -d \'{"effect_type":"light","intensity":255,' '"duration":2000}\'')
     logger.info("")
     logger.info("Or open http://localhost:8080/docs in your browser")
     logger.info("for interactive API testing!")

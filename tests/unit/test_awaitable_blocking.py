@@ -57,6 +57,4 @@ async def test_awaitable_blocking_timeout():
     elapsed = time.monotonic() - start
 
     assert result == "done"
-    assert (
-        elapsed >= 0.08
-    )  # Thread was allowed to complete rather than being abandoned
+    assert elapsed >= 0.08  # Thread was allowed to complete rather than being abandoned

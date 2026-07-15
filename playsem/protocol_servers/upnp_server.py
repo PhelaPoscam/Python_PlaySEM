@@ -17,7 +17,6 @@ from ..effect_dispatcher import EffectDispatcher
 from ..effect_metadata import EffectMetadata
 from ..utils.rate_limiter import SlidingWindowLimiter
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -44,15 +43,20 @@ class UPnPServer:
             group = socket.inet_aton(self.server.SSDP_ADDR)
             mreq = struct.pack("4sL", group, socket.INADDR_ANY)
             try:
-                sock.setsockopt(
-                    socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq
-                )
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
             except OSError as e:
                 # This can happen on some systems if the address is already in use
                 logger.warning(f"Could not join multicast group: {e}")
 
         def datagram_received(self, data, addr):
-            asyncio.create_task(self.server._handle_datagram(data, addr))
+            task = asyncio.create_task(self.server._handle_datagram(data, addr))
+            task.add_done_callback(
+                lambda t: t.exception()
+                and logger.error(
+                    "Unhandled exception in SSDP datagram handler",
+                    exc_info=t.exception(),
+                )
+            )
 
         def error_received(self, exc):
             logger.error(f"SSDP error: {exc}")
@@ -107,9 +111,7 @@ class UPnPServer:
         else:
             self.http_host = self._get_local_ip()
 
-        self.location_url = (
-            f"http://{self.http_host}:{self.http_port}/description.xml"
-        )
+        self.location_url = f"http://{self.http_host}:{self.http_port}/description.xml"
 
         self.manufacturer = manufacturer
         self.model_name = model_name
@@ -149,8 +151,11 @@ class UPnPServer:
             # Doesn't have to be reachable
             s.connect(("10.255.255.255", 1))
             ip = s.getsockname()[0]
-        except Exception:
+        except Exception as e:
             ip = "127.0.0.1"
+            logger.warning(
+                f"Could not determine local IP, falling back to 127.0.0.1: {e}"
+            )
         finally:
             if s:
                 s.close()
@@ -176,12 +181,9 @@ class UPnPServer:
 
         # Payload size check
         content_length = request.content_length
-        if (
-            content_length is not None
-            and content_length > self.max_payload_size
-        ):
+        if content_length is not None and content_length > self.max_payload_size:
             logger.warning(
-                f"UPnP payload size {content_length} exceeds limit {self.max_payload_size} from {client_ip}"
+                f"UPnP payload size {content_length} exceeds limit {self.max_payload_size} from {client_ip}"  # noqa: E501
             )
             return web.Response(status=413, text="Payload too large")
 
@@ -211,9 +213,7 @@ class UPnPServer:
             parameters_str = action_node.findtext("Parameters", default="{}")
 
             if not all([effect_type, duration_str, intensity_str]):
-                raise ValueError(
-                    "Missing required arguments in SendEffect action"
-                )
+                raise ValueError("Missing required arguments in SendEffect action")
 
             # Create EffectMetadata
             effect = EffectMetadata(
@@ -228,9 +228,7 @@ class UPnPServer:
             if self.dispatcher:
                 # Submit the effect to the async dispatch queue instead of blocking
                 await self.dispatcher.async_dispatch_effect_metadata(effect)
-                logger.info(
-                    f"Dispatched effect '{effect.effect_type}' via UPnP"
-                )
+                logger.info(f"Dispatched effect '{effect.effect_type}' via UPnP")
             else:
                 logger.warning(
                     "No dispatcher configured for UPnP server. Effect not dispatched."
@@ -285,9 +283,7 @@ class UPnPServer:
             loop = asyncio.get_running_loop()
 
             # 1. Start the SSDP datagram endpoint
-            sock = socket.socket(
-                socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP
-            )
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             if hasattr(socket, "SO_REUSEPORT"):
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
@@ -413,7 +409,7 @@ class UPnPServer:
             f"CACHE-CONTROL: max-age=1800\r\n"
             f"EXT:\r\n"
             f"LOCATION: {self.location_url}\r\n"
-            f"SERVER: Python/{self.model_version} UPnP/{self.UPNP_VERSION} PlaySEM/{self.model_version}\r\n"
+            f"SERVER: Python/{self.model_version} UPnP/{self.UPNP_VERSION} PlaySEM/{self.model_version}\r\n"  # noqa: E501
             f"ST: {search_target}\r\n"
             f"USN: {usn}\r\n"
             f"\r\n"
@@ -440,7 +436,7 @@ class UPnPServer:
                 f"LOCATION: {self.location_url}\r\n"
                 f"NT: {nt}\r\n"
                 f"NTS: ssdp:alive\r\n"
-                f"SERVER: Python/{self.model_version} UPnP/{self.UPNP_VERSION} PlaySEM/{self.model_version}\r\n"
+                f"SERVER: Python/{self.model_version} UPnP/{self.UPNP_VERSION} PlaySEM/{self.model_version}\r\n"  # noqa: E501
                 f"USN: {usn}\r\n"
                 f"\r\n"
             )
@@ -584,7 +580,7 @@ class UPnPServer:
             <detail>
                 <UPnPError xmlns="urn:schemas-upnp-org:control-1-0">
                     <errorCode>{fault_code}</errorCode>
-                    <errorDescription>{fault_string}</errorDescription>
+                    <errorDescription>{html.escape(fault_string)}</errorDescription>
                 </UPnPError>
             </detail>
         </s:Fault>

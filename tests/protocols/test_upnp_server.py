@@ -11,7 +11,6 @@ import aiohttp
 from playsem.protocol_servers import UPnPServer
 from playsem import EffectDispatcher, DeviceManager
 
-
 # --- Smoke test for UPNP ---
 import pytest
 
@@ -69,9 +68,7 @@ async def upnp_server(dispatcher):
 
 def test_upnp_server_initialization(dispatcher):
     """Test UPnP server initialization and dynamic URL generation."""
-    server = UPnPServer(
-        dispatcher=dispatcher, http_host="127.0.0.1", http_port=9999
-    )
+    server = UPnPServer(dispatcher=dispatcher, http_host="127.0.0.1", http_port=9999)
     assert server.http_port == 9999
     assert server.http_host == "127.0.0.1"
     assert server.location_url == "http://127.0.0.1:9999/description.xml"
@@ -109,12 +106,8 @@ async def test_upnp_http_endpoints(upnp_server):
     assert upnp_server.is_running()
 
     desc_url = upnp_server.location_url
-    scpd_url = (
-        f"http://{upnp_server.http_host}:{upnp_server.http_port}/scpd.xml"
-    )
-    control_url = (
-        f"http://{upnp_server.http_host}:{upnp_server.http_port}/control"
-    )
+    scpd_url = f"http://{upnp_server.http_host}:{upnp_server.http_port}/scpd.xml"
+    control_url = f"http://{upnp_server.http_host}:{upnp_server.http_port}/control"
 
     async with aiohttp.ClientSession() as session:
         # 1. Test the description.xml endpoint

@@ -1,7 +1,10 @@
 """Tests for WebSocket server functionality"""
 
+import asyncio
 import json
+import socket
 import pytest
+import websockets
 from unittest.mock import Mock, AsyncMock
 
 from playsem.protocol_servers import WebSocketServer
@@ -26,9 +29,7 @@ def effect_dispatcher(device_manager):
 @pytest.fixture
 def websocket_server(effect_dispatcher):
     """Create a WebSocket server."""
-    return WebSocketServer(
-        host="localhost", port=8080, dispatcher=effect_dispatcher
-    )
+    return WebSocketServer(host="localhost", port=8080, dispatcher=effect_dispatcher)
 
 
 @pytest.mark.asyncio
@@ -52,9 +53,7 @@ async def test_websocket_server_managed_queue_processing_enabled(
         }
     )
 
-    await websocket_server._process_message(
-        mock_websocket, message, "test_client"
-    )
+    await websocket_server._process_message(mock_websocket, message, "test_client")
 
     websocket_server.dispatcher.process_all_pending.assert_called_once()
 
@@ -80,18 +79,14 @@ async def test_websocket_server_managed_queue_processing_disabled(
         }
     )
 
-    await websocket_server._process_message(
-        mock_websocket, message, "test_client"
-    )
+    await websocket_server._process_message(mock_websocket, message, "test_client")
 
     websocket_server.dispatcher.process_all_pending.assert_not_called()
 
 
 def test_websocket_server_initialization(effect_dispatcher):
     """Test WebSocket server initializes correctly."""
-    server = WebSocketServer(
-        host="0.0.0.0", port=9090, dispatcher=effect_dispatcher
-    )
+    server = WebSocketServer(host="0.0.0.0", port=9090, dispatcher=effect_dispatcher)
 
     assert server.host == "0.0.0.0"
     assert server.port == 9090
@@ -226,9 +221,7 @@ async def test_websocket_server_process_effect_message(websocket_server):
     # Mock dispatcher
     websocket_server.dispatcher.async_dispatch_effect_metadata = AsyncMock()
 
-    await websocket_server._process_message(
-        mock_websocket, message, "test_client"
-    )
+    await websocket_server._process_message(mock_websocket, message, "test_client")
 
     # Verify effect was dispatched
     websocket_server.dispatcher.async_dispatch_effect_metadata.assert_called_once()
@@ -244,9 +237,7 @@ async def test_websocket_server_process_ping_message(websocket_server):
 
     message = json.dumps({"type": "ping"})
 
-    await websocket_server._process_message(
-        mock_websocket, message, "test_client"
-    )
+    await websocket_server._process_message(mock_websocket, message, "test_client")
 
     # Verify pong response was sent
     mock_websocket.send.assert_called_once()
@@ -264,9 +255,7 @@ async def test_websocket_server_process_invalid_json(websocket_server):
 
     message = "invalid json {{"
 
-    await websocket_server._process_message(
-        mock_websocket, message, "test_client"
-    )
+    await websocket_server._process_message(mock_websocket, message, "test_client")
 
     # Verify error response was sent
     mock_websocket.send.assert_called_once()
@@ -299,9 +288,7 @@ async def test_websocket_server_callback(websocket_server):
     # Mock dispatcher
     websocket_server.dispatcher.async_dispatch_effect_metadata = AsyncMock()
 
-    await websocket_server._process_message(
-        mock_websocket, message, "test_client"
-    )
+    await websocket_server._process_message(mock_websocket, message, "test_client")
 
     # Verify callback was called
     callback.assert_called_once()
@@ -320,3 +307,129 @@ def test_websocket_server_is_running(websocket_server):
 
     websocket_server._is_running = False
     assert not websocket_server.is_running()
+
+
+def _free_port() -> int:
+    """Reserve a free TCP port on localhost."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+@pytest.mark.asyncio
+async def test_websocket_server_accepts_real_client():
+    """Real client can connect and the server tracks the connection."""
+    from playsem.drivers.mock_driver import MockConnectivityDriver
+
+    port = _free_port()
+    mock_driver = MockConnectivityDriver(interface_name="mock_interface")
+    manager = DeviceManager(drivers=[mock_driver], client=Mock())
+    dispatcher = EffectDispatcher(device_manager=manager)
+    server = WebSocketServer(host="127.0.0.1", port=port, dispatcher=dispatcher)
+
+    server_task = asyncio.create_task(server.start())
+    try:
+        # Wait for the server to start listening.
+        from tests.wait import wait_until_async
+
+        await wait_until_async(
+            lambda: server.is_running(),
+            timeout=3.0,
+            message="WebSocket server did not start",
+        )
+
+        # Connect a real client.
+        async with websockets.connect(f"ws://127.0.0.1:{port}") as client:
+            # Send a minimal effect message. The server only registers the
+            # client after receiving the first message (when auth is off).
+            effect_msg = json.dumps(
+                {
+                    "effect_type": "light",
+                    "intensity": 50,
+                    "duration": 100,
+                }
+            )
+            await client.send(effect_msg)
+            # Wait for the server to register the client.
+            await wait_until_async(
+                lambda: len(server.clients) >= 1,
+                timeout=2.0,
+                message="server did not register the client",
+            )
+    finally:
+        await server.stop()
+        server_task.cancel()
+        try:
+            await server_task
+        except (asyncio.CancelledError, Exception):
+            pass
+
+
+@pytest.mark.asyncio
+async def test_websocket_server_broadcasts_to_multiple_clients():
+    """Multiple clients all receive a broadcast message."""
+    from playsem.drivers.mock_driver import MockConnectivityDriver
+
+    port = _free_port()
+    mock_driver = MockConnectivityDriver(interface_name="mock_interface")
+    manager = DeviceManager(drivers=[mock_driver], client=Mock())
+    dispatcher = EffectDispatcher(device_manager=manager)
+    server = WebSocketServer(host="127.0.0.1", port=port, dispatcher=dispatcher)
+
+    server_task = asyncio.create_task(server.start())
+    try:
+        from tests.wait import wait_until_async
+
+        await wait_until_async(
+            lambda: server.is_running(),
+            timeout=3.0,
+            message="WebSocket server did not start",
+        )
+
+        # Open two clients.
+        async with (
+            websockets.connect(f"ws://127.0.0.1:{port}") as c1,
+            websockets.connect(f"ws://127.0.0.1:{port}") as c2,
+        ):
+            # Consume initial welcome message from each client.
+            for c in (c1, c2):
+                welcome = json.loads(await asyncio.wait_for(c.recv(), timeout=1.0))
+                assert welcome["type"] == "welcome"
+
+            # Send a dummy effect from each so the server registers them.
+            for c in (c1, c2):
+                await c.send(
+                    json.dumps(
+                        {
+                            "effect_type": "light",
+                            "intensity": 50,
+                            "duration": 100,
+                        }
+                    )
+                )
+                resp = json.loads(await asyncio.wait_for(c.recv(), timeout=1.0))
+                assert resp.get("type") in ("response", "ack", "effect")
+            # Wait for both to register.
+            await wait_until_async(
+                lambda: len(server.clients) >= 2,
+                timeout=2.0,
+                message="both clients did not register",
+            )
+            # Trigger a broadcast to all clients.
+            from playsem.effect_metadata import create_effect
+
+            await server.broadcast_effect(
+                create_effect("light", timestamp=0, intensity=99, duration=100)
+            )
+            # Both clients should receive the broadcast.
+            msg1 = json.loads(await asyncio.wait_for(c1.recv(), timeout=1.0))
+            msg2 = json.loads(await asyncio.wait_for(c2.recv(), timeout=1.0))
+            assert msg1["type"] == "effect" or "intensity" in str(msg1)
+            assert msg2["type"] == "effect" or "intensity" in str(msg2)
+    finally:
+        await server.stop()
+        server_task.cancel()
+        try:
+            await server_task
+        except (asyncio.CancelledError, Exception):
+            pass

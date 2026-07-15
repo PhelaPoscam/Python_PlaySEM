@@ -96,9 +96,7 @@ class SerialDriver(BaseDriver, BaseDiscovery):
             ImportError: If pyserial is not installed
         """
         if not SERIAL_AVAILABLE:
-            raise ImportError(
-                "pyserial not installed. Run: pip install pyserial"
-            )
+            raise ImportError("pyserial not installed. Run: pip install pyserial")
 
         self.interface_name = interface_name
         self.port = port
@@ -189,8 +187,7 @@ class SerialDriver(BaseDriver, BaseDiscovery):
             discovered.append(
                 {
                     "id": f"serial_{clean_port}",
-                    "name": p.get("description")
-                    or f"Serial Device on {device_path}",
+                    "name": p.get("description") or f"Serial Device on {device_path}",
                     "type": "serial",
                     "address": device_path,
                     "protocols": ["serial"],
@@ -263,8 +260,7 @@ class SerialDriver(BaseDriver, BaseDiscovery):
 
             # Found matching device
             logger.info(
-                f"Auto-discovered device: {port.device} "
-                f"({port.description})"
+                f"Auto-discovered device: {port.device} " f"({port.description})"
             )
             return cls(port=port.device, **kwargs)
 
@@ -314,13 +310,17 @@ class SerialDriver(BaseDriver, BaseDiscovery):
             if self.on_data_received:
                 self._start_read_thread()
 
-            logger.info(
-                f"Serial connection opened: {self.port} @ {self.baudrate}"
-            )
+            logger.info(f"Serial connection opened: {self.port} @ {self.baudrate}")
             return True
 
         except serial.SerialException as e:
             logger.error(f"Failed to open {self.port}: {e}")
+            if self._serial:
+                try:
+                    self._serial.close()
+                except Exception:
+                    pass
+                self._serial = None
             self._is_connected = False
             return False
 
@@ -335,27 +335,27 @@ class SerialDriver(BaseDriver, BaseDiscovery):
             >>> print(f"Connected: {driver.is_connected}")
             Connected: False
         """
-        if not self._is_connected:
-            return
+        with self._serial_lock:
+            if self._serial is None:
+                self._is_connected = False
+                return
 
-        # Stop read thread
-        if self._read_thread:
-            self._stop_reading.set()
-            self._read_thread.join(timeout=2.0)
-            self._read_thread = None
+            # Stop read thread
+            if self._read_thread:
+                self._stop_reading.set()
+                self._read_thread.join(timeout=2.0)
+                self._read_thread = None
 
-        # Close serial port
-        if self._serial:
+            # Close serial port
             try:
                 self._serial.close()
                 logger.info(f"Serial connection closed: {self.port}")
-            except Exception as e:
+            except (serial.SerialException, OSError) as e:
                 logger.error(f"Error closing {self.port}: {e}")
             finally:
-                with self._serial_lock:
-                    self._serial = None
+                self._serial = None
 
-        self._is_connected = False
+            self._is_connected = False
 
     async def send_bytes(self, data: bytes) -> bool:
         """
@@ -383,9 +383,7 @@ class SerialDriver(BaseDriver, BaseDiscovery):
 
             bytes_written = await asyncio.to_thread(_write)
 
-            logger.debug(
-                f"Sent {bytes_written} bytes to {self.port}: {data.hex()}"
-            )
+            logger.debug(f"Sent {bytes_written} bytes to {self.port}: {data.hex()}")
             return bool(bytes_written == len(data))
 
         except serial.SerialException as e:
@@ -433,9 +431,7 @@ class SerialDriver(BaseDriver, BaseDiscovery):
 
         try:
             payload = (
-                serialize_device_command(
-                    device_id, command, params, self.data_format
-                )
+                serialize_device_command(device_id, command, params, self.data_format)
                 + "\n"
             )
 
@@ -493,9 +489,7 @@ class SerialDriver(BaseDriver, BaseDiscovery):
             return
 
         self._stop_reading.clear()
-        self._read_thread = threading.Thread(
-            target=self._read_loop, daemon=True
-        )
+        self._read_thread = threading.Thread(target=self._read_loop, daemon=True)
         self._read_thread.start()
         logger.debug("Read thread started")
 
@@ -530,6 +524,13 @@ class SerialDriver(BaseDriver, BaseDiscovery):
     def _mark_connection_unhealthy(self, error: str) -> None:
         """Mark the serial connection as unhealthy after I/O failure."""
         self._last_reconnect_error = error
+        with self._serial_lock:
+            if self._serial:
+                try:
+                    self._serial.close()
+                except Exception:
+                    pass
+                self._serial = None
         self._is_connected = False
 
     def reset_device(self, dtr: bool = False, rts: bool = False):

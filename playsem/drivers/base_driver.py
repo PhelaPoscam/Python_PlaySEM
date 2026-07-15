@@ -26,7 +26,7 @@ class BaseDiscovery(ABC):
 
         Returns:
             List[Dict[str, Any]]: List of discovered devices, e.g.:
-                [{"id": "...", "name": "...", "type": "...", "address": "...", "protocols": ["..."]}]
+                [{"id": "...", "name": "...", "type": "...", "address": "...", "protocols": ["..."]}]  # noqa: E501
         """
         pass
 

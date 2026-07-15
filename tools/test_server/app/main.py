@@ -33,9 +33,7 @@ def _env_int(key: str, default: int) -> int:
     try:
         return int(val)
     except (ValueError, TypeError):
-        print(
-            f"Warning: {key}={val} is not an integer, using default {default}"
-        )
+        print(f"Warning: {key}={val} is not an integer, using default {default}")
         return default
 
 
@@ -193,9 +191,7 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
                         device_type=message.get("device_type", "unknown"),
                         capabilities=message.get("capabilities", []),
                         protocols=protocols,
-                        connection_mode=message.get(
-                            "connection_mode", "direct"
-                        ),
+                        connection_mode=message.get("connection_mode", "direct"),
                         metadata={"protocol_endpoints": endpoints},
                     )
 
@@ -241,9 +237,7 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
                         effect=effect,
                     )
                     effect_type = (
-                        effect.get("effect_type")
-                        or effect.get("type")
-                        or "unknown"
+                        effect.get("effect_type") or effect.get("type") or "unknown"
                     )
                     intensity = effect.get("intensity", 50)
                     duration = effect.get("duration", 500)
@@ -326,9 +320,7 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
                             "type": "effect_protocol_result",
                             "protocol": protocol,
                             "success": True,
-                            "effect_type": effect.get(
-                                "effect_type", "unknown"
-                            ),
+                            "effect_type": effect.get("effect_type", "unknown"),
                             "intensity": effect.get("intensity", 50),
                             "duration": effect.get("duration", 500),
                         }

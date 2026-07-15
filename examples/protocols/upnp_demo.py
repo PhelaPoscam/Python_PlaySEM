@@ -112,18 +112,14 @@ async def main():
     print(
         f"  description: http://{upnp_server.http_host}:{upnp_http_port}/description.xml"
     )
-    print(
-        f"  control: http://{upnp_server.http_host}:{upnp_http_port}/control"
-    )
+    print(f"  control: http://{upnp_server.http_host}:{upnp_http_port}/control")
     print(f"  local address: {get_local_ip()}")
 
     print("\nStarting embedded UPnP server...")
     await upnp_server.start()
     await asyncio.wait_for(upnp_server.wait_until_ready(), timeout=10.0)
 
-    description_url = (
-        f"http://{upnp_server.http_host}:{upnp_http_port}/description.xml"
-    )
+    description_url = f"http://{upnp_server.http_host}:{upnp_http_port}/description.xml"
     description_xml = await asyncio.to_thread(fetch_text, description_url)
     print("\nDevice description preview")
     print("=" * 60)

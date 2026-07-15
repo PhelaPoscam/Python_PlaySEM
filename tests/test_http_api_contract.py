@@ -47,8 +47,6 @@ def test_device_register_and_list_contract(client):
     assert list_resp.status_code == 200
     devices = list_resp.json().get("devices", [])
     assert any(
-        d.get("id") == "http_contract_1"
-        and "protocols" in d
-        and "capabilities" in d
+        d.get("id") == "http_contract_1" and "protocols" in d and "capabilities" in d
         for d in devices
     )

@@ -43,9 +43,7 @@ async def register_device(
         or body.get("endpoints")
         or {}
     )
-    endpoints = (
-        provided_endpoints if isinstance(provided_endpoints, dict) else {}
-    )
+    endpoints = provided_endpoints if isinstance(provided_endpoints, dict) else {}
     endpoints = protocol_service.build_protocol_endpoints(
         device_id=device_id,
         protocols=protocols,

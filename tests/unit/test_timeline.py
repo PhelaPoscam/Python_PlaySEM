@@ -38,9 +38,7 @@ def test_timeline_load(timeline_scheduler):
 @pytest.mark.asyncio
 async def test_timeline_start_stop(timeline_scheduler, mock_dispatcher):
     """Test starting and stopping timeline."""
-    effect_timeline = create_timeline(
-        create_effect("light", timestamp=0, duration=100)
-    )
+    effect_timeline = create_timeline(create_effect("light", timestamp=0, duration=100))
 
     timeline_scheduler.load_timeline(effect_timeline)
     await timeline_scheduler.start()
@@ -77,9 +75,7 @@ async def test_timeline_pause_resume(timeline_scheduler):
 @pytest.mark.asyncio
 async def test_timeline_get_position(timeline_scheduler):
     """Test getting timeline position."""
-    effect_timeline = create_timeline(
-        create_effect("light", timestamp=0, duration=200)
-    )
+    effect_timeline = create_timeline(create_effect("light", timestamp=0, duration=200))
 
     timeline_scheduler.load_timeline(effect_timeline)
     initial_pos = timeline_scheduler.get_position()
@@ -96,9 +92,7 @@ async def test_timeline_get_position(timeline_scheduler):
 
 def test_timeline_get_status_does_not_deadlock(timeline_scheduler):
     """get_status can safely call get_position while holding the timeline lock."""
-    effect_timeline = create_timeline(
-        create_effect("light", timestamp=0, duration=200)
-    )
+    effect_timeline = create_timeline(create_effect("light", timestamp=0, duration=200))
 
     timeline_scheduler.load_timeline(effect_timeline)
 
@@ -113,9 +107,7 @@ def test_timeline_get_status_does_not_deadlock(timeline_scheduler):
 @pytest.mark.asyncio
 async def test_event_effect(timeline_scheduler, mock_dispatcher):
     """Test event-based effect triggering."""
-    effect = create_effect(
-        "vibration", timestamp=0, duration=100, event_id=123
-    )
+    effect = create_effect("vibration", timestamp=0, duration=100, event_id=123)
 
     await timeline_scheduler.add_event_effect(effect)
     assert mock_dispatcher.async_dispatch_effect_metadata.called
@@ -133,9 +125,7 @@ async def test_timeline_managed_mode_without_auto_processing():
         process_managed_queue=False,
     )
 
-    effect_timeline = create_timeline(
-        create_effect("light", timestamp=0, duration=100)
-    )
+    effect_timeline = create_timeline(create_effect("light", timestamp=0, duration=100))
     timeline.load_timeline(effect_timeline)
     await timeline.start()
     await asyncio.sleep(0.15)
@@ -157,9 +147,7 @@ async def test_timeline_managed_mode_with_auto_processing():
         process_managed_queue=True,
     )
 
-    effect_timeline = create_timeline(
-        create_effect("light", timestamp=0, duration=100)
-    )
+    effect_timeline = create_timeline(create_effect("light", timestamp=0, duration=100))
     timeline.load_timeline(effect_timeline)
     await timeline.start()
     await asyncio.sleep(0.15)
@@ -170,9 +158,7 @@ async def test_timeline_managed_mode_with_auto_processing():
 
 
 @pytest.mark.asyncio
-async def test_timeline_dynamic_add_remove(
-    timeline_scheduler, mock_dispatcher
-):
+async def test_timeline_dynamic_add_remove(timeline_scheduler, mock_dispatcher):
     """Test dynamically adding and removing effects while the timeline is running."""
     effect_timeline = create_timeline(
         create_effect("light", timestamp=100, duration=100)
@@ -202,13 +188,9 @@ async def test_timeline_dynamic_add_remove(
 
 
 @pytest.mark.asyncio
-async def test_timeline_concurrent_mutation_safety(
-    timeline_scheduler, mock_dispatcher
-):
+async def test_timeline_concurrent_mutation_safety(timeline_scheduler, mock_dispatcher):
     """Test that concurrent edits to the timeline effects do not cause iteration crashes."""
-    effect_timeline = create_timeline(
-        create_effect("light", timestamp=10, duration=50)
-    )
+    effect_timeline = create_timeline(create_effect("light", timestamp=10, duration=50))
     timeline_scheduler.load_timeline(effect_timeline)
     await timeline_scheduler.start()
 
@@ -220,9 +202,7 @@ async def test_timeline_concurrent_mutation_safety(
     def mutator():
         while not stop_mutator:
             # Randomly add/remove/clear effects to stress-test locks and iteration
-            eff = create_effect(
-                "light", timestamp=random.randint(0, 1000), duration=50
-            )
+            eff = create_effect("light", timestamp=random.randint(0, 1000), duration=50)
             timeline_scheduler.add_effect(eff)
             time.sleep(0.005)
             timeline_scheduler.remove_effect(eff)

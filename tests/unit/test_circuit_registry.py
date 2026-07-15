@@ -22,9 +22,7 @@ class FailingDriver(BaseDriver):
     async def disconnect(self) -> None:
         pass
 
-    async def send_command(
-        self, device_id: str, command: str, params: dict
-    ) -> bool:
+    async def send_command(self, device_id: str, command: str, params: dict) -> bool:
         raise ValueError("Simulated connection failure")
 
 
@@ -44,9 +42,7 @@ class SuccessfulDriver(BaseDriver):
     async def disconnect(self) -> None:
         pass
 
-    async def send_command(
-        self, device_id: str, command: str, params: dict
-    ) -> bool:
+    async def send_command(self, device_id: str, command: str, params: dict) -> bool:
         return True
 
 
@@ -111,9 +107,7 @@ async def test_circuit_breaker_registry_sync():
     assert target_device is not None
     assert target_device["circuit_state"] == "open"
     assert target_device["consecutive_failures"] == 2
-    assert (
-        "Simulated connection failure" in target_device["last_error_message"]
-    )
+    assert "Simulated connection failure" in target_device["last_error_message"]
 
     # Now transition to success with a successful driver
     success_driver = SuccessfulDriver()

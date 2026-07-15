@@ -13,7 +13,6 @@ from ..effect_dispatcher import EffectDispatcher
 from ..effect_metadata import EffectMetadata
 from ..utils.rate_limiter import SlidingWindowLimiter
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -124,9 +123,7 @@ class WebSocketServer:
                 return
 
         try:
-            logger.info(
-                f"Starting WebSocket server on {self.host}:{self.port}"
-            )
+            logger.info(f"Starting WebSocket server on {self.host}:{self.port}")
 
             # Setup SSL if enabled
             ssl_context = None
@@ -134,9 +131,7 @@ class WebSocketServer:
                 import ssl
 
                 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-                ssl_context.load_cert_chain(
-                    self.ssl_certfile, self.ssl_keyfile
-                )
+                ssl_context.load_cert_chain(self.ssl_certfile, self.ssl_keyfile)
                 logger.info("WebSocket SSL/TLS enabled")
 
             # Start WebSocket server
@@ -158,8 +153,7 @@ class WebSocketServer:
 
             protocol = "wss" if self.use_ssl else "ws"
             logger.info(
-                f"WebSocket Server started on "
-                f"{protocol}://{self.host}:{self.port}"
+                f"WebSocket Server started on " f"{protocol}://{self.host}:{self.port}"
             )
 
             # Keep server running
@@ -239,9 +233,7 @@ class WebSocketServer:
                 json.dumps(
                     {
                         "type": "welcome",
-                        "message": (
-                            "Connected to PythonPlaySEM WebSocket Server"
-                        ),
+                        "message": ("Connected to PythonPlaySEM WebSocket Server"),
                         "version": "0.1.0",
                         "auth_required": bool(self.auth_token),
                     }
@@ -270,28 +262,20 @@ class WebSocketServer:
                         json.dumps(
                             {
                                 "type": "error",
-                                "message": f"Message size {len(message)} exceeds maximum {self.max_message_size} bytes",
+                                "message": f"Message size {len(message)} exceeds maximum {self.max_message_size} bytes",  # noqa: E501
                             }
                         )
                     )
-                    await websocket.close(
-                        code=1009, reason="Message too large"
-                    )
+                    await websocket.close(code=1009, reason="Message too large")
                     return
 
                 # Check rate limit
                 if not self._check_rate_limit(client_id):
-                    logger.warning(
-                        f"Rate limit exceeded for client {client_id}"
-                    )
+                    logger.warning(f"Rate limit exceeded for client {client_id}")
                     await websocket.send(
-                        json.dumps(
-                            {"type": "error", "message": "Rate limit exceeded"}
-                        )
+                        json.dumps({"type": "error", "message": "Rate limit exceeded"})
                     )
-                    await websocket.close(
-                        code=1008, reason="Rate limit exceeded"
-                    )
+                    await websocket.close(code=1008, reason="Rate limit exceeded")
                     return
 
                 # Check authentication on first message if required
@@ -299,9 +283,7 @@ class WebSocketServer:
                     try:
                         data = json.loads(message)
                         token = data.get("token")
-                        if token and hmac.compare_digest(
-                            token, self.auth_token
-                        ):
+                        if token and hmac.compare_digest(token, self.auth_token):
                             authenticated = True
                             self.clients.add(websocket)
                             logger.info(f"Client authenticated: {client_id}")
@@ -314,9 +296,7 @@ class WebSocketServer:
                                     {
                                         "type": "auth_response",
                                         "success": True,
-                                        "message": (
-                                            "Authenticated successfully"
-                                        ),
+                                        "message": ("Authenticated successfully"),
                                     }
                                 )
                             )
@@ -331,15 +311,11 @@ class WebSocketServer:
                                     }
                                 )
                             )
-                            await websocket.close(
-                                code=1008, reason="Auth failed"
-                            )
+                            await websocket.close(code=1008, reason="Auth failed")
                             return
                     except json.JSONDecodeError:
                         await websocket.send(
-                            json.dumps(
-                                {"type": "error", "message": "Invalid JSON"}
-                            )
+                            json.dumps({"type": "error", "message": "Invalid JSON"})
                         )
                         continue
                 else:
@@ -389,9 +365,7 @@ class WebSocketServer:
 
                     # Dispatch effect
                     # Submit the effect to the async dispatch queue instead of blocking
-                    await self.dispatcher.async_dispatch_effect_metadata(
-                        effect
-                    )
+                    await self.dispatcher.async_dispatch_effect_metadata(effect)
                     if (
                         self.process_managed_queue
                         and getattr(self.dispatcher, "managed_mode", False)
@@ -452,9 +426,7 @@ class WebSocketServer:
 
         except Exception as e:
             logger.error(f"Error processing message from {client_id}: {e}")
-            await websocket.send(
-                json.dumps({"type": "error", "message": str(e)})
-            )
+            await websocket.send(json.dumps({"type": "error", "message": str(e)}))
 
     def _parse_effect(self, data: dict) -> Optional[EffectMetadata]:
         """
@@ -500,9 +472,7 @@ class WebSocketServer:
 
         # Send to all clients except excluded one
         tasks = [
-            client.send(message_str)
-            for client in self.clients
-            if client != exclude
+            client.send(message_str) for client in self.clients if client != exclude
         ]
 
         if tasks:

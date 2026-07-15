@@ -8,15 +8,12 @@ devices:
     connectivityInterface: mockInterface
     properties:
       delay: 800  # milliseconds
-      description: "Mock RGB LED light device for testing"
-    
   # Mock Wind Device (Fan)
   - deviceId: mockWind
     deviceClass: device_driver.mock_driver.MockWindDevice
     connectivityInterface: mockInterface
     properties:
       delay: 500
-      description: "Mock fan device for wind effects"
     
   # Mock Vibration Device (Haptic actuator)
   - deviceId: mockVibration
@@ -24,7 +21,6 @@ devices:
     connectivityInterface: mockInterface
     properties:
       delay: 300
-      description: "Mock vibration motor for haptic feedback"
     
   # Mock Scent Device (Smell diffuser)
   - deviceId: mockScent
@@ -32,7 +28,6 @@ devices:
     connectivityInterface: mockInterface
     properties:
       delay: 1000
-      description: "Mock scent diffuser for olfactory effects"
 
 # Connectivity interfaces define how devices connect
 connectivityInterfaces:
@@ -41,7 +36,6 @@ connectivityInterfaces:
     connectivityInterfaceClass: device_driver.mock_driver.MockConnectivity
     properties:
       type: mock
-      description: "Mock connectivity for testing without hardware"
   
   # MQTT interface for network-based devices
   - id: mqttBroker
@@ -53,7 +47,6 @@ connectivityInterfaces:
       password: null
       use_tls: false
       qos: 1
-      description: "MQTT broker connectivity for networked devices"
   
   # Serial/USB interface for Arduino and USB devices
   - id: serialUSB
@@ -65,7 +58,6 @@ connectivityInterfaces:
       bytesize: 8
       parity: N
       stopbits: 1
-      description: "Serial/USB connectivity for wired devices"
   
   # Bluetooth Low Energy interface for wireless devices
   - id: bluetoothLE
@@ -73,7 +65,6 @@ connectivityInterfaces:
     properties:
       address: null  # MAC address (e.g., "AA:BB:CC:DD:EE:FF"), null for scanning
       device_name: null  # Optional device name filter for discovery
-      description: "BLE connectivity for wireless sensory devices"
 
 # Example device configurations with different connectivity types:
 #

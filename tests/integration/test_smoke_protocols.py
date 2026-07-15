@@ -124,8 +124,7 @@ async def test_protocol_servers_mqtt_http_websocket(server):
     await server.start_protocol_server(mock_ws, "mqtt")
     # Expect a status message from start_protocol_server
     assert any(
-        call.args[0].get("protocol") == "mqtt"
-        and call.args[0].get("running") is True
+        call.args[0].get("protocol") == "mqtt" and call.args[0].get("running") is True
         for call in mock_ws.send_json.call_args_list
     )
 
@@ -162,8 +161,7 @@ async def test_protocol_servers_mqtt_http_websocket(server):
     mock_ws.send_json.reset_mock()
     await server.start_protocol_server(mock_ws, "http")
     assert any(
-        call.args[0].get("protocol") == "http"
-        and call.args[0].get("running") is True
+        call.args[0].get("protocol") == "http" and call.args[0].get("running") is True
         for call in mock_ws.send_json.call_args_list
     )
 

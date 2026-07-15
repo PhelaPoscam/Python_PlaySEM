@@ -38,13 +38,8 @@ def test_json_custom_encoder_fallback():
 def test_xml_escaping_and_sanitization():
     # Test sanitizing invalid tag names
     assert _sanitize_xml_tag("valid-tag_name.1") == "valid-tag_name.1"
-    assert (
-        _sanitize_xml_tag("invalid tag name & core")
-        == "invalid_tag_name___core"
-    )
-    assert (
-        _sanitize_xml_tag("123starts-with-number") == "_123starts-with-number"
-    )
+    assert _sanitize_xml_tag("invalid tag name & core") == "invalid_tag_name___core"
+    assert _sanitize_xml_tag("123starts-with-number") == "_123starts-with-number"
 
     # Test proper escaping of special XML characters in values
     data = {
@@ -64,17 +59,13 @@ def test_serialize_device_command():
     }
 
     # JSON command serialization
-    json_cmd = serialize_device_command(
-        "device_123", "SET_LIGHT", params, "json"
-    )
+    json_cmd = serialize_device_command("device_123", "SET_LIGHT", params, "json")
     assert '"device_id": "device_123"' in json_cmd
     assert '"command": "SET_LIGHT"' in json_cmd
     assert '"special_char": "val < 10 & val > 5"' in json_cmd
 
     # XML command serialization
-    xml_cmd = serialize_device_command(
-        "device_123", "SET_LIGHT", params, "xml"
-    )
+    xml_cmd = serialize_device_command("device_123", "SET_LIGHT", params, "xml")
 
     # Parse back the XML to verify structure and content
     root = ET.fromstring(xml_cmd)

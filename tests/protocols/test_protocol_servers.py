@@ -19,9 +19,7 @@ def client(app):
 
 
 @pytest.mark.timeout(10)
-@pytest.mark.parametrize(
-    "protocol", ["mqtt", "http", "coap", "upnp", "websocket"]
-)
+@pytest.mark.parametrize("protocol", ["mqtt", "http", "coap", "upnp", "websocket"])
 def test_start_protocol_server_and_send_effect(client, protocol):
     # WebSocket lifecycle
     with client.websocket_connect("/ws") as ws:
@@ -31,10 +29,7 @@ def test_start_protocol_server_and_send_effect(client, protocol):
         status_msg = None
         for _ in range(10):
             msg = ws.receive_json()
-            if (
-                msg.get("type") == "protocol_status"
-                and msg.get("protocol") == protocol
-            ):
+            if msg.get("type") == "protocol_status" and msg.get("protocol") == protocol:
                 status_msg = msg
                 break
         assert status_msg is not None, f"No protocol_status for {protocol}"
@@ -60,9 +55,7 @@ def test_start_protocol_server_and_send_effect(client, protocol):
             ):
                 effect_result = msg
                 break
-        assert (
-            effect_result is not None
-        ), f"No effect_protocol_result for {protocol}"
+        assert effect_result is not None, f"No effect_protocol_result for {protocol}"
         assert effect_result.get("success") is True
         # Stop
         ws.send_json({"type": "stop_protocol_server", "protocol": protocol})
@@ -88,10 +81,7 @@ def test_mqtt_restart_cycle(client):
         running1 = None
         for _ in range(10):
             msg = ws.receive_json()
-            if (
-                msg.get("type") == "protocol_status"
-                and msg.get("protocol") == "mqtt"
-            ):
+            if msg.get("type") == "protocol_status" and msg.get("protocol") == "mqtt":
                 running1 = msg.get("running")
                 break
         assert running1 is True
@@ -101,10 +91,7 @@ def test_mqtt_restart_cycle(client):
         stopped = None
         for _ in range(10):
             msg = ws.receive_json()
-            if (
-                msg.get("type") == "protocol_status"
-                and msg.get("protocol") == "mqtt"
-            ):
+            if msg.get("type") == "protocol_status" and msg.get("protocol") == "mqtt":
                 stopped = msg.get("running") is False
                 break
         assert stopped is True
@@ -114,10 +101,7 @@ def test_mqtt_restart_cycle(client):
         running2 = None
         for _ in range(10):
             msg = ws.receive_json()
-            if (
-                msg.get("type") == "protocol_status"
-                and msg.get("protocol") == "mqtt"
-            ):
+            if msg.get("type") == "protocol_status" and msg.get("protocol") == "mqtt":
                 running2 = msg.get("running")
                 break
         assert running2 is True
@@ -173,10 +157,7 @@ def test_websocket_register_and_effect_delivery(client):
             msg = ws.receive_json()
             if msg.get("type") == "effect_result":
                 effect_result = msg
-            if (
-                msg.get("type") == "effect"
-                and msg.get("effect_type") == "light"
-            ):
+            if msg.get("type") == "effect" and msg.get("effect_type") == "light":
                 effect_payload = msg
             if effect_result and effect_payload:
                 break

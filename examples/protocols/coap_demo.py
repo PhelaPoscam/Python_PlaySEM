@@ -77,9 +77,7 @@ async def send_coap_request(host, port, effect):
         uri = f"coap://{host}:{port}/effects"
         request = Message(code=Code.POST, uri=uri, payload=payload)
         response = await ctx.request(request).response
-        response_text = (
-            response.payload.decode("utf-8") if response.payload else ""
-        )
+        response_text = response.payload.decode("utf-8") if response.payload else ""
         return json.loads(response_text) if response_text else {}
     except Exception as exc:
         logger.error("CoAP request failed: %s", exc)

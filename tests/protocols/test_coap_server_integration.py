@@ -12,7 +12,8 @@ aiocoap = pytest.importorskip("aiocoap")
 @pytest.mark.asyncio
 @pytest.mark.smoke
 @pytest.mark.skip(
-    reason="CoAP server has port overflow issues in CI (aiocoap WebSocket binding bug)"
+    reason="CoAP server has port overflow issues in CI (aiocoap WebSocket binding bug) — "
+    "remove when aiocoap upstream is fixed. Tracked as a follow-up."
 )
 async def test_coap_smoke_server_starts_and_responds():
     """Smoke test: Start CoAP server and send minimal POST, expect success."""
@@ -67,9 +68,7 @@ async def test_coap_smoke_server_starts_and_responds():
             await server_task
         except asyncio.CancelledError:
             pass
-        pytest.skip(
-            "CoAP server failed to start in time (macOS race condition)"
-        )
+        pytest.skip("CoAP server failed to start in time (macOS race condition)")
     try:
         from aiocoap import Context, Message, Code, error as aiocoap_error
         from aiocoap.numbers import ContentFormat
@@ -81,9 +80,7 @@ async def test_coap_smoke_server_starts_and_responds():
             uri=uri,
             payload=json.dumps(payload).encode("utf-8"),
         )
-        request.opt.content_format = ContentFormat.by_media_type(
-            "application/json"
-        )
+        request.opt.content_format = ContentFormat.by_media_type("application/json")
         client = await Context.create_client_context()
         try:
             try:
@@ -160,9 +157,7 @@ async def test_coap_server_receives_and_dispatches_effect():
             uri=uri,
             payload=json.dumps(payload).encode("utf-8"),
         )
-        request.opt.content_format = ContentFormat.by_media_type(
-            "application/json"
-        )
+        request.opt.content_format = ContentFormat.by_media_type("application/json")
 
         client = await Context.create_client_context()
         try:

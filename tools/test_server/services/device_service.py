@@ -48,9 +48,7 @@ class DeviceService:
         self._devices[device_id] = device
         return device
 
-    def connect_device(
-        self, *, address: str, driver_type: str
-    ) -> ConnectedDevice:
+    def connect_device(self, *, address: str, driver_type: str) -> ConnectedDevice:
         device_id = f"{driver_type}_{address}"
         return self.register_device(
             device_id=device_id,
@@ -67,9 +65,7 @@ class DeviceService:
         return device_id in self._devices
 
     def list_devices(self) -> List[Dict[str, Any]]:
-        return [
-            self._serialize_device(device) for device in self._devices.values()
-        ]
+        return [self._serialize_device(device) for device in self._devices.values()]
 
     def count_devices(self) -> int:
         return len(self._devices)
@@ -85,9 +81,7 @@ class DeviceService:
             "protocols": list(device.protocols),
             "connection_mode": device.connection_mode,
             "connected": device.connected,
-            "protocol_endpoints": device.metadata.get(
-                "protocol_endpoints", {}
-            ),
+            "protocol_endpoints": device.metadata.get("protocol_endpoints", {}),
         }
 
     @staticmethod

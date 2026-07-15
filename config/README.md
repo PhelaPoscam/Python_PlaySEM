@@ -4,9 +4,8 @@ This directory contains YAML configuration files for PlaySEM device management a
 
 ## Files
 
-- **devices.yaml** - Device registry and driver configuration
-- **effects.yaml** - Effect mappings and parameter definitions
-- **protocols.yaml** - Protocol server configuration
+- **devices.yaml** — Device registry and driver configuration
+- **effects.yaml** — Effect mappings and parameter definitions
 
 ## Usage
 

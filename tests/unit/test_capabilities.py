@@ -72,13 +72,9 @@ def test_http_capabilities_endpoint_returns_caps():
         api_key=None,
     )
 
-    status, body = asyncio.run(
-        _asgi_get(server._app, "/api/capabilities/mock_light_1")
-    )
+    status, body = asyncio.run(_asgi_get(server._app, "/api/capabilities/mock_light_1"))
     assert status == 200
 
     data = json.loads(body.decode("utf-8"))
     assert isinstance(data, dict)
-    assert any(
-        e.get("effect_type") == "light" for e in data.get("effects", [])
-    )
+    assert any(e.get("effect_type") == "light" for e in data.get("effects", []))

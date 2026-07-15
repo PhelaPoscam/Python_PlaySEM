@@ -11,19 +11,16 @@ from typing import Optional, Callable
 
 try:
     from amqtt.broker import Broker
-    from amqtt.mqtt.constants import QOS_0
 
     AMQTT_AVAILABLE = True
 except ImportError:
     AMQTT_AVAILABLE = False
     Broker = None
-    QOS_0 = None
 
 import paho.mqtt.client as mqtt
 
 from ..effect_dispatcher import EffectDispatcher
 from ..effect_metadata import EffectMetadata, EffectMetadataParser
-
 
 logger = logging.getLogger(__name__)
 
@@ -100,9 +97,7 @@ class MQTTServer:
                 self._start_external_client()
                 return
 
-            logger.info(
-                f"Starting embedded MQTT broker on {self.host}:{self.port}"
-            )
+            logger.info(f"Starting embedded MQTT broker on {self.host}:{self.port}")
             self.thread = threading.Thread(target=self._run_broker_loop)
             self.thread.daemon = True
             self.thread.start()
@@ -122,12 +117,15 @@ class MQTTServer:
             )  # Run main loop until stop event
         except Exception as e:
             logger.error(f"MQTT broker failed to start or run: {e}")
-            self._is_running = False
+            with self._lock:
+                self._is_running = False
         finally:
             try:
                 self.loop.run_until_complete(self.loop.shutdown_asyncgens())
             except Exception:
-                pass
+                logger.exception(
+                    "Failed to shutdown async generators during MQTT broker cleanup"
+                )
             self.loop.close()  # Close the loop cleanly
 
     async def _start_broker(self):
@@ -135,9 +133,7 @@ class MQTTServer:
         Configure and start the amqtt broker.
         """
         if not AMQTT_AVAILABLE:
-            logger.error(
-                "amqtt library is not installed. Cannot start MQTT broker."
-            )
+            logger.error("amqtt library is not installed. Cannot start MQTT broker.")
             return
 
         try:
@@ -172,8 +168,11 @@ class MQTTServer:
             logger.debug("amqtt Broker instance created.")
             await self.broker.start()
             logger.info(
-                "amqtt Broker started and listening on "
-                f"{self.host}:{self.port}"
+                "amqtt Broker started and listening on " f"{self.host}:{self.port}"
+            )
+            logger.warning(
+                "Embedded MQTT broker running with anonymous authentication — "
+                "ensure only trusted network access"
             )
 
             self._setup_client()
@@ -194,6 +193,10 @@ class MQTTServer:
                 callback_api_version=mqtt.CallbackAPIVersion.VERSION2
             )
         except Exception:
+            logger.warning(
+                "Could not initialize MQTT client with VERSION2 API, falling back",
+                exc_info=True,
+            )
             self.internal_client = mqtt.Client()
         self.internal_client.on_message = self._on_internal_message
 
@@ -242,9 +245,7 @@ class MQTTServer:
         payload = msg.payload
         try:
             payload_str = payload.decode("utf-8")
-            logger.debug(
-                f"Broker received message on topic '{topic}': {payload_str}"
-            )
+            logger.debug(f"Broker received message on topic '{topic}': {payload_str}")
 
             # Deduplicate only when the sender provides an explicit message
             # identity. Identical haptic pulses are valid timeline events.
@@ -268,32 +269,38 @@ class MQTTServer:
 
             effect = self._parse_effect(payload_str)
             if effect:
+                main_loop = self.main_loop
                 dispatch_loop = (
-                    self.main_loop
-                    if (
-                        self.main_loop is not None
-                        and self.main_loop.is_running()
-                    )
+                    main_loop
+                    if (main_loop is not None and main_loop.is_running())
                     else self.loop
                 )
 
                 if dispatch_loop is None:
-                    logger.error(
-                        "MQTT effect dropped: no dispatch loop available"
-                    )
+                    logger.error("MQTT effect dropped: no dispatch loop available")
                     return
 
-                asyncio.run_coroutine_threadsafe(
+                future = asyncio.run_coroutine_threadsafe(
                     self.dispatcher.async_dispatch_effect_metadata(effect),
                     dispatch_loop,
                 )
-                logger.info(
-                    "Effect " f"'{effect.effect_type}' " "submitted via MQTT"
+                future.add_done_callback(
+                    lambda f: f.exception()
+                    and logger.error(
+                        "MQTT effect dispatch failed", exc_info=f.exception()
+                    )
                 )
+                logger.info("Effect " f"'{effect.effect_type}' " "submitted via MQTT")
                 if self.on_effect_broadcast:
-                    asyncio.run_coroutine_threadsafe(
+                    broadcast_future = asyncio.run_coroutine_threadsafe(
                         self.on_effect_broadcast(effect, "mqtt_broadcast"),
                         dispatch_loop,
+                    )
+                    broadcast_future.add_done_callback(
+                        lambda f: f.exception()
+                        and logger.error(
+                            "MQTT broadcast callback failed", exc_info=f.exception()
+                        )
                     )
             else:
                 logger.warning(
@@ -305,9 +312,7 @@ class MQTTServer:
 
     def _pick_free_port(self) -> int:
         """Reserve and return a currently free local TCP port."""
-        bind_host = (
-            "127.0.0.1" if self.host in ("0.0.0.0", "::") else self.host
-        )
+        bind_host = "127.0.0.1" if self.host in ("0.0.0.0", "::") else self.host
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.bind((bind_host, 0))
             return int(sock.getsockname()[1])
@@ -350,7 +355,12 @@ class MQTTServer:
 
             if not self.use_external_broker:
                 self._stop_event.set()
-                self.thread.join(timeout=1.5)
+                self.thread.join(timeout=5.0)
+                if self.thread.is_alive():
+                    logger.warning(
+                        "MQTT broker thread did not exit cleanly within timeout"
+                    )
+                    self.thread.join(timeout=5.0)
 
             self._is_running = False
             logger.info("MQTT Broker/Client stopped")
@@ -371,6 +381,9 @@ class MQTTServer:
             try:
                 return EffectMetadataParser.parse_yaml(payload)
             except Exception:
+                logger.warning(
+                    "Failed to parse MQTT payload as JSON or YAML", exc_info=True
+                )
                 return None
 
     def _extract_message_id(

@@ -73,9 +73,7 @@ async def main():
         "\n2. Creating and registering a MockSerialDevice with ID 'virtual-serial-01'..."
     )
     mock_device = MockSerialDevice(device_id="virtual-serial-01")
-    mock_driver.register_device(
-        device_id="virtual-serial-01", device_obj=mock_device
-    )
+    mock_driver.register_device(device_id="virtual-serial-01", device_obj=mock_device)
     log.info(f"Device '{mock_device.device_id}' registered with the driver.")
 
     # 3. Send a 'PING' command to the device

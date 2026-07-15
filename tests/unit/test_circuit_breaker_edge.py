@@ -24,9 +24,7 @@ class CircuitTestDriver(BaseDriver):
     async def disconnect(self) -> None:
         pass
 
-    async def send_command(
-        self, device_id: str, command: str, params: dict
-    ) -> bool:
+    async def send_command(self, device_id: str, command: str, params: dict) -> bool:
         if self.should_fail:
             raise ValueError("Simulated failure")
         return True

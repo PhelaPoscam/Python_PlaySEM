@@ -12,7 +12,6 @@ from ..effect_dispatcher import EffectDispatcher
 from ..effect_metadata import EffectMetadata, EffectMetadataParser
 from ..utils.rate_limiter import SlidingWindowLimiter
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -90,9 +89,9 @@ class CoAPServer:
                 async def render_post(self, request):
                     try:
                         # Rate limit check
-                        client_ip = getattr(
-                            request.remote, "host", None
-                        ) or str(request.remote)
+                        client_ip = getattr(request.remote, "host", None) or str(
+                            request.remote
+                        )
                         if not self._outer.rate_limiter.allow(client_ip):
                             logger.warning(
                                 f"CoAP rate limit exceeded for client {client_ip}"
@@ -160,9 +159,7 @@ class CoAPServer:
 
             # Create server context bound to host/port
             bind = (self.host, int(self.port))
-            self._context = await Context.create_server_context(
-                site, bind=bind
-            )
+            self._context = await Context.create_server_context(site, bind=bind)
             self._site = site
             with self._lock:
                 self._is_running = True
@@ -172,9 +169,7 @@ class CoAPServer:
             if self.started_event:
                 self.started_event.set()
 
-            logger.info(
-                f"CoAP Server started on " f"coap://{self.host}:{self.port}"
-            )
+            logger.info(f"CoAP Server started on " f"coap://{self.host}:{self.port}")
 
         except Exception as e:
             logger.error(f"Failed to start CoAP Server: {e}")
