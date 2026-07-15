@@ -72,3 +72,28 @@ jobs:
     - name: Check formatting with black
       run: |
         black --check playsem tests
+
+  demo-smoke:
+    runs-on: ubuntu-latest
+    # Non-blocking: protocols can hang on some runners without required
+    # system daemons. This job is "does PlaySEM work end-to-end" — see
+    # docs/demo_output/baseline.txt for the known-good output.
+    continue-on-error: true
+    steps:
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+    - name: Set up Python
+      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+        cache-dependency-path: pyproject.toml
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev,all]
+
+    - name: Run all protocol demos
+      run: |
+        python examples/run_all_demos.py --json

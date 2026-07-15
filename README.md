@@ -78,7 +78,34 @@ Experiment with sensory effects instantly without physical hardware or configura
 python examples/virtual_lab.py
 
 ```
- 
+
+### Run the Protocol Demos (one command, all five protocols)
+
+The fastest way to confirm PlaySEM actually works is `examples/run_all_demos.py`. It boots each embedded server in turn (HTTP, WebSocket, MQTT, CoAP, UPnP), sends real effects through the real protocol, asserts they reach the dispatcher and driver, and prints a pass/fail summary.
+
+```bash
+# All five protocols end-to-end (~10s total)
+python examples/run_all_demos.py
+
+# Single protocol for quick iteration
+python examples/run_all_demos.py --only mqtt
+
+# Machine-readable output (used by CI)
+python examples/run_all_demos.py --json
+```
+
+Expected output (5/5 demos passed):
+
+```
+[OK] http         2.60s
+[OK] websocket    1.54s
+[OK] mqtt         5.26s
+[OK] coap         1.85s
+[OK] upnp         0.53s
+```
+
+The known-good baseline output is checked in at `docs/demo_output/baseline.txt`. Each demo lives at `examples/protocols/<name>_demo.py` if you want to run one by hand.
+
 ### Physical Hardware Integration (Arduino Example)
 
 Connect and drive real physical hardware (e.g. an Arduino controlling a PWM fan) over USB Serial:

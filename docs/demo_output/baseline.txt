@@ -1,0 +1,404 @@
+11:36:24 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver 'recording_mock' initialized with format 'json'
+11:36:24 - [INFO] playsem.device_manager - Initializing DeviceManager with single connectivity driver.
+11:36:24 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: connect()
+11:36:24 - [INFO] playsem.device_manager - Starting async device workers.
+11:36:24 - [INFO] playsem.protocol_servers.http_server - HTTP Server initialized - 127.0.0.1:8080, auth: disabled
+11:36:24 - [INFO] playsem.protocol_servers.http_server - Starting HTTP server at http://127.0.0.1:8080
+11:36:24 - [INFO] playsem.protocol_servers.http_server - API documentation available at http://127.0.0.1:8080/docs
+INFO:     Started server process [31252]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8080 (Press CTRL+C to quit)
+
+============================================================
+[HTTP] starting
+============================================================
+
+============================================================
+PlaySEM HTTP Protocol Demo
+============================================================
+
+HTTP server configuration
+  server: http://192.168.1.3:8080
+  api: http://192.168.1.3:8080/api/effects
+  docs: http://192.168.1.3:8080/docs
+
+Starting embedded HTTP server...
+INFO:     127.0.0.1:62474 - "GET /api/status HTTP/1.1" 200 OK
+11:36:25 - [INFO] demo_http - Effect received: vibration (500 ms, intensity=80)
+11:36:25 - [INFO] playsem.protocol_servers.http_server - HTTP effect received: vibration
+11:36:25 - [INFO] playsem.device_manager - Async worker started for device 'vibration_device'
+11:36:25 - [INFO] playsem.device_manager - Async sending command 'set_intensity' to device 'vibration_device' via mock driver.
+
+Sending sample HTTP effects
+============================================================
+INFO:     127.0.0.1:62475 - "POST /api/effects HTTP/1.1" 200 OK
+11:36:25 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: send_command to device_id='vibration_device'. Formatted payload (json): {"command": "set_intensity", "params": {"intensity": 80}, "device_id": "vibration_device"}
+11:36:25 - [INFO] demo_http - Effect received: light (1000 ms, intensity=70)
+11:36:25 - [INFO] playsem.protocol_servers.http_server - HTTP effect received: light
+11:36:25 - [INFO] playsem.device_manager - Async worker started for device 'light_device'
+11:36:25 - [INFO] playsem.device_manager - Async sending command 'set_brightness' to device 'light_device' via mock driver.
+1. vibration -> {'success': True, 'message': 'Effect dispatched successfully', 'effect_id': 'vibration_1'}
+INFO:     127.0.0.1:62476 - "POST /api/effects HTTP/1.1" 200 OK
+11:36:25 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: send_command to device_id='light_device'. Formatted payload (json): {"command": "set_brightness", "params": {"intensity": 70}, "device_id": "light_device"}
+11:36:25 - [INFO] demo_http - Effect received: wind (800 ms, intensity=60)
+11:36:25 - [INFO] playsem.protocol_servers.http_server - HTTP effect received: wind
+11:36:25 - [INFO] playsem.device_manager - Async worker started for device 'wind_device'
+11:36:25 - [INFO] playsem.device_manager - Async sending command 'set_speed' to device 'wind_device' via mock driver.
+2. light -> {'success': True, 'message': 'Effect dispatched successfully', 'effect_id': 'light_2'}
+INFO:     127.0.0.1:62477 - "POST /api/effects HTTP/1.1" 200 OK
+11:36:25 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: send_command to device_id='wind_device'. Formatted payload (json): {"command": "set_speed", "params": {"intensity": 60}, "device_id": "wind_device"}
+11:36:26 - [INFO] playsem.protocol_servers.http_server - Stopping HTTP server
+INFO:     Shutting down
+11:36:26 - [INFO] playsem.protocol_servers.http_server - HTTP server stopped
+11:36:26 - [INFO] playsem.device_manager - Stopping async device workers.
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [31252]
+11:36:26 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver 'recording_mock' initialized with format 'json'
+11:36:26 - [INFO] playsem.device_manager - Initializing DeviceManager with single connectivity driver.
+11:36:26 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: connect()
+11:36:26 - [INFO] playsem.device_manager - Starting async device workers.
+11:36:26 - [INFO] playsem.protocol_servers.websocket_server - WebSocket Server initialized - 127.0.0.1:8765, auth: disabled, ssl: disabled, max_msg: 65536B, max_conn: 100, rate: 100/60.0s
+11:36:26 - [INFO] playsem.protocol_servers.websocket_server - Starting WebSocket server on 127.0.0.1:8765
+11:36:26 - [INFO] websockets.server - server listening on 127.0.0.1:8765
+11:36:26 - [INFO] playsem.protocol_servers.websocket_server - WebSocket Server started on ws://127.0.0.1:8765
+11:36:27 - [INFO] websockets.server - connection open
+11:36:27 - [INFO] playsem.protocol_servers.websocket_server - Client connected: 127.0.0.1:62906
+11:36:27 - [INFO] demo_websocket - Client connected: 127.0.0.1:62906
+11:36:27 - [INFO] demo_websocket - Effect received: light (1000 ms, intensity=70)
+11:36:27 - [INFO] playsem.protocol_servers.websocket_server - Effect 'light' from 127.0.0.1:62906
+11:36:27 - [INFO] playsem.device_manager - Async worker started for device 'light_device'
+11:36:27 - [INFO] playsem.device_manager - Async sending command 'set_brightness' to device 'light_device' via mock driver.
+11:36:27 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: send_command to device_id='light_device'. Formatted payload (json): {"command": "set_brightness", "params": {"intensity": 70, "location": ""}, "device_id": "light_device"}
+11:36:27 - [INFO] demo_websocket - Effect received: vibration (500 ms, intensity=90)
+11:36:27 - [INFO] playsem.protocol_servers.websocket_server - Effect 'vibration' from 127.0.0.1:62906
+11:36:27 - [INFO] playsem.device_manager - Async worker started for device 'vibration_device'
+11:36:27 - [INFO] playsem.device_manager - Async sending command 'set_intensity' to device 'vibration_device' via mock driver.
+11:36:27 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: send_command to device_id='vibration_device'. Formatted payload (json): {"command": "set_intensity", "params": {"intensity": 90, "location": ""}, "device_id": "vibration_device"}
+11:36:28 - [INFO] demo_websocket - Effect received: wind (750 ms, intensity=60)
+11:36:28 - [INFO] playsem.protocol_servers.websocket_server - Effect 'wind' from 127.0.0.1:62906
+11:36:28 - [INFO] playsem.device_manager - Async worker started for device 'wind_device'
+11:36:28 - [INFO] playsem.device_manager - Async sending command 'set_speed' to device 'wind_device' via mock driver.
+11:36:28 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: send_command to device_id='wind_device'. Formatted payload (json): {"command": "set_speed", "params": {"intensity": 60, "location": ""}, "device_id": "wind_device"}
+11:36:28 - [INFO] playsem.protocol_servers.websocket_server - Stopping WebSocket Server...
+11:36:28 - [INFO] playsem.protocol_servers.websocket_server - Client disconnected: 127.0.0.1:62906
+11:36:28 - [INFO] demo_websocket - Client disconnected: 127.0.0.1:62906
+11:36:28 - [INFO] websockets.server - server closing
+11:36:28 - [INFO] websockets.server - server closed
+11:36:28 - [INFO] playsem.protocol_servers.websocket_server - WebSocket Server stopped
+11:36:28 - [INFO] playsem.device_manager - Stopping async device workers.
+11:36:29 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver 'recording_mock' initialized with format 'json'
+11:36:29 - [INFO] playsem.device_manager - Initializing DeviceManager with single connectivity driver.
+11:36:29 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: connect()
+11:36:29 - [INFO] playsem.device_manager - Starting async device workers.
+11:36:29 - [INFO] playsem.protocol_servers.mqtt_server - MQTT Broker Server initialized - Host: 127.0.0.1:1883, Topic: effects/#, external: False
+11:36:29 - [INFO] playsem.protocol_servers.mqtt_server - Starting embedded MQTT broker on 127.0.0.1:1883
+11:36:29 - [INFO] playsem.protocol_servers.mqtt_server - Embedded MQTT Broker started successfully
+11:36:29 - [INFO] amqtt.broker.plugins - Loading plugins from config
+11:36:29 - [INFO] transitions.core - Executed callback '<bound method Broker._log_state_change of <amqtt.broker.Broker object at 0x0000025BDDED2A50>>'
+11:36:29 - [INFO] transitions.core - Finished processing state new exit callbacks.
+11:36:29 - [INFO] transitions.core - Finished processing state starting enter callbacks.
+11:36:29 - [INFO] amqtt.broker - Listener 'default' bind to 127.0.0.1:1883 (max_connections=0)
+11:36:29 - [INFO] websockets.server - server listening on 127.0.0.1:59839
+11:36:29 - [INFO] amqtt.broker - Listener 'ws' bind to 127.0.0.1:59839 (max_connections=10)
+11:36:29 - [INFO] transitions.core - Finished processing state starting exit callbacks.
+11:36:29 - [INFO] transitions.core - Finished processing state started enter callbacks.
+11:36:29 - [INFO] playsem.protocol_servers.mqtt_server - amqtt Broker started and listening on 127.0.0.1:1883
+11:36:29 - [WARNING] playsem.protocol_servers.mqtt_server - Embedded MQTT broker running with anonymous authentication — ensure only trusted network access
+11:36:29 - [INFO] amqtt.broker - Starting session expiration monitor.
+11:36:29 - [INFO] amqtt.broker - Listener 'default': 1/\u221e connections acquired
+11:36:29 - [INFO] amqtt.broker - Connection from 127.0.0.1:59842 on listener 'default'
+11:36:29 - [INFO] transitions.core - Finished processing state new exit callbacks.
+11:36:29 - [INFO] transitions.core - Executed callback '<bound method Session._on_enter_connected of Session(clientId=amqtt/cNcwDQAtbqK9bAB0, state=connected)>'
+11:36:29 - [INFO] transitions.core - Finished processing state connected enter callbacks.
+11:36:29 - [INFO] amqtt.broker.plugins.EventLoggerPlugin - ### 'on_broker_client_connected' EVENT FIRED ###
+11:36:29 - [INFO] amqtt.broker - Listener 'default': 2/\u221e connections acquired
+11:36:29 - [INFO] amqtt.broker - Connection from 127.0.0.1:59845 on listener 'default'
+11:36:29 - [INFO] transitions.core - Finished processing state new exit callbacks.
+11:36:29 - [INFO] transitions.core - Executed callback '<bound method Session._on_enter_connected of Session(clientId=amqtt/gIzM9RneiAEXpn6O, state=connected)>'
+11:36:29 - [INFO] transitions.core - Finished processing state connected enter callbacks.
+11:36:29 - [INFO] amqtt.broker.plugins.EventLoggerPlugin - ### 'on_broker_client_connected' EVENT FIRED ###
+11:36:29 - [INFO] demo_mqtt - Publisher connected to MQTT broker (rc=Success)
+11:36:30 - [INFO] playsem.protocol_servers.mqtt_server - Effect 'light' submitted via MQTT
+11:36:30 - [INFO] playsem.device_manager - Async worker started for device 'light_device'
+11:36:30 - [INFO] playsem.device_manager - Async sending command 'set_brightness' to device 'light_device' via mock driver.
+11:36:30 - [INFO] demo_mqtt - Effect received from mqtt_broadcast: light (1000 ms, intensity=80)
+11:36:30 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: send_command to device_id='light_device'. Formatted payload (json): {"command": "set_brightness", "params": {"color": "white", "intensity": 80}, "device_id": "light_device"}
+11:36:30 - [INFO] playsem.protocol_servers.mqtt_server - Effect 'wind' submitted via MQTT
+11:36:30 - [INFO] playsem.device_manager - Async worker started for device 'wind_device'
+11:36:30 - [INFO] playsem.device_manager - Async sending command 'set_speed' to device 'wind_device' via mock driver.
+11:36:30 - [INFO] demo_mqtt - Effect received from mqtt_broadcast: wind (750 ms, intensity=60)
+11:36:30 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: send_command to device_id='wind_device'. Formatted payload (json): {"command": "set_speed", "params": {"speed": 3, "intensity": 60}, "device_id": "wind_device"}
+11:36:31 - [INFO] playsem.protocol_servers.mqtt_server - Effect 'vibration' submitted via MQTT
+11:36:31 - [INFO] playsem.device_manager - Async worker started for device 'vibration_device'
+11:36:31 - [INFO] playsem.device_manager - Async sending command 'set_intensity' to device 'vibration_device' via mock driver.
+11:36:31 - [INFO] demo_mqtt - Effect received from mqtt_broadcast: vibration (500 ms, intensity=90)
+11:36:31 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: send_command to device_id='vibration_device'. Formatted payload (json): {"command": "set_intensity", "params": {"pattern": "pulse", "intensity": 90}, "device_id": "vibration_device"}
+11:36:32 - [INFO] transitions.core - Finished processing state connected exit callbacks.
+11:36:32 - [INFO] transitions.core - Executed callback '<bound method Session._on_enter_disconnected of Session(clientId=amqtt/gIzM9RneiAEXpn6O, state=disconnected)>'
+11:36:32 - [INFO] transitions.core - Finished processing state disconnected enter callbacks.
+11:36:32 - [INFO] amqtt.broker - Listener 'default': 1/\u221e connections acquired
+11:36:32 - [INFO] amqtt.broker.plugins.EventLoggerPlugin - ### 'on_broker_client_disconnected' EVENT FIRED ###
+11:36:33 - [INFO] playsem.protocol_servers.mqtt_server - Stopping MQTT Broker/Client...
+11:36:34 - [INFO] transitions.core - Finished processing state connected exit callbacks.
+11:36:34 - [INFO] transitions.core - Executed callback '<bound method Session._on_enter_disconnected of Session(clientId=amqtt/cNcwDQAtbqK9bAB0, state=disconnected)>'
+11:36:34 - [INFO] transitions.core - Finished processing state disconnected enter callbacks.
+11:36:34 - [INFO] amqtt.broker - Listener 'default': 0/\u221e connections acquired
+11:36:34 - [INFO] amqtt.broker.plugins.EventLoggerPlugin - ### 'on_broker_client_disconnected' EVENT FIRED ###
+11:36:34 - [INFO] playsem.protocol_servers.mqtt_server - Stop event received, initiating amqtt broker shutdown.
+11:36:34 - [INFO] amqtt.broker - Shutting down broker...
+11:36:34 - [INFO] transitions.core - Finished processing state started exit callbacks.
+11:36:34 - [INFO] transitions.core - Finished processing state stopping enter callbacks.
+11:36:34 - [INFO] websockets.server - server closing
+11:36:34 - [INFO] websockets.server - server closed
+11:36:34 - [INFO] amqtt.broker - Broker closed
+11:36:34 - [INFO] transitions.core - Finished processing state stopping exit callbacks.
+11:36:34 - [INFO] transitions.core - Finished processing state stopped enter callbacks.
+11:36:34 - [INFO] playsem.protocol_servers.mqtt_server - amqtt broker shutdown complete.
+11:36:34 - [INFO] playsem.protocol_servers.mqtt_server - MQTT Broker/Client stopped
+11:36:34 - [INFO] playsem.device_manager - Stopping async device workers.
+11:36:34 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver 'recording_mock' initialized with format 'json'
+11:36:34 - [INFO] playsem.device_manager - Initializing DeviceManager with single connectivity driver.
+11:36:34 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: connect()
+11:36:34 - [INFO] playsem.device_manager - Starting async device workers.
+11:36:34 - [INFO] playsem.protocol_servers.coap_server - CoAP Server initialized - 127.0.0.1:5683
+11:36:34 - [INFO] playsem.protocol_servers.coap_server - Starting CoAP server on 127.0.0.1:5683
+11:36:34 - [INFO] websockets.server - server listening on 127.0.0.1:8683
+11:36:35 - [INFO] playsem.protocol_servers.coap_server - CoAP Server started on coap://127.0.0.1:5683
+11:36:35 - [INFO] demo_coap - Effect received: vibration (500 ms, intensity=80)
+11:36:35 - [INFO] playsem.device_manager - Async worker started for device 'vibration_device'
+11:36:35 - [INFO] playsem.device_manager - Async sending command 'set_intensity' to device 'vibration_device' via mock driver.
+11:36:35 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: send_command to device_id='vibration_device'. Formatted payload (json): {"command": "set_intensity", "params": {"intensity": 80}, "device_id": "vibration_device"}
+11:36:35 - [INFO] demo_coap - Effect received: light (1000 ms, intensity=70)
+11:36:35 - [INFO] playsem.device_manager - Async worker started for device 'light_device'
+11:36:35 - [INFO] playsem.device_manager - Async sending command 'set_brightness' to device 'light_device' via mock driver.
+11:36:35 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: send_command to device_id='light_device'. Formatted payload (json): {"command": "set_brightness", "params": {"intensity": 70}, "device_id": "light_device"}
+11:36:36 - [INFO] demo_coap - Effect received: wind (800 ms, intensity=60)
+11:36:36 - [INFO] playsem.device_manager - Async worker started for device 'wind_device'
+11:36:36 - [INFO] playsem.device_manager - Async sending command 'set_speed' to device 'wind_device' via mock driver.
+11:36:36 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: send_command to device_id='wind_device'. Formatted payload (json): {"command": "set_speed", "params": {"intensity": 60}, "device_id": "wind_device"}
+11:36:36 - [INFO] websockets.server - server closing
+11:36:36 - [INFO] websockets.server - server closed
+11:36:36 - [INFO] playsem.protocol_servers.coap_server - CoAP Server stopped
+11:36:36 - [INFO] playsem.device_manager - Stopping async device workers.
+11:36:37 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver 'recording_mock' initialized with format 'json'
+11:36:37 - [INFO] playsem.device_manager - Initializing DeviceManager with single connectivity driver.
+11:36:37 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: connect()
+11:36:37 - [INFO] playsem.device_manager - Starting async device workers.
+11:36:37 - [INFO] playsem.protocol_servers.upnp_server - UPnP Server initialized - device: PlaySEM Demo Server, uuid: uuid:66f54bc6-cf6f-4b8d-9f37-f95524de5903, location: http://192.168.1.3:8088/description.xml
+11:36:37 - [INFO] playsem.protocol_servers.upnp_server - UPnP SSDP discovery started on 239.255.255.250:1900
+11:36:37 - [INFO] playsem.protocol_servers.upnp_server - Sent NOTIFY alive announcements
+11:36:37 - [INFO] aiohttp.access - 192.168.1.3 [15/Jul/2026:10:36:37 +0200] "GET /description.xml HTTP/1.1" 200 1043 "-" "Python-urllib/3.14"
+11:36:37 - [INFO] playsem.protocol_servers.upnp_server - Dispatched effect 'light' via UPnP
+11:36:37 - [INFO] aiohttp.access - 192.168.1.3 [15/Jul/2026:10:36:37 +0200] "POST /control HTTP/1.1" 200 388 "-" "Python-urllib/3.14"
+11:36:37 - [INFO] playsem.device_manager - Async worker started for device 'light_device'
+11:36:37 - [INFO] playsem.device_manager - Async sending command 'set_brightness' to device 'light_device' via mock driver.
+11:36:37 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: send_command to device_id='light_device'. Formatted payload (json): {"command": "set_brightness", "params": {"intensity": 70}, "device_id": "light_device"}
+11:36:37 - [INFO] playsem.protocol_servers.upnp_server - Dispatched effect 'vibration' via UPnP
+11:36:37 - [INFO] aiohttp.access - 192.168.1.3 [15/Jul/2026:10:36:37 +0200] "POST /control HTTP/1.1" 200 388 "-" "Python-urllib/3.14"
+11:36:37 - [INFO] playsem.device_manager - Async worker started for device 'vibration_device'
+11:36:37 - [INFO] playsem.device_manager - Async sending command 'set_intensity' to device 'vibration_device' via mock driver.
+11:36:37 - [INFO] playsem.drivers.mock_driver - MockConnectivityDriver: send_command to device_id='vibration_device'. Formatted payload (json): {"command": "set_intensity", "params": {"intensity": 90}, "device_id": "vibration_device"}
+11:36:37 - [INFO] playsem.protocol_servers.upnp_server - Stopping UPnP Server...
+11:36:37 - [INFO] playsem.protocol_servers.upnp_server - Sent NOTIFY byebye announcements
+11:36:37 - [INFO] playsem.protocol_servers.upnp_server - UPnP Server stopped
+11:36:37 - [INFO] playsem.device_manager - Stopping async device workers.
+3. wind -> {'success': True, 'message': 'Effect dispatched successfully', 'effect_id': 'wind_3'}
+
+Received effects
+============================================================
+1. vibration - intensity=80, duration=500ms
+2. light - intensity=70, duration=1000ms
+3. wind - intensity=60, duration=800ms
+
+Driver commands
+============================================================
+1. vibration_device -> set_intensity {'intensity': 80}
+2. light_device -> set_brightness {'intensity': 70}
+3. wind_device -> set_speed {'intensity': 60}
+
+Stopping HTTP server...
+
+[HTTP] OK in 2.60s
+
+============================================================
+[WEBSOCKET] starting
+============================================================
+
+============================================================
+PlaySEM WebSocket Server Demo
+============================================================
+
+WebSocket server configuration
+  server: ws://127.0.0.1:8765
+  host address: 192.168.1.3
+
+Starting embedded WebSocket server...
+Welcome message:
+{"type": "welcome", "message": "Connected to PythonPlaySEM WebSocket Server", "version": "0.1.0", "auth_required": false}
+
+Sending sample WebSocket effects
+============================================================
+1. sent light -> {"type": "response", "success": true, "effect_type": "light", "timestamp": 0}
+2. sent vibration -> {"type": "response", "success": true, "effect_type": "vibration", "timestamp": 0}
+3. sent wind -> {"type": "response", "success": true, "effect_type": "wind", "timestamp": 0}
+
+Received effects
+============================================================
+1. light - intensity=70, duration=1000ms
+2. vibration - intensity=90, duration=500ms
+3. wind - intensity=60, duration=750ms
+
+Connected clients
+  127.0.0.1:62906
+
+Driver commands
+============================================================
+1. light_device -> set_brightness {'intensity': 70, 'location': ''}
+2. vibration_device -> set_intensity {'intensity': 90, 'location': ''}
+3. wind_device -> set_speed {'intensity': 60, 'location': ''}
+
+Stopping WebSocket server...
+
+[WEBSOCKET] OK in 1.54s
+
+============================================================
+[MQTT] starting
+============================================================
+
+============================================================
+PlaySEM MQTT Protocol Demo
+============================================================
+
+MQTT broker configuration
+  broker: mqtt://127.0.0.1:1883
+  subscribe topic: effects/#
+  local address: 192.168.1.3
+
+Starting embedded MQTT broker...
+
+============================================================
+Publishing sample MQTT effects
+============================================================
+1. light -> {"effect_type": "light", "duration": 1000, "intensity": 80, "parameters": {"color": "white"}}
+2. wind -> {"effect_type": "wind", "duration": 750, "intensity": 60, "parameters": {"speed": 3}}
+3. vibration -> {"effect_type": "vibration", "duration": 500, "intensity": 90, "parameters": {"pattern": "pulse"}}
+
+Received effects
+============================================================
+1. light - intensity=80, duration=1000ms
+2. wind - intensity=60, duration=750ms
+3. vibration - intensity=90, duration=500ms
+
+Driver commands
+============================================================
+1. light_device -> set_brightness {'color': 'white', 'intensity': 80}
+2. wind_device -> set_speed {'speed': 3, 'intensity': 60}
+3. vibration_device -> set_intensity {'pattern': 'pulse', 'intensity': 90}
+
+Stopping MQTT broker...
+
+[MQTT] OK in 5.26s
+
+============================================================
+[COAP] starting
+============================================================
+
+============================================================
+PlaySEM CoAP Protocol Demo
+============================================================
+
+CoAP server configuration
+  server: coap://127.0.0.1:5683
+  endpoint: /effects
+  local address: 192.168.1.3
+
+Starting embedded CoAP server...
+
+Sending sample CoAP effects
+============================================================
+1. vibration -> {'success': True, 'effect_type': 'vibration', 'timestamp': 0}
+2. light -> {'success': True, 'effect_type': 'light', 'timestamp': 0}
+3. wind -> {'success': True, 'effect_type': 'wind', 'timestamp': 0}
+
+Received effects
+============================================================
+1. vibration - intensity=80, duration=500ms
+2. light - intensity=70, duration=1000ms
+3. wind - intensity=60, duration=800ms
+
+Driver commands
+============================================================
+1. vibration_device -> set_intensity {'intensity': 80}
+2. light_device -> set_brightness {'intensity': 70}
+3. wind_device -> set_speed {'intensity': 60}
+
+Stopping CoAP server...
+
+[COAP] OK in 1.85s
+
+============================================================
+[UPNP] starting
+============================================================
+
+============================================================
+PlaySEM UPnP Protocol Demo
+============================================================
+
+UPnP server configuration
+  description: http://192.168.1.3:8088/description.xml
+  control: http://192.168.1.3:8088/control
+  local address: 192.168.1.3
+
+Starting embedded UPnP server...
+
+Device description preview
+============================================================
+<?xml version="1.0"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
+    <specVersion>
+        <major>1</major>
+        <minor>0</minor>
+    </specVersion>
+    <device>
+        <deviceType>urn:schemas-upnp-org:device:PlaySEM:1</deviceType>
+        <friendlyName>PlaySEM Demo Server</friendlyName>
+        <manufacturer>PlaySEM</manufacturer>
+
+Sending sample UPnP control requests
+============================================================
+1. light -> status=200
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+    <s:Body>
+        <u:SendEffectResponse xmlns:u="urn:schemas-upnp-org:service:PlaySEM:1">
+        </u:SendEffectResponse>
+    </s:Body>
+</s:Envelope>
+2. vibration -> status=200
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+    <s:Body>
+        <u:SendEffectResponse xmlns:u="urn:schemas-upnp-org:service:PlaySEM:1">
+        </u:SendEffectResponse>
+    </s:Body>
+</s:Envelope>
+
+Received effects
+============================================================
+1. light_device -> set_brightness {'intensity': 70}
+2. vibration_device -> set_intensity {'intensity': 90}
+
+Stopping UPnP server...
+
+[UPNP] OK in 0.53s
+
+============================================================
+SUMMARY
+============================================================
+  [OK] http         2.60s
+  [OK] websocket    1.54s
+  [OK] mqtt         5.26s
+  [OK] coap         1.85s
+  [OK] upnp         0.53s
+
+5/5 demos passed
