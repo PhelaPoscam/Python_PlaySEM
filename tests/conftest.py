@@ -1,9 +1,6 @@
 import sys
-import subprocess
-import time
 from pathlib import Path
 
-import httpx
 import pytest
 
 # Ensure project root is on sys.path before imports/collection
@@ -24,62 +21,6 @@ def pytest_collection_modifyitems(items):
         parts = Path(str(item.fspath)).parts
         if "integration" in parts or "protocols" in parts:
             item.add_marker(pytest.mark.integration)
-
-
-@pytest.fixture(scope="session")
-def live_server():
-    """
-    Fixture that starts the FastAPI test server in a separate process
-    and yields the server's base URL.
-    """
-    import os
-    import socket
-
-    server_host = "127.0.0.1"
-    # Reserve a free port to avoid collisions with other tests/processes.
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as _s:
-        _s.bind((server_host, 0))
-        server_port = _s.getsockname()[1]
-    server_url = f"http://{server_host}:{server_port}"
-
-    # Run the server as a module to pick up package imports
-    env = os.environ.copy()
-    env["PLAYSEM_SERVER_PORT"] = str(server_port)
-    command = [sys.executable, "-m", "tools.test_server.main"]
-    process = subprocess.Popen(command, cwd=root_dir, env=env)
-
-    # Wait for the server to be ready
-    health_url = f"{server_url}/health"
-    is_ready = False
-    start_time = time.time()
-    timeout = 30  # seconds
-
-    try:
-        while time.time() - start_time < timeout:
-            try:
-                with httpx.Client() as client:
-                    response = client.get(health_url)
-                    if response.status_code == 200 and response.json() == {
-                        "status": "ok"
-                    }:
-                        is_ready = True
-                        break
-            except httpx.RequestError:
-                time.sleep(0.5)  # Wait and retry
-
-        if not is_ready:
-            pytest.fail(f"Server did not start within {timeout} seconds.")
-
-        # Yield the server URL to the tests
-        yield server_url
-    finally:
-        # Teardown: stop the server (always runs, even on failure)
-        process.terminate()
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
 
 
 @pytest.fixture
@@ -167,4 +108,4 @@ connectivityInterfaces:
         try:
             await manager.stop_async_workers()
         except Exception:
-            pass  # don't mask the original test failure
+            pass  # ponytail: swallow teardown errors, log when tests are stable

@@ -785,6 +785,7 @@ class DeviceManager:
         return all_devices
 
 
+# ponytail: kept for legacy test compat, delete when tests migrate to MockConnectivityDriver
 class _LegacyPublishDriver:
     """Minimal driver wrapper exposing a 'client' with publish() for legacy tests."""
 

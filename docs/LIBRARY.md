@@ -41,7 +41,6 @@ pip install -e ".[upnp]"      # UPnP support
 pip install -e ".[bluetooth]" # Bluetooth LE support
 pip install -e ".[serial]"    # Serial/Arduino support
 pip install -e ".[websocket]" # WebSocket server
-pip install -e ".[server]"    # REST API / Platform Server
 ```
 
 ### Dependencies

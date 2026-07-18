@@ -12,14 +12,6 @@ This folder keeps the runnable examples that still add distinct value.
 6. `protocols/websocket_demo.py` starts the WebSocket server and exchanges live messages through the dispatcher and mock driver.
 7. `protocols/driver_demo.py` shows serial driver usage.
 
-## Platform Server Examples
-
-The platform server example docs were merged into this file. Use the
-entrypoint scripts directly:
-
-1. `examples/platform/basic_server.py`
-2. `examples/platform/custom_handler_server.py`
-
 ## Notes
 
 1. The GUI demo HTML surface was removed from the repository.

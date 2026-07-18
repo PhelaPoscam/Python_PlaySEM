@@ -9,7 +9,6 @@ and sends a few valid effect payloads through the REST API.
 import asyncio
 import json
 import logging
-import socket
 import sys
 import urllib.error
 import urllib.request
@@ -21,6 +20,7 @@ if __package__ in {None, ""}:
 from playsem import DeviceManager, EffectDispatcher
 from playsem.drivers import MockConnectivityDriver
 from playsem.protocol_servers import HTTPServer
+from playsem.utils.network import get_local_ip
 
 
 logging.basicConfig(
@@ -45,17 +45,7 @@ class RecordingConnectivityDriver(MockConnectivityDriver):
         return super().send_command(device_id, command, params)
 
 
-def get_local_ip():
-    s = None
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 1))
-        return s.getsockname()[0]
-    except Exception:
-        return "127.0.0.1"
-    finally:
-        if s:
-            s.close()
+from playsem.utils.network import get_local_ip
 
 
 def build_dispatcher():

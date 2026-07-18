@@ -50,11 +50,6 @@ serial = [
 websocket = [
     "websockets>=12.0",
 ]
-server = [
-    "fastapi>=0.122.0",
-    "uvicorn>=0.24.0",
-    "aiohttp>=3.8.0",
-]
 all = [
     "paho-mqtt>=1.6.1",
     "amqtt",
@@ -63,8 +58,6 @@ all = [
     "pyserial>=3.5",
     "websockets>=12.0",
     "aiohttp>=3.8.0",
-    "fastapi>=0.122.0",
-    "uvicorn>=0.24.0",
 ]
 dev = [
     "pytest>=7.4.0",

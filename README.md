@@ -217,7 +217,6 @@ async def test_cross_protocol_consistency(playsem_system):
 
 ##  Ecosystem Layout
 
-- **[Platform Server (tools/test_server/)](tools/test_server/)**: A modular FastAPI, WebSocket, and MQTT dashboard server for testing external visual integrations.
 - **[Examples (examples/)](examples/)**: Complete, ready-to-run demonstration scripts for serial, MQTT, HTTP, and upnp environments.
 - **[Library Documentation (docs/LIBRARY.md)](docs/LIBRARY.md)**: Extended API references, configurations, and connectivity protocols.
 

@@ -219,32 +219,18 @@ except socket.timeout:
 
 ## Testing Workflow
 
-### Basic Testing Steps:
+Each protocol server can be tested directly using the protocol demo scripts:
 
-1. **Start the Platform Server**:
-   ```bash
-   python tools/test_server/main.py
-   ```
+```bash
+# Run all protocol demos
+python examples/run_all_demos.py
 
-2. **Open the Control Panel in Browser**:
-   - Navigate to http://localhost:8090
+# Run a single protocol demo
+python examples/protocols/mqtt_demo.py
+```
 
-3. **Connect Mock Devices** (for testing without hardware):
-   - Select "Mock" from Device Connection Type
-   - Click "Scan Devices"
-   - Connect to one or more mock devices
-
-4. **Start Protocol Server(s)**:
-   - In the "Protocol Servers" section, click "Start" on the protocol you want to test
-   - Wait for status to change to "Running"
-
-5. **Send Test Effects**:
-   - Use one of the client examples above to send effects via your chosen protocol
-   - Watch the Activity Log in the control panel to see effects being received and executed
-
-6. **Verify Effects**:
-   - Mock devices will log effect execution to the server console
-   - Real devices (Bluetooth/Serial) will execute the actual effect
+The demos start the embedded protocol server, send real effects through it,
+and assert they reach the dispatcher and mock driver.
 
 ---
 

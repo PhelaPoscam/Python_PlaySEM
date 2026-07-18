@@ -4,12 +4,11 @@ Standardized serialization utilities for JSON and XML payloads.
 """
 
 import json
-import xml.etree.ElementTree as ET
-from xml.etree.ElementTree import tostring as _tostring
+import xmltodict
 from datetime import datetime, date
 from decimal import Decimal
 from uuid import UUID
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, Optional
 
 
 def json_default(obj: Any) -> Any:
@@ -48,32 +47,21 @@ def _sanitize_xml_tag(name: str) -> str:
     return first + rest
 
 
-def _build_xml_tree(parent: ET.Element, data: Any):
-    """Recursive helper to build XML elements from dict/list/scalar data."""
+def _sanitize_xml_keys(data: Any) -> Any:
+    """Recursively sanitize dict keys to valid XML element names."""
     if isinstance(data, dict):
-        for k, v in data.items():
-            _build_xml_tree(ET.SubElement(parent, _sanitize_xml_tag(k)), v)
-    elif isinstance(data, (list, tuple, set)):
-        for item in data:
-            _build_xml_tree(ET.SubElement(parent, "item"), item)
-    else:
-        if data is None:
-            parent.text = ""
-        elif isinstance(data, bool):
-            parent.text = str(data).lower()
-        elif isinstance(data, bytes):
-            parent.text = data.hex()
-        elif isinstance(data, (datetime, date)):
-            parent.text = data.isoformat()
-        else:
-            parent.text = str(data)
+        return {_sanitize_xml_tag(k): _sanitize_xml_keys(v) for k, v in data.items()}
+    if isinstance(data, (list, tuple, set)):
+        return [_sanitize_xml_keys(item) for item in data]
+    return data
 
 
 def serialize_to_xml(tag_name: str, data: Dict[str, Any]) -> str:
     """Serialize a dictionary of key-values to an XML string."""
-    root = ET.Element(tag_name)
-    _build_xml_tree(root, data)
-    return cast(str, _tostring(root, encoding="utf-8").decode("utf-8"))
+    sanitized = _sanitize_xml_keys(data)
+    return str(
+        xmltodict.unparse({tag_name: sanitized}, full_document=False, pretty=False)
+    )
 
 
 def serialize_device_command(
@@ -82,16 +70,20 @@ def serialize_device_command(
     params: Optional[Dict[str, Any]] = None,
     data_format: str = "json",
 ) -> str:
-    """Serialize a device command using standard JSON or properly escaped XML."""
+    """Serialize a device command using JSON or XML."""
     if params is None:
         params = {}
 
     if data_format.lower() == "xml":
-        root = ET.Element("command")
-        ET.SubElement(root, "deviceId").text = device_id
-        ET.SubElement(root, "name").text = command
-        _build_xml_tree(ET.SubElement(root, "params"), params)
-        return cast(str, _tostring(root, encoding="utf-8").decode("utf-8"))
+        sanitized_params = _sanitize_xml_keys(params)
+        payload = {
+            "command": {
+                "deviceId": device_id,
+                "name": command,
+                "params": sanitized_params,
+            }
+        }
+        return str(xmltodict.unparse(payload, full_document=False, pretty=False))
 
     return serialize_to_json(
         {

@@ -46,7 +46,7 @@ jobs:
 
     - name: Run non-integration tests
       run: |
-        python -m pytest -m "not integration" --tb=short -q
+        python -m pytest -m "not integration" --tb=short -q --cov=playsem --cov-report=term-missing
 
   lint:
     runs-on: ubuntu-latest
@@ -72,6 +72,10 @@ jobs:
     - name: Check formatting with black
       run: |
         black --check playsem tests
+
+    - name: Type check with mypy
+      run: |
+        mypy playsem --ignore-missing-imports || true
 
   demo-smoke:
     runs-on: ubuntu-latest

@@ -10,7 +10,6 @@ and exchanges valid effect messages over the socket.
 import asyncio
 import json
 import logging
-import socket
 import sys
 from pathlib import Path
 
@@ -20,6 +19,7 @@ if __package__ in {None, ""}:
 from playsem import DeviceManager, EffectDispatcher
 from playsem.drivers import MockConnectivityDriver
 from playsem.protocol_servers import WebSocketServer
+from playsem.utils.network import get_local_ip
 
 
 logging.basicConfig(
@@ -42,19 +42,6 @@ class RecordingConnectivityDriver(MockConnectivityDriver):
             {"device_id": device_id, "command": command, "params": payload}
         )
         return super().send_command(device_id, command, params)
-
-
-def get_local_ip():
-    s = None
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 1))
-        return s.getsockname()[0]
-    except Exception:
-        return "127.0.0.1"
-    finally:
-        if s:
-            s.close()
 
 
 def build_dispatcher():
