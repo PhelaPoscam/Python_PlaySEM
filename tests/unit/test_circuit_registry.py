@@ -1,4 +1,6 @@
 import pytest
+
+fastapi = pytest.importorskip("fastapi", exc_type=ImportError)
 import asyncio
 from playsem import DeviceRegistry, DeviceManager
 from playsem.drivers.base_driver import BaseDriver

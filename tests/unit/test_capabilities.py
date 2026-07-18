@@ -62,6 +62,7 @@ async def _asgi_get(app, path: str):
 
 
 def test_http_capabilities_endpoint_returns_caps():
+    pytest.importorskip("fastapi", exc_type=ImportError)
     driver = MockConnectivityDriver()
     dispatcher = _FakeDispatcher(driver)
 

@@ -86,6 +86,9 @@ async def wait_for_http_ready(url, timeout=15.0):
 
 
 async def main():
+    if HTTPServer is None:
+        print("HTTP demo skipped: fastapi not installed")
+        return 0
     print("\n" + "=" * 60)
     print("PlaySEM HTTP Protocol Demo")
     print("=" * 60)

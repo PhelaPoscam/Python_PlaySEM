@@ -1,4 +1,6 @@
 import pytest
+
+fastapi = pytest.importorskip("fastapi", exc_type=ImportError)
 from fastapi.testclient import TestClient
 from playsem import DeviceManager, DeviceRegistry
 from playsem.protocol_servers.http_server import HTTPServer
